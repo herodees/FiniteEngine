@@ -1,0 +1,13 @@
+# CMake generated files
+build
+_deps
+
+# IDEs
+.idea
+
+# OS generated files
+.DS_Store
+
+# Clangd cache
+.cache
+imgui.ini
