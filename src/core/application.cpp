@@ -3,6 +3,12 @@
 #include "atlas_scene_object.hpp"
 #include "atlas_scene_editor.hpp"
 
+#include "imgui_internal.h"
+
+#if defined(PLATFORM_DESKTOP) && defined(GRAPHICS_API_OPENGL_ES3)
+#include "GLFW/glfw3.h"
+#endif
+
 namespace fin
 {
     application::application() 
@@ -118,53 +124,28 @@ namespace fin
         colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
     }
 
-    SDL_AppResult application::on_event(SDL_Event* event)
-	{
-        ImGui_ImplSDL3_ProcessEvent(event);
-
-        if (event->type == SDL_EVENT_QUIT)
-        {
-            _app_quit = SDL_APP_SUCCESS;
-        }
-        return SDL_APP_CONTINUE;
-	}
-
-    SDL_AppResult application::on_init()
+    bool application::on_init()
     {
-        // init the library, here we make a window so we only need the Video capabilities.
-        if (not SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
-            return return_fail();
-        }
+        const int screenWidth = 1280;
+        const int screenHeight = 720;
 
-        // init TTF
-        if (not TTF_Init()) {
-            return return_fail();
-        }
-        // create a window
-
-        _window = SDL_CreateWindow("SDL Minimal Sample", 1920, 1080, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-        if (not _window) {
-            return return_fail();
-        }
-
-        // create a renderer
-        _renderer = SDL_CreateRenderer(_window, NULL);
-        if (not _renderer) {
-            return return_fail();
-        }
-
-        _active_renderer.handle = _renderer;
-
-        _canvas.create(800, 600, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET);
-        SDL_SetTextureBlendMode(_canvas.get_texture(), SDL_BLENDMODE_BLEND);
+#if defined(PLATFORM_DESKTOP) && defined(GRAPHICS_API_OPENGL_ES3)
+#if defined(__APPLE__)
+        glfwInitHint(GLFW_ANGLE_PLATFORM_TYPE, GLFW_ANGLE_PLATFORM_TYPE_METAL);
+#elif defined(_WIN32)
+        glfwInitHint(GLFW_ANGLE_PLATFORM_TYPE, GLFW_ANGLE_PLATFORM_TYPE_D3D11);
+#endif
+#endif
+        SetConfigFlags(FLAG_VSYNC_HINT);
+        InitWindow(screenWidth, screenHeight, "Finite");
 
         // load the font
 #if __ANDROID__
         std::filesystem::path basePath = "";   // on Android we do not want to use basepath. Instead, assets are available at the root directory.
 #else
-        auto basePathPtr = SDL_GetBasePath();
+        auto basePathPtr = GetWorkingDirectory();
         if (not basePathPtr) {
-            return return_fail();
+            return false;
         }
         const std::filesystem::path basePath = basePathPtr;
 #endif
@@ -172,94 +153,16 @@ namespace fin
         _explorer.select(basePath.string());
         _explorer.set_editor([&](std::string_view filename) { return createFileEdit(filename); });
 
-        // load the SVG
-        _txt.load_from_file(basePath / "gs_tiger.svg");
+        rlImGuiSetup(true);
 
-        Texture::load_shared((basePath / "gs_tiger.svg").string());
-        Texture::load_shared((basePath / "gs_tiger.svg").string());
-
-        // init SDL Mixer
-        auto audioDevice = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, NULL);
-        if (not audioDevice) {
-            return return_fail();
-        }
-        if (not Mix_OpenAudio(audioDevice, NULL)) {
-            return return_fail();
-        }
-
-        // load the music
-        auto musicPath = basePath / "the_entertainer.ogg";
-        auto music = Mix_LoadMUS(musicPath.string().c_str());
-        if (not music) {
-            return return_fail();
-        }
-
-        // play the music (does not loop)
-    //    Mix_PlayMusic(music, 0);
-
-        // print some information about the window
-        SDL_ShowWindow(_window);
-        {
-            int width, height, bbwidth, bbheight;
-            SDL_GetWindowSize(_window, &width, &height);
-            SDL_GetWindowSizeInPixels(_window, &bbwidth, &bbheight);
-            SDL_Log("Window size: %ix%i", width, height);
-            SDL_Log("Backbuffer size: %ix%i", bbwidth, bbheight);
-            if (width != bbwidth) {
-                SDL_Log("This is a highdpi environment.");
-            }
-        }
-
-        SDL_SetRenderVSync(_renderer, 1);   // enable vysnc
-
-        // Setup Dear ImGui context
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO& io = ImGui::GetIO(); (void)io;
-        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-
-        // Setup Dear ImGui style
-        on_imgui_init(true);
-        //ImGui::StyleColorsLight();
-
-        // Setup Platform/Renderer backends
-        ImGui_ImplSDL3_InitForSDLRenderer(_window, _renderer);
-        ImGui_ImplSDLRenderer3_Init(_renderer);
-
-        SDL_Log("Application started successfully!");
-
-        return SDL_APP_CONTINUE;
+        return true;
     }
 
-    void application::on_deinit(SDL_AppResult result)
+    void application::on_deinit(bool result)
 	{
-        ImGui_ImplSDLRenderer3_Shutdown();
-        ImGui_ImplSDL3_Shutdown();
-        ImGui::DestroyContext();
-
-        _txt.clear();
-        _canvas.clear();
-
-        if(_renderer)
-		    SDL_DestroyRenderer(_renderer);
-        _active_renderer.handle = nullptr;
-
-        if(_window)
-		    SDL_DestroyWindow(_window);
-		Mix_CloseAudio();
-        if(_audioDevice)
-		    SDL_CloseAudioDevice(_audioDevice);
+        rlImGuiShutdown();
+        CloseWindow();
 	}
-
-    void application::on_imgui_begin()
-    {       
-        // Start the Dear ImGui frame
-        ImGui_ImplSDLRenderer3_NewFrame();
-        ImGui_ImplSDL3_NewFrame();
-        ImGui::NewFrame();
-    }
 
     void application::on_imgui()
     {
@@ -319,13 +222,6 @@ namespace fin
         ImGui::PopStyleVar();
     }
 
-    void application::on_imgui_end()
-    {       
-        // Rendering
-        ImGui::Render();
-        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), _renderer);
-    }
-
     FileEdit* application::createFileEdit(std::string_view filename)
     {
         auto ext = path_get_ext(filename);
@@ -342,89 +238,71 @@ namespace fin
         return nullptr;
     }
 
-    SDL_AppResult application::on_iterate()
+    bool application::on_iterate()
     {
-        static Uint64 frequency = SDL_GetPerformanceFrequency();
-        Uint64 current_time = SDL_GetPerformanceCounter();
-        if (current_time <= _time)
-            current_time = _time + 1;
-        _delta_time = _time > 0 ? (float)((double)(current_time - _time) / frequency) : (float)(1.0f / 60.0f);
-        _time = current_time;
-
-        _map.update(_delta_time);
-        _map.render(_active_renderer);
-
-        if (_show_editor)
+        while (!WindowShouldClose())
         {
-            on_imgui_begin();
+            // Update
+            //----------------------------------------------------------------------------------
 
-            // draw a color
-            auto time = SDL_GetTicks() / 1000.f;
-            auto red = (std::sin(time) + 1) / 2.0 * 255;
-            auto green = (std::sin(time) + 1) / 2.0 * 255;
-            auto blue = (std::sin(time) * 2 + 1) / 2.0 * 255;
+            double newTime = GetTime();
+            double frameTime = newTime - currentTime;
 
-            // Draw on the canvas
-            SDL_SetRenderTarget(_renderer, _canvas.get_texture());
-            SDL_SetRenderDrawColor(_renderer, 255, 255, 255, 255);
-            SDL_RenderClear(_renderer);
-
-            SDL_SetRenderDrawColor(_renderer, red, green, blue, SDL_ALPHA_OPAQUE);
-            SDL_RenderClear(_renderer);
-
-            // Renderer uses the painter's algorithm to make the text appear above the image, we must render the image first.
-            SDL_SetTextureBlendMode(_txt.get_texture(), SDL_BLENDMODE_BLEND);
-            SDL_RenderTexture(_renderer, _txt.get_texture(), NULL, NULL);
-
-            SDL_SetTextureBlendMode(_txt.get_texture(), eraseBlend);
-            SDL_FRect fst{ 20.f,20.f,800.f,500.f };
-            SDL_RenderTexture(_renderer, _txt.get_texture(), NULL, &fst);
-
-            SDL_FRect fs1t{ 30.f,40.f,500.f,500.f };
-            SDL_RenderTexture(_renderer, _txt.get_texture(), NULL, &fs1t);
-
-
-            for (auto& tr : _map._cdt.triangles)
+            // Avoid spiral of death if CPU  can't keep up with target FPS
+            if (frameTime > 0.25)
             {
-                SDL_FPoint ps[4];
-                for (int i = 0; i < 3; ++i)
-                {
-                    ps[i].x = _map._cdt.vertices[tr.vertices[i]].x;
-                    ps[i].y = _map._cdt.vertices[tr.vertices[i]].y;
-                }
-                ps[3] = ps[0];
-                SDL_SetRenderDrawColor(_renderer, 255, 255, 0, 255);
-                SDL_RenderLines(_renderer, ps, 4);
-            }
-            SDL_SetRenderDrawColor(_renderer, 255, 0, 0, 255);
-            SDL_RenderLines(_renderer, (SDL_FPoint*)_path.data(), _path.size());
-            SDL_SetRenderDrawColor(_renderer, 0, 0, 255, 255);
-            for (auto ln : _portals)
-            {
-                SDL_RenderLine(_renderer, ln.first.x, ln.first.y, ln.second.x, ln.second.y);
+                frameTime = 0.25;
             }
 
-            SDL_SetRenderDrawColor(_renderer, red, green, blue, SDL_ALPHA_OPAQUE);
-            // Switch back to default rendering
-            SDL_SetRenderTarget(_renderer, NULL);
-            SDL_RenderClear(_renderer);
+            currentTime = newTime;
 
-            SDL_SetTextureBlendMode(_canvas.get_texture(), SDL_BLENDMODE_BLEND_PREMULTIPLIED);
-            SDL_SetTextureScaleMode(_canvas.get_texture(), SDL_SCALEMODE_NEAREST);
-            // Draw the final canvas to screen
-            SDL_RenderTexture(_renderer, _canvas.get_texture(), NULL, NULL);
+            // Limit frame rate to avoid 100% CPU usage
+            if (frameTime < maxTimeStep)
+            {
+                float waitTime = (float)(maxTimeStep - frameTime);
+                WaitTime(1.0f / 1000.0f);
+            }
+
+            // Input
+            //----------------------------------------------------------------------------------
+
+            PollInputEvents(); // Poll input events (SUPPORT_CUSTOM_FRAME_CONTROL)
+
+            accumulator += frameTime;
+            while (accumulator >= fixedTimeStep)
+            {
+                // Fixed Update
+                //--------------------------------------------------------------------------
+
+                timeCounter += fixedTimeStep; // We count time (seconds)
+
+                timeCounter += fixedTimeStep;
+                accumulator -= fixedTimeStep;
+            }
+
+            // Drawing
+            //----------------------------------------------------------------------------------
+
+            _map.update(frameTime);
+
+            BeginDrawing();
+
+            _map.render(_active_renderer);
+
+            ClearBackground(GRAY);
+
+            rlImGuiBegin(frameTime);
 
             on_imgui();
-            on_imgui_end();
 
-            SDL_RenderPresent(_renderer);
+            rlImGuiEnd();
+
+            EndDrawing();
+
+            SwapScreenBuffer(); // Flip the back buffer to screen (front buffer)
         }
-        else
-        {
 
-        }
-
-        return _app_quit;
+        return true;
     }
 
     void application::on_imgui_menu()

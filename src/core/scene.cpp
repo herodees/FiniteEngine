@@ -1,6 +1,8 @@
 ﻿#include "scene.hpp"
-#include "dialogs.hpp"
 #include "atlas_scene_object.hpp"
+
+#include "dialog_utils.hpp"
+#include "imgui_utils.hpp"
 
 namespace fin
 {
@@ -127,7 +129,7 @@ namespace fin
 		auto new_canvas_size = _active_region.size();
 		if (canvas_size != new_canvas_size)
 		{
-			_canvas.create(new_canvas_size.x, new_canvas_size.y, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET);
+			_canvas.create(new_canvas_size.x, new_canvas_size.y);
 		}
 
 		std::for_each(_grid_active.begin(), _grid_active.end(), [](std::pair<size_t, bool>& val) { val.second = false; });
@@ -269,9 +271,8 @@ namespace fin
 			return;
 
 		// Draw on the canvas
-		SDL_SetRenderTarget(dc.handle, _canvas.get_texture());
-		SDL_SetRenderDrawColor(dc.handle, 0, 0, 0, 255);
-		SDL_RenderClear(dc.handle);
+        BeginTextureMode(*_canvas.get_texture());
+        ClearBackground({0, 0, 0, 255});
 
 		auto minpos = get_active_grid_min();
 		auto maxpos = get_active_grid_max();
@@ -323,13 +324,6 @@ namespace fin
 
 		update_isometric();
 
-		for (auto* obj : _objects)
-		{
-			SDL_SetRenderDrawColor(dc.handle, obj->clr.r, obj->clr.g, obj->clr.b, obj->clr.a);
-			SDL_FRect rc{ (const SDL_FRect&)obj->box };
-			SDL_RenderFillRect(dc.handle, &rc);
-		}
-
 		for (auto* obj : _active_objects)
 		{
 			auto* o = static_cast<SceneObject*>(obj);
@@ -349,7 +343,7 @@ namespace fin
 		}
 
 		dc.set_origin({ 0, 0 });
-		SDL_SetRenderTarget(dc.handle, nullptr);
+        EndTextureMode();
 	}
 
 	void scene::update(float dt)
@@ -475,11 +469,13 @@ namespace fin
 				for (auto& txt : _grid_surface)
 				{
 					ar.begin_object();
-					ar.member("w", txt.get_surface()->w);
-					ar.member("h", txt.get_surface()->h);
+					ar.member("w", txt.get_surface()->width);
+					ar.member("h", txt.get_surface()->height);
 					ar.member("f", (int32_t)txt.get_surface()->format);
-					ar.member("p", txt.get_surface()->pitch);
-					ar.key("d").data_value(txt.get_surface()->pixels, txt.get_surface()->h * txt.get_surface()->pitch);
+                    ar.key("d").data_value(txt.get_surface()->data,
+                                           GetPixelDataSize(txt.get_surface()->width,
+                                                            txt.get_surface()->height,
+                                                            txt.get_surface()->format));
 					ar.end_object();
 				}
 			}
@@ -513,7 +509,7 @@ namespace fin
 		{
 			_grid_surface.emplace_back()
 				.load_from_pixels(el["w"].get(0), el["h"].get(0),
-					el["f"].get(0), el["d"].data_str().data(), el["p"].get(0));
+					el["f"].get(0), el["d"].data_str().data());
 		}
 
 		auto obs = ar["objects"].elements();
@@ -602,12 +598,14 @@ namespace fin
 		{
 			if (ImGui::Button("Open"))
 			{
-				fin::open_file_dialog dlg;
-				if (dlg.show())
+                auto files = open_file_dialog("", "");
+                if (!files.empty())
 				{
 					msg::Pack pack;
-					File file(dlg.files[0].string(), "rb");
-					file.read(pack.data());
+                    int size{};
+                    auto* txt = LoadFileData(files[0].c_str(), &size);
+                    pack.data().assign(txt, txt + size);
+                    UnloadFileData(txt);
 					auto ar = pack.get();
 					deserialize(ar);
 				}
@@ -615,14 +613,13 @@ namespace fin
 
 			if (ImGui::Button("Save"))
 			{
-				fin::save_file_dialog dlg;
-				if (dlg.show())
+                auto out = save_file_dialog("", "");
+                if (!out.empty())
 				{
-					File file(dlg.file.string(), "wb");
 					msg::Pack pack;
 					serialize(pack);
 					auto ar = pack.data();
-					file.write(ar.data(), ar.size());
+                    SaveFileData(out.c_str(), pack.data().data(), pack.data().size());
 				}
 			}
 		}

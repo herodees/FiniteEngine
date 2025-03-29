@@ -1,8 +1,9 @@
 #pragma once
 
 #include "include.hpp"
-#include "graphics.hpp"
+#include "shared_resource.hpp"
 #include "scene_object.hpp"
+#include "CDT.h"
 
 namespace fin
 {
@@ -29,7 +30,7 @@ namespace fin
 			Vec2f row;
 			int32_t iso_depth{};
 			std::vector<object*> iso_sprites_behind;
-			SDL_Color clr;
+			Color clr;
 
 			void setup();
 			int32_t calculate_depth();
@@ -85,7 +86,7 @@ namespace fin
 		bool Contains(const Vec2f& point, const CDT::Triangle& tri) const;
 
 		std::filesystem::path _background_image;
-		std::vector<Texture> _grid_texture;
+		std::vector<Texture2D> _grid_texture;
 		std::vector<Surface> _grid_surface;
 		std::vector<std::pair<size_t, bool>> _grid_active;
 		std::vector<Vec2f> _navmesh_points;
@@ -106,6 +107,6 @@ namespace fin
 		Recti _active_region;
 		Vec2i _grid_size;
 		CDT::Triangulation<float> _cdt;
-		Texture _canvas;
+		RenderTexture2D _canvas;
 	};
 }

@@ -66,7 +66,7 @@ public:
 
 class RenderTexture2D
 {
-private:
+public:
     RenderTexture texture{};
     RenderTexture2D() = default;
     ~RenderTexture2D();

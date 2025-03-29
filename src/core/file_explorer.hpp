@@ -35,67 +35,6 @@ namespace fin
 		return path.substr(0, slashPos);
 	}
 
-	class File
-	{
-	public:
-		File(File&& o) noexcept : _stream{} { std::swap(_stream, o._stream); }
-		File(const File& o) = delete;
-		explicit File(const std::string& path, const char* mode) {
-			_stream = SDL_IOFromFile(path.c_str(), mode);
-			if (!_stream) {
-				SDL_LogError(0, "Failed to open file: %s - %s", path.c_str(), SDL_GetError());
-			}
-		}
-		~File() { close(); }
-		File& operator=(File&& o) noexcept { std::swap(_stream, o._stream); return *this; }
-		File& operator=(const File& o) = delete;
-
-		size_t read(void* buffer, size_t size) {
-			if (!_stream) return 0;
-			return SDL_ReadIO(_stream, buffer, size);
-		}
-		size_t write(const void* buffer, size_t size) {
-			if (!_stream) return 0;
-			return SDL_WriteIO(_stream, buffer, size);
-		}
-		bool seek(long offset, SDL_IOWhence whence) {
-			if (!_stream) return false;
-			return SDL_SeekIO(_stream, offset, whence) != -1;
-		}
-		long tell() {
-			if (!_stream) return -1;
-			return SDL_TellIO(_stream);
-		}
-		bool isOpen() const { return _stream != nullptr; }
-		void close() {
-			if (_stream) {
-				SDL_CloseIO(_stream);
-				_stream = nullptr;
-			}
-		}
-		size_t size() {
-			if (!_stream) return 0;
-			long currentPos = tell();
-			if (currentPos == -1) return 0;
-			if (seek(0, SDL_IOWhence::SDL_IO_SEEK_END))
-			{
-				long fileSize = tell();
-				seek(currentPos, SDL_IOWhence::SDL_IO_SEEK_SET);
-				return fileSize;
-			}
-			return 0;
-		}
-
-		template <class T>
-		bool read(std::vector<T>& out) {
-			out.resize(size());
-			auto n = read(out.data(), out.size() * sizeof(T));
-			return n == out.size() * sizeof(T);
-		}
-
-	private:
-		SDL_IOStream* _stream{};
-	};
 
 
 	class FileEdit
@@ -164,7 +103,7 @@ namespace fin
 			}
 			catch (const std::exception& e)
 			{
-				SDL_LogError(0, "Error reading directory: %s", e.what());
+                TraceLog(LOG_ERROR, "Error reading directory: %s", e.what());
 			}
 		}
 

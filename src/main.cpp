@@ -4,6 +4,7 @@
 
 
 #include "include.hpp"
+#include "core/application.hpp"
 
 int main(void)
 {
@@ -30,6 +31,8 @@ int main(void)
     double maxTimeStep = 1.0f / maxFPS;
     double currentTime = GetTime();
     double accumulator = 0.0;
+
+    auto app = std::make_shared<fin::application>();
 
     while (!WindowShouldClose())
     {

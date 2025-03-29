@@ -2,6 +2,7 @@
 
 #include "atlas.hpp"
 #include "atlas_scene_object.hpp"
+#include "imgui_utils.hpp"
 
 namespace fin
 {
@@ -52,8 +53,8 @@ namespace fin
 			sze.x *= scale;
 			sze.y *= scale;
 
-			ImVec2 uv1(spr._source.x / spr._texture->w, spr._source.y / spr._texture->h);
-			ImVec2 uv2(spr._source.x2() / spr._texture->w, spr._source.y2() / spr._texture->h);
+			ImVec2 uv1(spr._source.x / spr._texture->width, spr._source.y / spr._texture->height);
+			ImVec2 uv2(spr._source.x2() / spr._texture->width, spr._source.y2() / spr._texture->height);
 
 			ImGui::Image((ImTextureID)spr._texture, sze, uv1, uv2); // Render the icon (Adjust size)
 			ImGui::SameLine(); // Keep icon and text on the same line

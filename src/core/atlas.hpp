@@ -1,8 +1,7 @@
 #pragma once
 
-#include "graphics.hpp"
+#include "shared_resource.hpp"
 #include "file_explorer.hpp"
-#include "dialogs.hpp"
 #include "utils/msgbuff.hpp"
 #include "utils/matrix2d.hpp"
 
@@ -49,14 +48,14 @@ namespace fin
 		sprite& get(uint32_t n);
 		const composite& get_c(uint32_t n) const;
 		composite& get_c(uint32_t n);
-		const Texture& texture() const;
+		const Texture2D& texture() const;
 
 		static std::shared_ptr<Atlas> load_shared(std::string_view pth);
 
 	protected:
 		bool load(msg::Value ar);
 		std::string _path;
-		Texture _texture{};
+		Texture2D _texture{};
 		std::vector<sprite> _sprites;
 		std::vector<composite> _composites;
 		std::vector<vertex> _mesh;
@@ -68,16 +67,14 @@ namespace fin
 	{
 		unload();
 		_path     = pth;
-		File file{ _path, "r" };
-		if (!file.isOpen())
+
+        auto *txt = LoadFileText(_path.c_str());
+        if (!txt)
 			return false;
 
-		std::vector<char> out;
-		file.read(out);
-		out.push_back(0);
-
 		msg::Pack doc;
-		auto      r = doc.from_string(out.data());
+        auto r = doc.from_string(txt);
+        UnloadFileText(txt);
 
 		if (msg::VarError::ok != r)
 			return false;
@@ -243,7 +240,7 @@ namespace fin
 		return _composites[n - 1];
 	}
 
-	inline const Texture& Atlas::texture() const
+	inline const Texture2D& Atlas::texture() const
 	{
 		return _texture;
 	}
