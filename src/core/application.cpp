@@ -287,7 +287,7 @@ namespace fin
 
             BeginDrawing();
 
-            _map.render(_active_renderer);
+            _map.render(_renderer);
 
             ClearBackground(GRAY);
 

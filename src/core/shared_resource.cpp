@@ -1,12 +1,13 @@
 #include "shared_resource.hpp"
+#include "atlas.hpp"
 
 namespace fin
 {
 struct SharedResource
 {
     std::string _path;
- //   std::unordered_map<std::string, std::weak_ptr<Atlas>, std::string_hash, std::equal_to<>>
-      //  _atlases;
+    std::unordered_map<std::string, std::weak_ptr<Atlas>, std::string_hash, std::equal_to<>>
+        _atlases;
     std::unordered_map<std::string, std::weak_ptr<Texture2D>, std::string_hash, std::equal_to<>>
         _textures;
     std::unordered_map<std::string, std::weak_ptr<Surface>, std::string_hash, std::equal_to<>>
@@ -210,6 +211,20 @@ void RenderTexture2D::create(int w, int h)
 RenderTexture2D::operator bool() const
 {
     return texture.id;
+}
+
+
+std::shared_ptr<Atlas> Atlas::load_shared(std::string_view pth)
+{
+    auto it = _shared_res._atlases.find(pth);
+    if (it != _shared_res._atlases.end() && !it->second.expired())
+        return it->second.lock();
+
+    auto ptr = std::make_shared<Atlas>();
+    _shared_res._atlases[std::string(pth)] = ptr;
+    ptr->load_from_file(pth);
+
+    return ptr;
 }
 
 } // namespace fin

@@ -277,7 +277,7 @@ namespace fin
 		auto minpos = get_active_grid_min();
 		auto maxpos = get_active_grid_max();
 
-		dc.set_origin({ _active_region.x, _active_region.y });
+		dc.set_origin({(float)_active_region.x, (float)_active_region.y});
 
 		for (int y = minpos.y; y < maxpos.y; ++y)
 		{
@@ -338,7 +338,7 @@ namespace fin
 				auto* o = static_cast<SceneObject*>(obj);
 				dc.render_line(o->_iso_a + Vec2f{o->_bbox.x1, o->_bbox.y1}, o->_iso_b + Vec2f{ o->_bbox.x1, o->_bbox.y1 }, { 255,0,0,255 });
 
-				SDL_RenderDebugTextFormat(dc.handle, o->_bbox.x1 - dc.origin.x, o->_bbox.y1 - dc.origin.y, "%d", o->_iso_depth);
+				//SDL_RenderDebugTextFormat(dc.handle, o->_bbox.x1 - dc.origin.x, o->_bbox.y1 - dc.origin.y, "%d", o->_iso_depth);
 			}
 		}
 
@@ -626,7 +626,7 @@ namespace fin
 
 		if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen))
 		{
-			if (ImGui::OpenFileInput("Background###bgfile", _background_image))
+            if (ImGui::OpenFileInput("Background###bgfile", _background_image, "All files|*"))
 			{
 				setup_background_texture(_background_image);
 			}

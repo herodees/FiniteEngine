@@ -10,6 +10,7 @@
 #include <cmath>
 #include <mutex>
 #include <algorithm>
+#include <functional>
 
 namespace std
 {

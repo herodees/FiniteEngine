@@ -5,6 +5,7 @@
 #include "shared_resource.hpp"
 #include "scene.hpp"
 #include "file_explorer.hpp"
+#include "renderer.hpp"
 
 namespace fin
 {
@@ -31,11 +32,10 @@ namespace fin
 		bool _show_editor{true};
 
 		FileExplorer _explorer;
+        Renderer _renderer;
 		scene _map;
 		std::vector<const CDT::Triangle*> _triangles;
 		std::vector<std::pair<Vec2f, Vec2f>> _portals;
-		std::vector<Vec2f> _path;
-		Vec2f _target;
 
         int targetFPS = 60;
         float fixedFPS = 60.0f;

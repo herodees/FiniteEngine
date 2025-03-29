@@ -3,6 +3,7 @@
 #include "include.hpp"
 #include "shared_resource.hpp"
 #include "scene_object.hpp"
+#include "renderer.hpp"
 #include "CDT.h"
 
 namespace fin
@@ -85,7 +86,7 @@ namespace fin
 		Vec2f GetCentroid(const CDT::Triangle* tri) const;
 		bool Contains(const Vec2f& point, const CDT::Triangle& tri) const;
 
-		std::filesystem::path _background_image;
+		std::string _background_image;
 		std::vector<Texture2D> _grid_texture;
 		std::vector<Surface> _grid_surface;
 		std::vector<std::pair<size_t, bool>> _grid_active;
