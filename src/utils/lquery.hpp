@@ -68,17 +68,17 @@ namespace fin
             if (object->_bin != nullptr)
             {
                 /* If this object is at the head of the list, move the bin
-				   pointer to the next item in the list (might be NULL). */
+                   pointer to the next item in the list (might be NULL). */
                 if (*(object->_bin) == object)
                     *(object->_bin) = object->_next;
 
                 /* If there is a prev object, link its "next" pointer to the
-				   object after this one. */
+                   object after this one. */
                 if (object->_prev != nullptr)
                     object->_prev->_next = object->_next;
 
                 /* If there is a next object, link its "prev" pointer to the
-				   object before this one. */
+                   object before this one. */
                 if (object->_next != nullptr)
                     object->_next->_prev = object->_prev;
             }

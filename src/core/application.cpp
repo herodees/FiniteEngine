@@ -155,8 +155,8 @@ namespace fin
         }
         const std::filesystem::path basePath = basePathPtr;
 #endif
-        _explorer.set_root(basePath.string());
-        _explorer.select(basePath.string());
+        _explorer.set_root("./");
+        _explorer.select("./");
         _explorer.set_editor([&](std::string_view filename) { return createFileEdit(filename); });
 
         rlImGuiSetup(true);
@@ -166,10 +166,10 @@ namespace fin
     }
 
     void application::on_deinit(bool result)
-	{
+    {
         rlImGuiShutdown();
         CloseWindow();
-	}
+    }
 
     void application::on_imgui()
     {

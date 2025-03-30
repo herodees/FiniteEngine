@@ -69,7 +69,7 @@ void Renderer::render_debug_text(Vec2f to, const char *fmt, ...)
         w = (int)std::size(buf) - 1;
     buf[w] = 0;
 
-    DrawText(buf, to.x, to.y, 15, _color);
+    DrawText(buf, to.x, to.y, 10, _color);
 }
 
 }

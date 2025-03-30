@@ -9,33 +9,33 @@
 
 namespace fin
 {
-	class application : public std::enable_shared_from_this<application>
-	{
-	public:
-		application();
-		~application();
+    class application : public std::enable_shared_from_this<application>
+    {
+    public:
+        application();
+        ~application();
 
         bool on_iterate();
-		bool on_init();
+        bool on_init();
         void on_deinit(bool result);
 
-	private:
-		void on_imgui_init(bool dark_theme);
-		void on_imgui();
-		void on_imgui_menu();
-		void on_imgui_dialogs();
-		void on_imgui_workspace();
-		void on_imgui_properties();
+    private:
+        void on_imgui_init(bool dark_theme);
+        void on_imgui();
+        void on_imgui_menu();
+        void on_imgui_dialogs();
+        void on_imgui_workspace();
+        void on_imgui_properties();
 
-		FileEdit* createFileEdit(std::string_view filename);
+        FileEdit* createFileEdit(std::string_view filename);
 
-		bool _show_editor{true};
+        bool _show_editor{true};
 
-		FileExplorer _explorer;
+        FileExplorer _explorer;
         Renderer _renderer;
-		scene _map;
-		std::vector<const CDT::Triangle*> _triangles;
-		std::vector<std::pair<Vec2f, Vec2f>> _portals;
+        Scene _map;
+        std::vector<const CDT::Triangle*> _triangles;
+        std::vector<std::pair<Vec2f, Vec2f>> _portals;
 
         int targetFPS = 60;
         float fixedFPS = 60.0f;
@@ -45,5 +45,5 @@ namespace fin
         double maxTimeStep = 1.0f / maxFPS;
         double currentTime = GetTime();
         double accumulator = 0.0;
-	};
+    };
 }
