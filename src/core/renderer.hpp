@@ -12,11 +12,13 @@ namespace fin
         Renderer(const Renderer&) = delete;
 
         void set_origin(Vec2f origin);
+        void set_color(Color clr);
         void render_texture(const Texture* texture, const Rectf &source, const Rectf &dest);
-        void render_line(Vec2f from, Vec2f to, Color clr);
-        void render_line(float fromx, float fromy, float tox, float toy, Color clr);
+        void render_line(Vec2f from, Vec2f to);
+        void render_line(float fromx, float fromy, float tox, float toy);
+        void render_debug_text(Vec2f to, const char *fmt, ...);
 
         Color _color{WHITE};
-        Camera2D _camera;
+        Camera2D _camera{{}, {}, 0, 1.f};
     };
 }

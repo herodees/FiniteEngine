@@ -47,6 +47,7 @@ namespace fin
 
 		mutable uint32_t _id{};
 		mutable int32_t _iso_depth{};
+        mutable bool _depth_mark{};
 		Line<float> _iso_line;
 		Vec2f _iso_a;
 		Vec2f _iso_b;
@@ -72,20 +73,18 @@ namespace fin
 	
 	inline bool SceneObject::is_below(const SceneObject& rt) const
 	{
-		return _iso_line.compare(rt._iso_line) > 0;
-
-
-		// Compute the cross product (2D determinant method)
-		const float position = (_bbox.x1 + _iso_b.x - (_bbox.x1 + _iso_a.x)) * (rt._bbox.y1 + rt._iso_a.y - (_bbox.y1 + _iso_a.y)) -
-			(_bbox.y1 + _iso_b.y - (_bbox.y1 + _iso_a.y)) * (rt._bbox.x1 + rt._iso_a.x - (_bbox.x1 + _iso_a.x));
-		return position > 0;
+		return _iso_line.compare(rt._iso_line) >= 0;
 	}
 	
 
 	inline int32_t SceneObject::depth_get() const
 	{
+        if (_depth_mark)
+            return 0;
+
 		if (!_iso_depth)
 		{
+            _depth_mark = true;
 			if (_objects_behind.empty())
 				_iso_depth = 1;
 			else
@@ -94,12 +93,14 @@ namespace fin
 					_iso_depth = std::max(el->depth_get(), _iso_depth);
 				_iso_depth += 1;
 			}
+            _depth_mark = false;
 		}
 		return _iso_depth;
 	}
 
 	inline void SceneObject::depth_reset()
-	{
+    {
+        _depth_mark = false;
 		_iso_depth = 0;
 		_iso_line.point1.x = _iso_a.x + _bbox.x1;
 		_iso_line.point2.x = _iso_b.x + _bbox.x1;

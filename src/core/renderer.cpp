@@ -6,8 +6,13 @@ namespace fin
 
 void Renderer::set_origin(Vec2f origin)
 {
-    _camera.offset.x = origin.x;
-    _camera.offset.y = origin.y;
+    _camera.offset.x = -origin.x;
+    _camera.offset.y = -origin.y;
+}
+
+void Renderer::set_color(Color clr)
+{
+    _color = clr;
 }
 
 void Renderer::render_texture(const Texture *texture, const Rectf &source, const Rectf &dest)
@@ -41,14 +46,30 @@ void Renderer::render_texture(const Texture *texture, const Rectf &source, const
     rlSetTexture(0);
 }
 
-void Renderer::render_line(Vec2f from, Vec2f to, Color clr)
+void Renderer::render_line(Vec2f from, Vec2f to)
 {
-    DrawLine(from.x, from.y, to.x, to.y, clr);
+    DrawLine(from.x, from.y, to.x, to.y, _color);
 }
 
-void Renderer::render_line(float fromx, float fromy, float tox, float toy, Color clr)
+void Renderer::render_line(float fromx, float fromy, float tox, float toy)
 {
-    DrawLine(fromx, fromy, tox, toy, clr);
+    DrawLine(fromx, fromy, tox, toy, _color);
+}
+
+void Renderer::render_debug_text(Vec2f to, const char *fmt, ...)
+{
+    static char buf[512];
+
+    va_list args;
+    va_start(args, fmt);
+    int w = vsnprintf(buf, std::size(buf), fmt, args);
+    va_end(args);
+
+    if (w == -1 || w >= (int)std::size(buf))
+        w = (int)std::size(buf) - 1;
+    buf[w] = 0;
+
+    DrawText(buf, to.x, to.y, 15, _color);
 }
 
 }

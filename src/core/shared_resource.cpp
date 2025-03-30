@@ -67,8 +67,20 @@ Surface Surface::create_sub_surface(int x, int y, int w, int h) const
     if (!surface.data) // Ensure the original surface is valid
         return Surface();
 
+    const auto size = GetPixelDataSize(w, h, surface.format);
     Surface out;
-    out.surface = ImageFromImage(surface, {float(x), float(y), float(w), float(h)});
+    out.surface.width = w;
+    out.surface.height = h;
+    out.surface.format = surface.format;
+    out.surface.mipmaps = 1;
+    out.surface.data = RL_MALLOC(size);
+
+    ImageDraw(&out.surface,
+              surface,
+              {(float)x, (float)y, (float)w, (float)h},
+              {0, 0, (float)w, (float)h},
+              WHITE);
+
     return out;
 }
 

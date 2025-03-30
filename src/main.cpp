@@ -8,6 +8,21 @@
 
 int main(void)
 {
+    auto app = std::make_shared<fin::application>();
+    if (app->on_init())
+    {
+        app->on_deinit(app->on_iterate());
+    }
+    else
+    {
+        app->on_deinit(false);
+    }
+    app.reset();
+
+
+    return EXIT_SUCCESS;
+
+
     const int screenWidth = 1280;
     const int screenHeight = 720;
 
@@ -32,7 +47,7 @@ int main(void)
     double currentTime = GetTime();
     double accumulator = 0.0;
 
-    auto app = std::make_shared<fin::application>();
+
 
     while (!WindowShouldClose())
     {

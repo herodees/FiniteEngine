@@ -60,7 +60,6 @@ namespace fin
 		void render(Renderer& dc);
 		void update(float dt);
 		void isometric_sort();
-		void update_isometric();
 		void clear();
 
 		void serialize(msg::Pack& ar);

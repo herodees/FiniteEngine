@@ -455,8 +455,9 @@ namespace fin
 			auto oneVStwo = INT_MIN;
 			if (comp1 == comp2) //Both points in line 1 are above or below line2
 			{
-				oneVStwo = comp1;
+                oneVStwo = comp1;
 			}
+
 			auto comp3 = ot.compare(point1);
 			auto comp4 = ot.compare(point2);
 			auto twoVSone = INT_MIN;
@@ -480,7 +481,7 @@ namespace fin
 			{
 				return twoVSone;
 			}
-
+  
 			return compare_centers(ot);
 		}
 

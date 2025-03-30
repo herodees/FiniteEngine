@@ -26,12 +26,18 @@ namespace fin
 
     void application::on_imgui_init(bool dark_theme)
     {
+        ImGuiIO &io = ImGui::GetIO();
+        (void)io;
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+
         if (dark_theme)
             ImGui::StyleColorsDark();
         else
             ImGui::StyleColorsLight();
 
-        ImGui::GetIO().IniFilename = nullptr;
+        io.IniFilename = nullptr;
 
         // Cherry style from ImThemes
         ImGuiStyle& style = ImGui::GetStyle();
@@ -136,7 +142,7 @@ namespace fin
         glfwInitHint(GLFW_ANGLE_PLATFORM_TYPE, GLFW_ANGLE_PLATFORM_TYPE_D3D11);
 #endif
 #endif
-        SetConfigFlags(FLAG_VSYNC_HINT);
+        SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
         InitWindow(screenWidth, screenHeight, "Finite");
 
         // load the font
@@ -154,6 +160,7 @@ namespace fin
         _explorer.set_editor([&](std::string_view filename) { return createFileEdit(filename); });
 
         rlImGuiSetup(true);
+        on_imgui_init(true);
 
         return true;
     }

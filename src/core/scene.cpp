@@ -279,6 +279,9 @@ namespace fin
 
 		dc.set_origin({(float)_active_region.x, (float)_active_region.y});
 
+        BeginMode2D(dc._camera);
+
+        dc.set_color(WHITE);
 		for (int y = minpos.y; y < maxpos.y; ++y)
 		{
 			for (int x = minpos.x; x < maxpos.x; ++x)
@@ -295,35 +298,36 @@ namespace fin
 		if (_debug_draw_grid)
 		{
 			Color clr{ 255, 255, 0, 255 };
+            dc.set_color(clr);
 			for (int y = minpos.y; y < maxpos.y; ++y)
 			{
 				dc.render_line((float)minpos.x * tile_size, (float)y * tile_size, 
-					(float)maxpos.x * tile_size, (float)y * tile_size, clr);
+					(float)maxpos.x * tile_size, (float)y * tile_size);
 			}
 
 			for (int x = minpos.x; x < maxpos.x; ++x)
 			{
 				dc.render_line((float)x * tile_size, (float)minpos.y * tile_size,
-					(float)x * tile_size, (float)maxpos.y * tile_size, clr);
+					(float)x * tile_size, (float)maxpos.y * tile_size);
 			}
 		}
 
 		if (_debug_draw_navmesh)
 		{
 			Color clr(255, 0, 0, 255);
+            dc.set_color(clr);
 			for (auto& el : _cdt.triangles)
 			{
 				dc.render_line(_cdt.vertices[el.vertices[0]].x, _cdt.vertices[el.vertices[0]].y,
-					_cdt.vertices[el.vertices[1]].x, _cdt.vertices[el.vertices[1]].y, clr);
+					_cdt.vertices[el.vertices[1]].x, _cdt.vertices[el.vertices[1]].y);
 				dc.render_line(_cdt.vertices[el.vertices[1]].x, _cdt.vertices[el.vertices[1]].y,
-					_cdt.vertices[el.vertices[2]].x, _cdt.vertices[el.vertices[2]].y, clr);
+					_cdt.vertices[el.vertices[2]].x, _cdt.vertices[el.vertices[2]].y);
 				dc.render_line(_cdt.vertices[el.vertices[2]].x, _cdt.vertices[el.vertices[2]].y,
-					_cdt.vertices[el.vertices[0]].x, _cdt.vertices[el.vertices[0]].y, clr);
+					_cdt.vertices[el.vertices[0]].x, _cdt.vertices[el.vertices[0]].y);
 			}
 		}
 
-		update_isometric();
-
+        dc.set_color(WHITE);
 		for (auto* obj : _active_objects)
 		{
 			auto* o = static_cast<SceneObject*>(obj);
@@ -332,17 +336,19 @@ namespace fin
 		}
 
 		if (_debug_draw_object)
-		{
+        {
+            dc.set_color({255, 0, 0, 255});
 			for (auto* obj : _active_objects)
 			{
 				auto* o = static_cast<SceneObject*>(obj);
-				dc.render_line(o->_iso_a + Vec2f{o->_bbox.x1, o->_bbox.y1}, o->_iso_b + Vec2f{ o->_bbox.x1, o->_bbox.y1 }, { 255,0,0,255 });
+                dc.render_line(o->_iso_a + Vec2f{o->_bbox.x1, o->_bbox.y1},
+                               o->_iso_b + Vec2f{o->_bbox.x1, o->_bbox.y1});
 
-				//SDL_RenderDebugTextFormat(dc.handle, o->_bbox.x1 - dc.origin.x, o->_bbox.y1 - dc.origin.y, "%d", o->_iso_depth);
-			}
+                dc.render_debug_text({o->_bbox.x1, o->_bbox.y1}, "%d", o->_iso_depth);
+            }
 		}
 
-		dc.set_origin({ 0, 0 });
+		EndMode2D();
         EndTextureMode();
 	}
 
@@ -386,6 +392,11 @@ namespace fin
 					{
 						b->_objects_behind.push_back(a);
 					}
+
+                    if (a->_objects_behind.size() > 20)
+                    {
+                        int a = 55;
+                    }
 				}
 			}
 		}
@@ -401,47 +412,6 @@ namespace fin
 
 	}
 
-	void scene::update_isometric()
-	{
-		if (_objects.size() < 2) return;
-
-		// Calculate sorting coordinates
-		for (auto* obj : _objects)
-			obj->setup();
-
-		// Determine depth relationships
-		for (size_t i = 0; i < _objects.size(); ++i)
-		{
-			object* a = _objects[i];
-			for (size_t j = i + 1; j < _objects.size(); ++j)
-			{
-				object* b = _objects[j];
-
-				object* c = (b->col.left < a->col.left) ? b : a;
-				object* d = (b->col.left < a->col.left) ? a : b;
-
-				if (d->col.left > c->col.right)
-				{
-					if (d->row.left < ((d->col.left - c->col.left) / (c->col.right - c->col.left))
-						* (c->row.right - c->row.left) + c->row.left)
-					{
-						c->iso_sprites_behind.push_back(d);
-					}
-					else
-					{
-						d->iso_sprites_behind.push_back(c);
-					}
-				}
-			}
-		}
-
-		// Recursive function to calculate depth
-		for (auto* obj : _objects)
-			obj->calculate_depth();
-
-		// Sort objects by depth
-		std::sort(_objects.begin(), _objects.end(), [](const object* a, const object* b) { return a->iso_depth < b->iso_depth; });
-	}
 
 	void scene::clear()
 	{
@@ -734,8 +704,10 @@ namespace fin
 			params.dc = ImGui::GetWindowDrawList();
 			auto mpos = ImGui::GetMousePos();
 			params.mouse = { mpos.x - params.pos.x + ImGui::GetScrollX(), mpos.y - params.pos.y + ImGui::GetScrollY() };
-			params.dc->AddImage((ImTextureID)_canvas.get_texture(), { cur.x + params.pos.x, cur.y + params.pos.y },
-				{ cur.x + params.pos.x + _canvas.get_width(), cur.y + params.pos.y + _canvas.get_height() });
+
+			params.dc->AddImage((ImTextureID)&_canvas.get_texture()->texture, { cur.x + params.pos.x, cur.y + params.pos.y },
+				{ cur.x + params.pos.x + _canvas.get_width(), cur.y + params.pos.y + _canvas.get_height() }, {0, 1}, {1, 0});
+
 			params.scroll = { ImGui::GetScrollX(), ImGui::GetScrollY() };
 			params.pos.x -= ImGui::GetScrollX();
 			params.pos.y -= ImGui::GetScrollY();
