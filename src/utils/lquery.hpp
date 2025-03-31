@@ -8,26 +8,25 @@ namespace fin
 {
     namespace lq
     {
-        class database
+        class SpatialDatabase
         {
         public:
-            struct client_proxy
+            struct Proxy
             {
-                client_proxy*  _next{};
-                client_proxy*  _prev{};
-                client_proxy** _bin{};
-                Vec2f          _position;
-                uintptr_t      _data{};
+                Proxy*  _next{};
+                Proxy*  _prev{};
+                Proxy** _bin{};
+                Vec2f   _position;
             };
 
         public:
-            database() = default;
+            SpatialDatabase() = default;
 
             void           init(Rectf region, int32_t divx, int32_t divy);
-            void           remove_from_bin(client_proxy* object);
-            void           update_for_new_location(client_proxy* object);
+            void           remove_from_bin(Proxy* object);
+            void           update_for_new_location(Proxy* object);
             int            bin_index(float x, float y) const;
-            client_proxy** bin_for_location(float x, float y);
+            Proxy** bin_for_location(float x, float y);
 
             template <typename CB>
             void map_over_all_objects_in_locality(float x, float y, float radius, CB cb);
@@ -35,26 +34,26 @@ namespace fin
             void map_over_all_objects_in_locality(const Rectf& rc, CB cb);
 
         private:
-            void add_to_bin(client_proxy* object, client_proxy** bin);
+            void add_to_bin(Proxy* object, Proxy** bin);
 
             Rectf                            _region;
             int32_t                          _divx{};
             int32_t                          _divy{};
-            std::unique_ptr<client_proxy*[]> _bins;
-            client_proxy*                    _other{};
+            std::unique_ptr<Proxy*[]> _bins;
+            Proxy*                    _other{};
         };
 
-        inline void database::init(Rectf region, int32_t divx, int32_t divy)
+        inline void SpatialDatabase::init(Rectf region, int32_t divx, int32_t divy)
         {
             _region             = region;
             _divx               = divx;
             _divy               = divy;
             const auto bincount = _divx * _divy;
-            _bins               = std::make_unique<client_proxy*[]>(bincount);
+            _bins               = std::make_unique<Proxy*[]>(bincount);
             _other              = nullptr;
         }
 
-        inline int database::bin_index(float x, float y) const
+        inline int SpatialDatabase::bin_index(float x, float y) const
         {
             /* if point inside super-brick, compute the bin coordinates */
             const auto ix = (int)(((x - _region.x) / _region.width) * _divx);
@@ -63,7 +62,7 @@ namespace fin
             return ((iy * _divx) + ix);
         }
 
-        inline void database::remove_from_bin(client_proxy* object)
+        inline void SpatialDatabase::remove_from_bin(Proxy* object)
         {
             if (object->_bin != nullptr)
             {
@@ -87,7 +86,7 @@ namespace fin
             object->_bin  = nullptr;
         }
 
-        inline void database::add_to_bin(client_proxy* object, client_proxy** bin)
+        inline void SpatialDatabase::add_to_bin(Proxy* object, Proxy** bin)
         {
             /* if bin is currently empty */
             if (*bin == nullptr)
@@ -108,7 +107,7 @@ namespace fin
             object->_bin = bin;
         }
 
-        inline database::client_proxy** database::bin_for_location(float x, float y)
+        inline SpatialDatabase::Proxy** SpatialDatabase::bin_for_location(float x, float y)
         {
             /* if point outside super-brick, return the "other" bin */
             if (!_region.contains(x, y))
@@ -121,10 +120,10 @@ namespace fin
             return &(_bins.get()[i]);
         }
 
-        inline void database::update_for_new_location(client_proxy* object)
+        inline void SpatialDatabase::update_for_new_location(Proxy* object)
         {
             /* find bin for new location */
-            client_proxy** newBin = bin_for_location(object->_position.x, object->_position.y);
+            Proxy** newBin = bin_for_location(object->_position.x, object->_position.y);
 
             /* has object moved into a new bin? */
             if (newBin != object->_bin)
@@ -135,7 +134,7 @@ namespace fin
         }
 
         template <typename CB>
-        inline void traverse_bin_client_object_list(database::client_proxy* co, float x, float y, float radiusSquared, CB cb)
+        inline void traverse_bin_client_object_list(SpatialDatabase::Proxy* co, float x, float y, float radiusSquared, CB cb)
         {
             while (co != nullptr)
             {
@@ -146,14 +145,14 @@ namespace fin
                 const float distanceSquared = (dx * dx) + (dy * dy);
                 /* apply function if client object within sphere */
                 if (distanceSquared < radiusSquared)
-                    cb(co->_data, distanceSquared);
+                    cb(co, distanceSquared);
                 /* consider next client object in bin list */
                 co = co->_next;
             }
         }
 
         template <typename CB>
-        inline void database::map_over_all_objects_in_locality(float x, float y, float radius, CB cb)
+        inline void SpatialDatabase::map_over_all_objects_in_locality(float x, float y, float radius, CB cb)
         {
             const bool completelyOutside = (((x + radius) < _region.x) || ((y + radius) < _region.y) ||
                                             ((x - radius) >= _region.x2()) || ((y - radius) >= _region.y2()));
@@ -206,25 +205,25 @@ namespace fin
                 const int line = ny * _divx;
                 for (int nx = minBinX; nx <= maxBinX; ++nx)
                 {
-                    client_proxy* bin = bins[nx + line];
+                    Proxy* bin = bins[nx + line];
                     traverse_bin_client_object_list<CB>(bin, x, y, radiusSqrt, cb);
                 }
             }
         }
 
         template <typename CB>
-        inline void traverse_bin_client_object_list(database::client_proxy* co, const Rectf& rc, CB cb)
+        inline void traverse_bin_client_object_list(SpatialDatabase::Proxy* co, const Rectf& rc, CB cb)
         {
             while (co != nullptr)
             {
                 if (rc.contains(co->_position))
-                    cb(co->_data);
+                    cb(co);
                 co = co->_next;
             }
         }
 
         template <typename CB>
-        inline void database::map_over_all_objects_in_locality(const Rectf& rc, CB cb)
+        inline void SpatialDatabase::map_over_all_objects_in_locality(const Rectf& rc, CB cb)
         {
             /* is the sphere completely outside the "super brick"? */
             if (!_region.intersects(rc))
@@ -273,7 +272,7 @@ namespace fin
                 const int line = ny * _divx;
                 for (int nx = minBinX; nx <= maxBinX; ++nx)
                 {
-                    client_proxy* bin = bins[nx + line];
+                    Proxy* bin = bins[nx + line];
                     traverse_bin_client_object_list<CB>(bin, rc, cb);
                 }
             }

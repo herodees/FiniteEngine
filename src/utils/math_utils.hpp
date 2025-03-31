@@ -424,6 +424,20 @@ namespace fin
         Vec2<T> point1;
         Vec2<T> point2;
 
+        bool is_point() const
+        {
+            return point1 == point2;
+        }
+
+        T get_y_at_x(T x) const
+        {
+            if (point1.x == point2.x) // Vertical line case
+                return point1.y;
+
+            T slope = (point2.y - point1.y) / (point2.x - point1.x);
+            return point1.y + slope * (x - point1.x);
+        }
+
         int compare(const Vec2<T>& point) const
         {
             if (point1.x == point2.x)
@@ -450,20 +464,19 @@ namespace fin
 
         int compare(const Line<T>& ot) const
         {
-            auto comp1 = compare(ot.point1);
-            auto comp2 = compare(ot.point2);
+            auto twoVSone = INT_MIN;
             auto oneVStwo = INT_MIN;
-            if (comp1 == comp2) //Both points in line 1 are above or below line2
+
+            auto comp1 = compare(ot.point1);
+            if (comp1 == compare(ot.point2)) //Both points in line 1 are above or below line2
             {
                 oneVStwo = comp1;
             }
 
-            auto comp3 = ot.compare(point1);
-            auto comp4 = ot.compare(point2);
-            auto twoVSone = INT_MIN;
-            if (comp3 == comp4) //Both points in line 2 are above or below line1
+            auto comp2 = ot.compare(point1);
+            if (comp2 == ot.compare(point2)) //Both points in line 2 are above or below line1
             {
-                twoVSone = -comp3;
+                twoVSone = -comp2;
             }
 
             if (oneVStwo != INT_MIN && twoVSone != INT_MIN)

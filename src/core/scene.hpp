@@ -57,7 +57,6 @@ namespace fin
 
         void render(Renderer& dc);
         void update(float dt);
-        void isometric_sort();
         void clear();
 
         void serialize(msg::Pack& ar);
@@ -84,7 +83,6 @@ namespace fin
         bool Contains(const Vec2f& point, const CDT::Triangle& tri) const;
 
         uint32_t _iso_pool_size{};
-        std::string _background_image;
         std::vector<Texture2D> _grid_texture;
         std::vector<Surface> _grid_surface;
         std::vector<IsoObject> _iso_pool;
@@ -92,8 +90,7 @@ namespace fin
         std::vector<std::pair<size_t, bool>> _grid_active;
         std::vector<Vec2f> _navmesh_points;
         std::vector<SceneObject*> _scene;
-        std::vector<SpatialItem*> _active_objects;
-        SpatialGrid _grid;
+        lq::SpatialDatabase _spatial_db;
         SceneObject* _edit_object{};
 
         int32_t _active_point{-1};

@@ -16,7 +16,7 @@ namespace fin
         ~application();
 
         bool on_iterate();
-        bool on_init();
+        bool on_init(char *argv[], size_t argc);
         void on_deinit(bool result);
 
     private:
@@ -27,23 +27,22 @@ namespace fin
         void on_imgui_workspace();
         void on_imgui_properties();
 
-        FileEdit* createFileEdit(std::string_view filename);
-
-        bool _show_editor{true};
-
+        std::span<char *> _argv;
         FileExplorer _explorer;
         Renderer _renderer;
         Scene _map;
-        std::vector<const CDT::Triangle*> _triangles;
-        std::vector<std::pair<Vec2f, Vec2f>> _portals;
+        int32_t _target_fps = 60;
+        float _fixed_fps = 60.0f;
+        float _max_fps = 1200.0f;
+        double _time_counter = 0.0;
+        double _fixed_time_step = 1.0f / _fixed_fps;
+        double _max_time_step = 1.0f / _max_fps;
+        double _current_time = GetTime();
+        double _time_accumulator = 0.0;
 
-        int targetFPS = 60;
-        float fixedFPS = 60.0f;
-        float maxFPS = 1200.0f;
-        double timeCounter = 0.0;
-        double fixedTimeStep = 1.0f / fixedFPS;
-        double maxTimeStep = 1.0f / maxFPS;
-        double currentTime = GetTime();
-        double accumulator = 0.0;
+        bool _show_editor{true};
+
+        std::vector<const CDT::Triangle *> _triangles;
+        std::vector<std::pair<Vec2f, Vec2f>> _portals;
     };
 }

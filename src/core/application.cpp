@@ -1,7 +1,6 @@
 #include "application.hpp"
 #include "atlas.hpp"
 #include "atlas_scene_object.hpp"
-#include "atlas_scene_editor.hpp"
 
 #include "imgui_internal.h"
 
@@ -130,8 +129,10 @@ namespace fin
         colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
     }
 
-    bool application::on_init()
+    bool application::on_init(char *argv[], size_t argc)
     {
+        _argv = decltype(_argv)(argv, argv + argc);
+
         const int screenWidth = 1280;
         const int screenHeight = 720;
 
@@ -157,7 +158,6 @@ namespace fin
 #endif
         _explorer.set_root("./");
         _explorer.select("./");
-        _explorer.set_editor([&](std::string_view filename) { return createFileEdit(filename); });
 
         rlImGuiSetup(true);
         on_imgui_init(true);
@@ -223,26 +223,12 @@ namespace fin
             on_imgui_dialogs();
             on_imgui_properties();
             on_imgui_workspace();
+
+           // ImGui::ShowDemoWindow();
         }
 
         ImGui::End();
         ImGui::PopStyleVar();
-    }
-
-    FileEdit* application::createFileEdit(std::string_view filename)
-    {
-        auto ext = path_get_ext(filename);
-        if (ext == ".atlas")
-        {
-            auto edit = new AtlasFileEdit();
-            if (edit->on_init(filename))
-            {
-                return edit;
-            }
-            delete edit;
-        }
-
-        return nullptr;
     }
 
     bool application::on_iterate()
@@ -253,7 +239,7 @@ namespace fin
             //----------------------------------------------------------------------------------
 
             double newTime = GetTime();
-            double frameTime = newTime - currentTime;
+            double frameTime = newTime - _current_time;
 
             // Avoid spiral of death if CPU  can't keep up with target FPS
             if (frameTime > 0.25)
@@ -261,12 +247,12 @@ namespace fin
                 frameTime = 0.25;
             }
 
-            currentTime = newTime;
+            _current_time = newTime;
 
             // Limit frame rate to avoid 100% CPU usage
-            if (frameTime < maxTimeStep)
+            if (frameTime < _max_time_step)
             {
-                float waitTime = (float)(maxTimeStep - frameTime);
+                float waitTime = (float)(_max_time_step - frameTime);
                 WaitTime(1.0f / 1000.0f);
             }
 
@@ -275,16 +261,16 @@ namespace fin
 
             PollInputEvents(); // Poll input events (SUPPORT_CUSTOM_FRAME_CONTROL)
 
-            accumulator += frameTime;
-            while (accumulator >= fixedTimeStep)
+            _time_accumulator += frameTime;
+            while (_time_accumulator >= _fixed_time_step)
             {
                 // Fixed Update
                 //--------------------------------------------------------------------------
 
-                timeCounter += fixedTimeStep; // We count time (seconds)
+                _time_counter += _fixed_time_step; // We count time (seconds)
 
-                timeCounter += fixedTimeStep;
-                accumulator -= fixedTimeStep;
+                _time_counter += _fixed_time_step;
+                _time_accumulator -= _fixed_time_step;
             }
 
             // Drawing

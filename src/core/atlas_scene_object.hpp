@@ -2,6 +2,7 @@
 
 #include "atlas.hpp"
 #include "scene_object.hpp"
+#include "renderer.hpp"
 
 namespace fin
 {
@@ -17,6 +18,7 @@ namespace fin
         void serialize(msg::Writer& ar) override;
         void deserialize(msg::Value& ar) override;
         std::string_view object_type() override { return type_id; };
+        void get_iso(Region<float> &bbox, Line<float> &origin) override;
 
         void set_atlas(std::shared_ptr<Atlas>& atlas);
         void set_sprite(Atlas::sprite* spr);
@@ -35,7 +37,9 @@ namespace fin
         if (!_atlas || !_spr)
             return;
 
-        dc.render_texture(_spr->_texture, _spr->_source, _bbox.rect() );
+        dc.render_texture(_spr->_texture,
+                          _spr->_source,
+                          {_position.x, _position.y, _spr->_source.width, _spr->_source.height});
     }
 
     inline void AtlasSceneObject::set_atlas(std::shared_ptr<Atlas>& atlas)
@@ -47,16 +51,6 @@ namespace fin
     inline void AtlasSceneObject::set_sprite(Atlas::sprite* spr)
     {
         _spr = spr;
-        if (spr)
-        {
-            _bbox.set_size(spr->_source.width, spr->_source.height);
-            _iso_a = spr->_origina;
-            _iso_b = spr->_originb;
-        }
-        else
-        {
-            _bbox.set_size(0,0);
-        }
     }
 
     inline bool AtlasSceneObject::load_atlas(std::string_view path)
@@ -101,4 +95,18 @@ namespace fin
         }
 
     }
-}
+
+    inline void AtlasSceneObject::get_iso(Region<float> &bbox, Line<float> &origin)
+    {
+        if (_spr)
+        {
+            bbox.x1 = _position.x;
+            bbox.y1 = _position.y;
+            bbox.x2 = _position.x + _spr->_source.width;
+            bbox.y2 = _position.y + _spr->_source.height;
+            origin.point1 = _position + _spr->_origina;
+            origin.point2 = _position + _spr->_originb;
+        }
+    }
+
+    }

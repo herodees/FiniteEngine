@@ -1,8 +1,8 @@
 ﻿#include "scene.hpp"
 #include "atlas_scene_object.hpp"
 
-#include "dialog_utils.hpp"
-#include "imgui_utils.hpp"
+#include "utils/dialog_utils.hpp"
+#include "utils/imgui_utils.hpp"
 
 namespace fin
 {
@@ -44,7 +44,7 @@ namespace fin
 
 
 
-    Scene::Scene() : _grid(10000, 10000, tile_size)
+    Scene::Scene()
     {
     }
 
@@ -93,8 +93,10 @@ namespace fin
             }
         }
         _grid_texture.resize(_grid_surface.size());
-        _grid.clear(_grid_size.x * tile_size, _grid_size.y * tile_size, tile_size);
 
+        _spatial_db.init({0, 0, (float)_grid_size.x * tile_size, (float)_grid_size.y * tile_size},
+                         _grid_size.x,
+                         _grid_size.y);
         return true;
     }
 
@@ -230,12 +232,12 @@ namespace fin
     {
         obj->_id = _scene.size();
         _scene.push_back(obj);
-        _grid.insert(obj);
+        _spatial_db.update_for_new_location(obj);
     }
 
     void Scene::object_remove(SceneObject* obj)
     {
-        _grid.remove(obj);
+        _spatial_db.remove_from_bin(obj);
         const auto id = obj->_id;
         _scene[id] = _scene.back();
         _scene[id]->_id = id;
@@ -243,16 +245,16 @@ namespace fin
 
     void Scene::object_move(SceneObject* obj, float dx, float dy)
     {
-        _grid.remove(obj);
-        obj->_bbox.move(dx, dy);
-        _grid.insert(obj);
+        obj->_position.x += dx;
+        obj->_position.y += dy;
+        _spatial_db.update_for_new_location(obj);
     }
 
     void Scene::object_moveto(SceneObject* obj, float x, float y)
     {
-        _grid.remove(obj);
-        obj->_bbox.moveto(x, y);
-        _grid.insert(obj);
+        obj->_position.x = x;
+        obj->_position.y = y;
+        _spatial_db.update_for_new_location(obj);
     }
 
     void Scene::object_move(SceneObject* obj, const Vec2f& d)
@@ -328,23 +330,21 @@ namespace fin
         }
 
         dc.set_color(WHITE);
-        for (auto* obj : _active_objects)
+        for (auto *obj : _iso)
         {
-            auto* o = static_cast<SceneObject*>(obj);
-            if(!o->is_hidden())
-                o->render(dc);
+            if (!obj->_ptr->is_hidden())
+                obj->_ptr->render(dc);
         }
 
         if (_debug_draw_object)
         {
             dc.set_color({255, 0, 0, 255});
-            for (auto* obj : _active_objects)
+            for (auto *obj : _iso)
             {
-                auto* o = static_cast<SceneObject*>(obj);
-                dc.render_line(o->_iso_a + Vec2f{o->_bbox.x1, o->_bbox.y1},
-                               o->_iso_b + Vec2f{o->_bbox.x1, o->_bbox.y1});
-
-                dc.render_debug_text({o->_bbox.x1, o->_bbox.y1}, "%d", o->_iso_depth);
+                dc.render_line(obj->_origin.point1, obj->_origin.point2);
+                dc.render_debug_text({obj->_origin.point1.x + 16, obj->_origin.point1.y + 16},
+                                     "%d",
+                                     obj->_depth);
             }
         }
 
@@ -355,7 +355,7 @@ namespace fin
     void Scene::update(float dt)
     { 
         _iso_pool_size = 0;
-        auto cb = [&](SpatialItem *item) {
+        auto cb = [&](lq::SpatialDatabase::Proxy *item) {
             if (_iso_pool_size >= _iso_pool.size())
                 _iso_pool.resize(_iso_pool_size + 32);
 
@@ -363,12 +363,21 @@ namespace fin
             ++_iso_pool_size;
         };
 
+        auto add_pool_item = [&](size_t n) {
+            _iso[n] = &_iso_pool[n];
+            _iso_pool[n]._depth = 0;
+            _iso_pool[n]._depth_active = false;
+            _iso_pool[n]._back.clear();
+            _iso_pool[n]._ptr->get_iso(_iso_pool[n]._bbox, _iso_pool[n]._origin);
+            _iso_pool[n]._ptr->flag_reset(SceneObjectFlag::Marked);
+        };
+
         // Query active region
-        _grid.query(Region<float>(_active_region.x,
-                                  _active_region.y,
-                                  _active_region.x2(),
-                                  _active_region.y2()),
-                    cb);
+        _spatial_db.map_over_all_objects_in_locality({(float)_active_region.x - tile_size,
+                                                      (float)_active_region.y - tile_size,
+                                                      (float)_active_region.width + 2*tile_size,
+                                                      (float)_active_region.height + 2*tile_size},
+            cb);
 
         if (_iso_pool_size >= _iso_pool.size())
             _iso_pool.resize(_iso_pool_size + 32);
@@ -377,22 +386,19 @@ namespace fin
         _iso.resize(_iso_pool_size);
         for (size_t n = 0; n < _iso_pool_size; ++n)
         {
-            _iso[n] = &_iso_pool[n];
-            _iso_pool[n]._depth = 0;
-            _iso_pool[n]._depth_active = false;
-            _iso_pool[n]._back.clear();
-            _iso_pool[n]._ptr->get_iso(_iso_pool[n]._bbox, _iso_pool[n]._origin);
-            _iso_pool[n]._ptr->flag_reset(SceneObjectFlag::Marked);
+            add_pool_item(n);
         }
 
+        // Add edit object to render queue
         if (_edit_object)
         {
             _iso_pool[_iso_pool_size]._ptr = _edit_object;
-            _iso.push_back(&_iso_pool[_iso_pool_size]);
+            _iso.emplace_back();
+            add_pool_item(_iso_pool_size);
         }
 
         // Topology sort
-        if (_iso.size() > 2)
+        if (_iso.size() > 1)
         {
             // Determine depth relationships
             for (size_t i = 0; i < _iso.size(); ++i)
@@ -424,67 +430,8 @@ namespace fin
             // Sort objects by depth
             std::sort(_iso.begin(), _iso.end(), [](const IsoObject *a, const IsoObject *b) { return a->_depth < b->_depth; });
         }
-
-
-
-
-        // Select visible objects
-        _grid.query(Region<float>(_active_region.x, _active_region.y, _active_region.x2(), _active_region.y2()), _active_objects);
-        
-        if (_edit_object)
-            _active_objects.push_back(_edit_object);
-        // Isometric topological sort
-        isometric_sort();
-
     }
 
-    void Scene::isometric_sort()
-    {
-        if (_active_objects.size() < 2)
-            return;
-
-        // Reset depth and temp values
-        for (auto* obj : _active_objects)
-            static_cast<SceneObject*>(obj)->depth_reset();
-
-        // Determine depth relationships
-        for (size_t i = 0; i < _active_objects.size(); ++i)
-        {
-            SceneObject* a = static_cast<SceneObject*>(_active_objects[i]);
-            for (size_t j = i + 1; j < _active_objects.size(); ++j)
-            {
-                SceneObject* b = static_cast<SceneObject*>(_active_objects[j]);
-                // Ignore non overlaped rectangles 
-                if (a->_bbox.intersects(b->_bbox))
-                {
-                    // Check if x2 is above iso line
-                    if (b->is_below(*a))
-                    {
-                        a->_objects_behind.push_back(b);
-                    }
-                    else
-                    {
-                        b->_objects_behind.push_back(a);
-                    }
-
-                    if (a->_objects_behind.size() > 20)
-                    {
-                        int a = 55;
-                    }
-                }
-            }
-        }
-
-        // Recursive function to calculate depth
-        for (auto* obj : _active_objects)
-            static_cast<SceneObject*>(obj)->depth_get();
-
-        // Sort objects by depth
-        std::sort(_active_objects.begin(), _active_objects.end(),
-            [](const SpatialItem* a, const SpatialItem* b)
-            { return static_cast<const SceneObject*>(a)->_iso_depth < static_cast<const SceneObject*>(b)->_iso_depth; });
-
-    }
 
 
     void Scene::clear()
@@ -494,7 +441,7 @@ namespace fin
         _grid_active.clear();
         _grid_texture.clear();
         _scene.clear();
-        _grid.clear(0, 0, tile_size);
+        _spatial_db.init({}, 0, 0);
         _grid_surface.clear();
         _grid_texture.clear();
     }
@@ -545,7 +492,10 @@ namespace fin
         _grid_size.x = ar["width"].get(0);
         _grid_size.y = ar["height"].get(0);
 
-        _grid.clear(_grid_size.x * tile_size, _grid_size.y * tile_size, tile_size);
+        _spatial_db.init({0, 0, (float)_grid_size.x * tile_size, (float)_grid_size.y * tile_size},
+                         _grid_size.x,
+                         _grid_size.y);
+
         _grid_surface.reserve(_grid_size.x * _grid_size.y);
 
         auto els = ar["background"].elements();
@@ -640,7 +590,7 @@ namespace fin
     {
         if (ImGui::CollapsingHeader("File", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (ImGui::Button("Open"))
+            if (ImGui::Button("Open##opscne"))
             {
                 auto files = open_file_dialog("", "");
                 if (!files.empty())
@@ -655,7 +605,8 @@ namespace fin
                 }
             }
 
-            if (ImGui::Button("Save"))
+            ImGui::SameLine();
+            if (ImGui::Button("Save##svescne"))
             {
                 auto out = save_file_dialog("", "");
                 if (!out.empty())
@@ -670,9 +621,13 @@ namespace fin
 
         if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (ImGui::OpenFileInput("Background###bgfile", _background_image, "All files|*"))
+            if (ImGui::Button("Import##opbgp"))
             {
-                setup_background_texture(_background_image);
+                auto files = open_file_dialog("", "");
+                if (!files.empty())
+                {
+                    setup_background_texture(files[0]);
+                }
             }
 
             ImGui::LabelText("Size", "%d x %d", _grid_size.x, _grid_size.y);
@@ -860,8 +815,7 @@ namespace fin
                 if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
                 {
                     _edit_object = object;
-                    _edit_object->_bbox.moveto(params.mouse.x, params.mouse.y);
-                    _edit_object->depth_reset();
+                    _edit_object->_position = {params.mouse.x, params.mouse.y};
                 }
             }
 
@@ -869,7 +823,7 @@ namespace fin
             {
                 if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
                 {
-                    object->_bbox.moveto(params.mouse.x, params.mouse.y);
+                    object->_position = {params.mouse.x, params.mouse.y};
                     msg::Pack doc;
                     auto ar = doc.create();
                     object_serialize(object, ar);
