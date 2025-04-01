@@ -5,6 +5,7 @@
 #include "scene_object.hpp"
 #include "renderer.hpp"
 #include "CDT.h"
+#include "prototype.hpp"
 
 namespace fin
 {
@@ -13,7 +14,7 @@ namespace fin
     public:
         enum edit_mode
         {
-            map, navmesh, objects
+            map, navmesh, objects, prototype
         };
 
         struct Params
@@ -62,15 +63,20 @@ namespace fin
         void serialize(msg::Pack& ar);
         void deserialize(msg::Value& ar);
 
+        void open();
+        void save();
+
         void on_imgui_props();
         void on_imgui_props_navmesh();
         void on_imgui_props_object();
         void on_imgui_props_map();
+        void on_imgui_props_prototype();
         void on_imgui_menu();
         void on_imgui_workspace();
         void on_imgui_workspace_navmesh(Params& params);
         void on_imgui_workspace_object(Params& params);
         void on_imgui_workspace_map(Params& params);
+        void on_imgui_workspace_prototype(Params &params);
 
         void AddPoint(Vec2f pos);
         std::vector<const CDT::Triangle*> FindPath(Vec2f start, Vec2f goal);
@@ -99,11 +105,14 @@ namespace fin
         bool _debug_draw_grid{};
         bool _debug_draw_navmesh{};
         bool _debug_draw_object{};
+        bool _debug_draw_prototype{};
         edit_mode _mode{ edit_mode::map };
 
         Recti _active_region;
         Vec2i _grid_size;
         CDT::Triangulation<float> _cdt;
         RenderTexture2D _canvas;
+
+        std::shared_ptr<Catalogue> _catalogue;
     };
 }

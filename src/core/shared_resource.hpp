@@ -25,6 +25,9 @@ public:
     Vec2i get_size() const { return Vec2i{surface.width, surface.height}; }
     int get_width() const{ return surface.width; }
     int get_height() const{ return surface.height; }
+    const unsigned char *data() const;
+    int get_data_size() const;
+
     const Image *get_surface() const { return &surface; }
 
     static std::shared_ptr<Surface> load_shared(std::string_view pth);

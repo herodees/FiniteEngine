@@ -12,6 +12,7 @@ namespace fin
         bool on_init(std::string_view path) override;
         bool on_deinit() override;
         bool on_edit() override;
+        bool on_setup() override;
 
         std::shared_ptr<Atlas> _atlas;
         AtlasSceneObject _object;
@@ -39,6 +40,7 @@ namespace fin
 
         if (ImGui::Selectable(ICON_FA_FOLDER " .."))
         {
+            ImGui::PopStyleVar();
             return false;
         }
 
@@ -102,4 +104,10 @@ namespace fin
 
         return true;
     }
-}
+
+    inline bool AtlasFileEdit::on_setup()
+    {
+        return false;
+    }
+
+    }

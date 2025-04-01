@@ -463,10 +463,12 @@ namespace fin
                     ar.member("w", txt.get_surface()->width);
                     ar.member("h", txt.get_surface()->height);
                     ar.member("f", (int32_t)txt.get_surface()->format);
-                    ar.key("d").data_value(txt.get_surface()->data,
-                                           GetPixelDataSize(txt.get_surface()->width,
-                                                            txt.get_surface()->height,
-                                                            txt.get_surface()->format));
+
+                    int sze{};
+                    auto* dta = CompressData(txt.data(), txt.get_data_size(), &sze);
+                    ar.key("d").data_value(dta, sze);
+                    MemFree(dta);
+
                     ar.end_object();
                 }
             }
@@ -501,9 +503,14 @@ namespace fin
         auto els = ar["background"].elements();
         for (auto el : els)
         {
+            auto d = el["d"].data_str();
+            int sze{};
+            auto* dta = DecompressData((const unsigned char*)d.data(), d.size(), &sze);
             _grid_surface.emplace_back()
                 .load_from_pixels(el["w"].get(0), el["h"].get(0),
-                    el["f"].get(0), el["d"].data_str().data());
+                                                          el["f"].get(0),
+                                                          dta);
+            MemFree(dta);
         }
 
         auto obs = ar["objects"].elements();
@@ -515,16 +522,49 @@ namespace fin
         _grid_texture.resize(_grid_surface.size());
     }
 
+    void Scene::open()
+    {
+        auto files = open_file_dialog("", "");
+        if (!files.empty())
+        {
+            msg::Pack pack;
+            int size{};
+            auto *txt = LoadFileData(files[0].c_str(), &size);
+            pack.data().assign(txt, txt + size);
+            UnloadFileData(txt);
+            auto ar = pack.get();
+            deserialize(ar);
+        }
+    }
+
+    void Scene::save()
+    {
+        auto out = save_file_dialog("", "");
+        if (!out.empty())
+        {
+            msg::Pack pack;
+            serialize(pack);
+            auto ar = pack.data();
+            SaveFileData(out.c_str(), pack.data().data(), pack.data().size());
+        }
+    }
+
     void Scene::on_imgui_props()
     {
         switch (_mode)
         {
         case edit_mode::map:
-            on_imgui_props_map(); break;
+            on_imgui_props_map();
+            break;
         case edit_mode::navmesh:
-            on_imgui_props_navmesh(); break;
+            on_imgui_props_navmesh();
+            break;
         case edit_mode::objects:
-            on_imgui_props_object(); break;
+            on_imgui_props_object();
+            break;
+        case edit_mode::prototype:
+            on_imgui_props_prototype();
+            break;
         }
     }
 
@@ -588,37 +628,6 @@ namespace fin
 
     void Scene::on_imgui_props_map()
     {
-        if (ImGui::CollapsingHeader("File", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (ImGui::Button("Open##opscne"))
-            {
-                auto files = open_file_dialog("", "");
-                if (!files.empty())
-                {
-                    msg::Pack pack;
-                    int size{};
-                    auto* txt = LoadFileData(files[0].c_str(), &size);
-                    pack.data().assign(txt, txt + size);
-                    UnloadFileData(txt);
-                    auto ar = pack.get();
-                    deserialize(ar);
-                }
-            }
-
-            ImGui::SameLine();
-            if (ImGui::Button("Save##svescne"))
-            {
-                auto out = save_file_dialog("", "");
-                if (!out.empty())
-                {
-                    msg::Pack pack;
-                    serialize(pack);
-                    auto ar = pack.data();
-                    SaveFileData(out.c_str(), pack.data().data(), pack.data().size());
-                }
-            }
-        }
-
         if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::Button("Import##opbgp"))
@@ -664,6 +673,35 @@ namespace fin
             ImGui::EndChildFrame();
         }
 
+    }
+
+    void Scene::on_imgui_props_prototype()
+    {
+        if (ImGui::CollapsingHeader("Catalogue", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (ImGui::BeginCombo("Catalogue##catcb", _catalogue ? _catalogue->path().c_str() : ""))
+            {
+                auto files = open_file_dialog("", "");
+                if (!files.empty())
+                {
+                    _catalogue = Catalogue::load_shared(files[0]);
+                }
+                ImGui::CloseCurrentPopup();
+                ImGui::EndCombo();
+            }
+
+            if (ImGui::BeginCombo("Prototype##prtcb", ""))
+            {
+                ImGui::Button("New");
+
+                ImGui::EndCombo();
+            }
+        }
+
+        if (ImGui::CollapsingHeader("Sprite", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+
+        }
     }
 
     void Scene::on_imgui_menu()
@@ -712,15 +750,45 @@ namespace fin
         if (ImGui::BeginTabItem("Objects"))
         {
             _mode = edit_mode::objects;
-            ImGui::Checkbox("Show bounding box", &_debug_draw_object);
+            ImGui::Checkbox("Show bounding box##shwobj", &_debug_draw_object);
             ImGui::SameLine();
+            ImGui::Dummy({16, 1});
+            ImGui::EndTabItem();
+        }
 
+        if (ImGui::BeginTabItem("Prototype"))
+        {
+            _mode = edit_mode::prototype;
+            ImGui::Checkbox("Show prototype##shwprt", &_debug_draw_prototype);
+            ImGui::SameLine();
+            ImGui::Dummy({16, 1});
             ImGui::EndTabItem();
         }
     }
 
     void Scene::on_imgui_workspace()
     {
+        if (_mode == edit_mode::prototype)
+        {
+            Params params;
+            ImVec2 visible_size = ImGui::GetContentRegionAvail();
+            params.pos = ImGui::GetWindowPos();
+            auto cur = ImGui::GetCursorPos();
+            params.dc = ImGui::GetWindowDrawList();
+            auto mpos = ImGui::GetMousePos();
+            params.mouse = {mpos.x - params.pos.x + ImGui::GetScrollX(),
+                            mpos.y - params.pos.y + ImGui::GetScrollY()};
+            params.scroll = {ImGui::GetScrollX(), ImGui::GetScrollY()};
+            params.pos.x -= ImGui::GetScrollX();
+            params.pos.y -= ImGui::GetScrollY();
+
+            ImGui::InvisibleButton("Canvas", ImVec2(2000, 2000));
+            on_imgui_workspace_prototype(params);
+            return;
+        }
+
+
+
         auto size = get_scene_size();
         if (size.x && size.y)
         {
@@ -839,7 +907,17 @@ namespace fin
     {
     }
 
-    Vec2f Scene::GetCentroid(const CDT::Triangle* tri) const
+    void Scene::on_imgui_workspace_prototype(Params &params)
+    {
+        params.pos.x += 1000;
+        params.pos.y += 1000;
+        params.dc->AddLine(params.pos - ImVec2(0, 1000), params.pos + ImVec2(0, 1000), 0x7f00ff00);
+        params.dc->AddLine(params.pos - ImVec2(1000, 0), params.pos + ImVec2(1000, 0), 0x7f0000ff);
+
+
+    }
+
+    Vec2f Scene::GetCentroid(const CDT::Triangle *tri) const
     {
         auto a = _cdt.vertices[tri->vertices[0]];
         auto b = _cdt.vertices[tri->vertices[1]];

@@ -1,5 +1,6 @@
 #include "shared_resource.hpp"
 #include "atlas.hpp"
+#include "prototype.hpp"
 
 namespace fin
 {
@@ -12,6 +13,8 @@ struct SharedResource
         _textures;
     std::unordered_map<std::string, std::weak_ptr<Surface>, std::string_hash, std::equal_to<>>
         _surfaces;
+    std::unordered_map<std::string, std::weak_ptr<Catalogue>, std::string_hash, std::equal_to<>>
+        _cataloques;
 };
 
 static SharedResource _shared_res;
@@ -82,6 +85,16 @@ Surface Surface::create_sub_surface(int x, int y, int w, int h) const
               WHITE);
 
     return out;
+}
+
+const unsigned char *Surface::data() const
+{
+    return (const unsigned char *)surface.data;
+}
+
+int Surface::get_data_size() const
+{
+    return GetPixelDataSize(surface.width, surface.height, surface.format);
 }
 
 std::shared_ptr<Surface> Surface::load_shared(std::string_view pth)
@@ -234,6 +247,19 @@ std::shared_ptr<Atlas> Atlas::load_shared(std::string_view pth)
 
     auto ptr = std::make_shared<Atlas>();
     _shared_res._atlases[std::string(pth)] = ptr;
+    ptr->load_from_file(pth);
+
+    return ptr;
+}
+
+std::shared_ptr<Catalogue> Catalogue::load_shared(std::string_view pth)
+{
+    auto it = _shared_res._cataloques.find(pth);
+    if (it != _shared_res._cataloques.end() && !it->second.expired())
+        return it->second.lock();
+
+    auto ptr = std::make_shared<Catalogue>();
+    _shared_res._cataloques[std::string(pth)] = ptr;
     ptr->load_from_file(pth);
 
     return ptr;

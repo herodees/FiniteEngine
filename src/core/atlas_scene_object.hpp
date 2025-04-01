@@ -25,6 +25,9 @@ namespace fin
         bool load_atlas(std::string_view path);
         bool load_sprite(std::string_view path);
 
+        Atlas *get_atlas();
+        Atlas::sprite *get_sprite();
+
     protected:
         std::shared_ptr<Atlas> _atlas;
         Atlas::sprite* _spr{};
@@ -32,7 +35,7 @@ namespace fin
 
 
 
-    inline void AtlasSceneObject::render(Renderer& dc)
+    inline void AtlasSceneObject::render(Renderer &dc)
     {
         if (!_atlas || !_spr)
             return;
@@ -72,6 +75,16 @@ namespace fin
             set_sprite(& _atlas->get(n));
         }
         return !!_spr;
+    }
+
+    inline Atlas *AtlasSceneObject::get_atlas()
+    {
+        return _atlas.get();
+    }
+
+    inline Atlas::sprite *AtlasSceneObject::get_sprite()
+    {
+        return _spr;
     }
 
     inline void AtlasSceneObject::serialize(msg::Writer& ar)

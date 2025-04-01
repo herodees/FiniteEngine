@@ -1,5 +1,6 @@
 #include "file_editor.hpp"
 #include "atlas_scene_editor.hpp"
+#include "catalogue_editor.hpp"
 
 namespace fin
 {
@@ -22,6 +23,9 @@ FileEdit *FileEdit::create_editor_from_file(std::string_view filename)
 
     if (ext == ".atlas")
         return create_editor<AtlasFileEdit>(filename);
+
+    if (ext == ".cat")
+        return create_editor<CatalogueFileEdit>(filename);
 
     return nullptr;
 }

@@ -135,6 +135,21 @@ public:
         }
 
         ImGui::End();
+
+
+
+
+        if (!ImGui::Begin("Setup"))
+        {
+            ImGui::End();
+            return;
+        }
+
+        if (editor && editor->on_setup())
+        {
+        }
+
+        ImGui::End();
     }
 };
 

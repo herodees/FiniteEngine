@@ -4,6 +4,7 @@
 #include "raymath.h"
 
 // ImGui
+#define IMGUI_DEFINE_MATH_OPERATORS
 #include "rlImGui.h"
 
 // Utils

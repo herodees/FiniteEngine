@@ -310,9 +310,11 @@ namespace fin
 
                 if (ImGui::MenuItem("Open"))
                 {
+                    _map.open();
                 }
                 if (ImGui::MenuItem("Save"))
                 {
+                    _map.save();
                 }
                 if (ImGui::MenuItem("Save as") || open_save_as)
                 {
@@ -327,12 +329,6 @@ namespace fin
     void application::on_imgui_dialogs()
     {
         _explorer.render();
-
-        if (!ImGui::Begin("Setup")) {
-            ImGui::End();
-            return;
-        }
-        ImGui::End();
     }
 
     void application::on_imgui_workspace()
