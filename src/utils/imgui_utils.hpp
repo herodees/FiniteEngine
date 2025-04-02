@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 #include "misc/cpp/imgui_stdlib.h"
+#include "msgvar.hpp"
 
 namespace ImGui
 {
@@ -12,4 +13,6 @@ const char *FormatStr(const char *fmt, ...);
 
 void SetDragData(void *d);
 void *GetDragData();
+
+bool InputJsonSchema(const fin::msg::Var &schema, fin::msg::Var &data);
 }

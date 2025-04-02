@@ -171,6 +171,7 @@ namespace fin::msg
             void             set_item(std::string_view key, auto v) { set_item(key, Var(v)); }
             void             set_item(std::string_view key, const Var& v);
 
+            bool             contains(std::string_view def) const;
             Var              find(std::string_view key_path); // dot separated path a.b.c. ...
 
             void             make_array(uint32_t s);
@@ -654,6 +655,19 @@ namespace fin::msg
             ++_arr->_size;
             new(&_arr->_data[_arr->_size]) Var(v);
             ++_arr->_size;
+        }
+
+        inline bool Var::contains(std::string_view key) const
+        {
+            if (_tag != Tag::Object)
+                return false;
+            auto *eit = _arr->_data + _arr->_size;
+            for (auto *it = _arr->_data; it != eit; it += 2)
+            {
+                if (key == it->c_str())
+                    return true;
+            }
+            return false;
         }
 
         inline Var Var::find(std::string_view key_path)

@@ -743,6 +743,8 @@ namespace fin
         if (ImGui::CollapsingHeader("Prototype", ImGuiTreeNodeFlags_DefaultOpen))
         {
             ImGui::InputText("Name", &current->_name);
+
+         //   ImGui::InputJsonSchema("", current->_params);
         }
     }
 

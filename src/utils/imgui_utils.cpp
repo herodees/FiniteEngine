@@ -32,6 +32,109 @@ void *GetDragData()
     return s_drag_data;
 }
 
+bool InputJsonSchema(const fin::msg::Var &schema, fin::msg::Var &data)
+{
+    bool modified = false;
+
+    for (auto& el : schema.members())
+    {
+        if (!el.second.contains("type"))
+            continue;
+
+        auto type = el.second["type"].str();
+        auto key = el.first.str();
+
+        ImGui::Text("%s", el.first.c_str());
+        ImGui::SameLine();
+
+        if (type == "string")
+        {
+            std::string str_value = data[key].get("");
+            if (ImGui::InputText(key.data(), &str_value))
+            {
+                data[key] = str_value;
+                modified = true;
+            }
+        }
+        else if (type == "number")
+        {
+            float num_value = data[key].get(0.0f);
+            if (ImGui::InputFloat(key.data(), &num_value))
+            {
+                data[key] = num_value;
+                modified = true;
+            }
+        }
+        else if (type == "integer")
+        {
+            int int_value = data[key].get(0);
+            if (ImGui::InputInt(key.data(), &int_value))
+            {
+                data[key] = int_value;
+                modified = true;
+            }
+        }
+        else if (type == "boolean")
+        {
+            bool bool_value = data[key].get(false);
+            if (ImGui::Checkbox(key.data(), &bool_value))
+            {
+                data[key] = bool_value;
+                modified = true;
+            }
+        }
+        else if (type == "array" && el.second.contains("items"))
+        {
+            if (!data[key].is_array())
+            {
+                fin::msg::Var arr;
+                arr.make_array(1);
+                data[key] = arr;
+            }
+
+            auto data_key = data[key];
+            ImGui::Text("Array:");
+            ImGui::Indent();
+            for (size_t i = 0; i < data_key.size(); ++i)
+            {
+                ImGui::PushID(i);
+                auto item = data_key[i];
+                modified |= InputJsonSchema(el.second["items"], item);
+                if (ImGui::Button("Remove"))
+                {
+                    data_key.erase(i);
+                    modified = true;
+                }
+                ImGui::PopID();
+            }
+            if (ImGui::Button("Add"))
+            {
+                fin::msg::Var obj;
+                obj.make_object(1);
+                data_key.push_back(obj);
+                modified = true;
+            }
+            ImGui::Unindent();
+        }
+        else if (type == "object" && el.second.contains("properties"))
+        {
+            if (!data[key].is_object())
+            {
+                fin::msg::Var obj;
+                obj.make_object(1);
+                data[key] = obj;
+            }
+
+            ImGui::Text("Object:");
+            ImGui::Indent();
+            auto item = data[key];
+            modified |= InputJsonSchema(el.second["properties"], item);
+            ImGui::Unindent();
+        }
+    }
+    return modified;
+}
+
 bool OpenFileInput(const char *label, std::string &path, const char *filter)
 {
     bool ret{};
