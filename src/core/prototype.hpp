@@ -4,9 +4,10 @@
 
 namespace fin
 {
-    class Prototype
+    struct Prototype
     {
-    public:
+        std::string _name;
+        int32_t _type{};
     };
 
 
@@ -20,11 +21,15 @@ namespace fin
         void unload();
 
         uint32_t size() const;
+        Prototype *get(uint32_t n);
+        Prototype *create();
+
         const std::string &path() const;
 
         static std::shared_ptr<Catalogue> load_shared(std::string_view pth);
 
     protected:
+        std::vector<Prototype> _items;
         std::string _path;
         mutable msg::Var _data;
     };

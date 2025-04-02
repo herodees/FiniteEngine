@@ -35,7 +35,17 @@ void Catalogue::unload()
 
 uint32_t Catalogue::size() const
 {
-    return _data["items"].size();
+    return _items.size();
+}
+
+Prototype *Catalogue::get(uint32_t n)
+{
+    return &_items[n];
+}
+
+Prototype *Catalogue::create()
+{
+    return &_items.emplace_back();
 }
 
 const std::string &Catalogue::path() const

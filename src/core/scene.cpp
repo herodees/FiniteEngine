@@ -677,6 +677,8 @@ namespace fin
 
     void Scene::on_imgui_props_prototype()
     {
+        Prototype *current;
+
         if (ImGui::CollapsingHeader("Catalogue", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::BeginCombo("Catalogue##catcb", _catalogue ? _catalogue->path().c_str() : ""))
@@ -690,17 +692,57 @@ namespace fin
                 ImGui::EndCombo();
             }
 
-            if (ImGui::BeginCombo("Prototype##prtcb", ""))
+            if (!_catalogue)
+                return;
+
+            if (ImGui::Combo("Type",
+                             &_active_prototype_type,
+                             "Props\0NPCs\0Lights\0Shadows\0Chests\0"))
+                _active_prototype = -1;
+
+            if (ImGui::BeginCombo("Prototype##prtcb",
+                                  _active_prototype >= _catalogue->size()
+                                      ? ""
+                                      : _catalogue->get(_active_prototype)->_name.c_str()))
             {
-                ImGui::Button("New");
+                if (ImGui::Button("New"))
+                {
+                    _active_prototype = _catalogue->size();
+                    current = _catalogue->create();
+                    current->_name = ImGui::FormatStr("Proto_%p", current);
+                    current->_type = _active_prototype_type;
+                    ImGui::CloseCurrentPopup();
+                }
+
+                for (uint32_t n = 0; n < _catalogue->size(); ++n)
+                {
+                    auto* proto = _catalogue->get(n);
+                    if (_active_prototype_type != proto->_type)
+                        continue;
+
+                    ImGui::PushID(n);
+                    if (ImGui::Selectable(proto->_name.c_str(), n == _active_prototype))
+                    {
+                        _active_prototype = n;
+                    }
+                    ImGui::PopID();
+                }
 
                 ImGui::EndCombo();
             }
         }
 
-        if (ImGui::CollapsingHeader("Sprite", ImGuiTreeNodeFlags_DefaultOpen))
-        {
+        if (!_catalogue)
+            return;
 
+        if (_active_prototype >= _catalogue->size())
+            return;
+
+        current = _catalogue->get(_active_prototype);
+
+        if (ImGui::CollapsingHeader("Prototype", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::InputText("Name", &current->_name);
         }
     }
 

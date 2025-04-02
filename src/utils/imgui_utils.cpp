@@ -1,6 +1,7 @@
 
 #include "utils/dialog_utils.hpp"
 #include "imgui_utils.hpp"
+#include "misc/cpp/imgui_stdlib.cpp"
 
 namespace ImGui
 {

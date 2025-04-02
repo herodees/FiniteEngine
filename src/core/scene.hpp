@@ -99,6 +99,8 @@ namespace fin
         lq::SpatialDatabase _spatial_db;
         SceneObject* _edit_object{};
 
+        int32_t _active_prototype_type{};
+        uint32_t _active_prototype{0};
         int32_t _active_point{-1};
         bool _add_point{};
         bool _move_point{};
