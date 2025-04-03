@@ -3,6 +3,7 @@
 #include "core/prototype.hpp"
 #include "core/atlas_scene_object.hpp"
 #include "file_editor.hpp"
+#include "json_editor.hpp"
 
 namespace fin
 {
@@ -17,11 +18,46 @@ public:
 
     std::shared_ptr<Catalogue> _cat;
     AtlasSceneObject _object;
+
+    msg::Var _data;
+
+    JsonEdit _edit;
 };
 
 inline bool CatalogueFileEdit::on_init(std::string_view path)
 {
+    auto *sch = R"(
+    {
+        "type" : "object",
+        "properties" :
+        {
+            "id" : { "type" : "integer" },
+            "name" :  { "type" : "string" },
+            "value" :  { "type" : "number" },
+            "visible" :  { "type" : "boolean" },
+            "color" :  { "type" : "color" },
+            "street": { "enum": ["Street", "Avenue", "Boulevard"] },
+            "obj" :
+            {
+                "type" : "object",
+                "properties" :
+                {
+                    "id" : { "type" : "integer" },
+                    "name" :  { "type" : "string" }
+                }
+            },
+            "tags": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+        }
+    }
+        )";
+
     _cat = Catalogue::load_shared(path);
+    _edit.schema(sch);
 
     return _cat.get();
 }
@@ -47,6 +83,8 @@ inline bool CatalogueFileEdit::on_edit()
 
 inline bool CatalogueFileEdit::on_setup()
 {
+    _edit.show(_data);
+
     return false;
 }
 

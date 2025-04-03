@@ -38,14 +38,9 @@ bool InputJsonSchema(const fin::msg::Var &schema, fin::msg::Var &data)
 
     for (auto& el : schema.members())
     {
-        if (!el.second.contains("type"))
-            continue;
-
-        auto type = el.second["type"].str();
+        auto tp = el.second["type"];
+        auto type = tp.str();
         auto key = el.first.str();
-
-        ImGui::Text("%s", el.first.c_str());
-        ImGui::SameLine();
 
         if (type == "string")
         {

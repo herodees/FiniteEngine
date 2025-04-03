@@ -32,4 +32,44 @@ struct string_hash
     }
 };
 
+inline uint32_t hex_char_to_uint(char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return 0; // Invalid character (should handle errors in real cases)
+}
+
+inline uint32_t hex_to_color(std::string_view hex, uint32_t def = 0)
+{
+    if (hex.size() < 9 || hex [0] != '#')
+        return def;
+
+    uint32_t result = 0;
+
+    for (int i = 1; i <= 8; i++)
+    {
+        result = (result << 4) | hex_char_to_uint(hex[i]);
+    }
+
+    return result;
+}
+
+inline std::string color_to_hex(uint32_t value)
+{
+    const char hexDigits[] = "0123456789ABCDEF";
+    std::string result = "#00000000"; // Preallocate string
+
+    for (int i = 7; i >= 0; --i)
+    {
+        result[1 + i] = hexDigits[value & 0xF]; // Extract last hex digit
+        value >>= 4;                            // Shift right by 4 bits (one hex digit)
+    }
+
+    return result;
+}
+
 } // namespace std
