@@ -43,7 +43,7 @@ inline uint32_t hex_char_to_uint(char c)
     return 0; // Invalid character (should handle errors in real cases)
 }
 
-inline uint32_t hex_to_color(std::string_view hex, uint32_t def = 0)
+inline uint32_t hex_to_color(string_view hex, uint32_t def = 0)
 {
     if (hex.size() < 9 || hex [0] != '#')
         return def;
@@ -58,10 +58,10 @@ inline uint32_t hex_to_color(std::string_view hex, uint32_t def = 0)
     return result;
 }
 
-inline std::string color_to_hex(uint32_t value)
+inline string color_to_hex(uint32_t value)
 {
     const char hexDigits[] = "0123456789ABCDEF";
-    std::string result = "#00000000"; // Preallocate string
+    string result = "#00000000"; // Preallocate string
 
     for (int i = 7; i >= 0; --i)
     {
@@ -70,6 +70,30 @@ inline std::string color_to_hex(uint32_t value)
     }
 
     return result;
+}
+
+inline optional<int> view_to_int(string_view str)
+{
+    int value = 0;
+    auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), value);
+
+    if (ec == errc())
+    {
+        return value; // Successful conversion
+    }
+    return nullopt; // Return empty optional if conversion fails
+}
+
+inline optional<float> view_to_float(string_view str)
+{
+    float value = 0;
+    auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), value);
+
+    if (ec == errc())
+    {
+        return value; // Successful conversion
+    }
+    return nullopt; // Return empty optional if conversion fails
 }
 
 } // namespace std

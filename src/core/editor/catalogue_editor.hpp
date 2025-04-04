@@ -31,20 +31,24 @@ inline bool CatalogueFileEdit::on_init(std::string_view path)
         "type" : "object",
         "properties" :
         {
-            "id" : { "type" : "integer" },
-            "name" :  { "type" : "string" },
-            "value" :  { "type" : "number" },
-            "visible" :  { "type" : "boolean" },
+            "id" : { "type" : "integer", "minimum" : 0, "description": "Test value for int var" },
+            "name" :  { "type" : "string", "title" : "Name" },
+            "sprite" :  { "type" : "sprite",  "title" : "Sprite" },
+            "value" :  { "type" : "number", "minimum" : 0.0 },
+            "visible" :  { "type" : "boolean", "default":true },
             "color" :  { "type" : "color" },
             "street": { "enum": ["Street", "Avenue", "Boulevard"] },
             "obj" :
             {
                 "type" : "object",
+                "title" : "Object",
                 "properties" :
                 {
                     "id" : { "type" : "integer" },
-                    "name" :  { "type" : "string" }
-                }
+                    "name" :  { "type" : "string" },
+                    "item" : { "$ref" : "#/$def/item_t" }
+                },
+                "description": "Test value for int var"
             },
             "tags": {
                   "type": "array",
@@ -52,6 +56,20 @@ inline bool CatalogueFileEdit::on_init(std::string_view path)
                     "type": "string"
                   }
                 }
+        },
+        "$def" :
+        {
+            "item_t" :
+             {
+                 "type" : "object",
+                 "title" : "Object",
+                 "properties" :
+                 {
+                     "id" : { "type" : "integer" },
+                     "name" :  { "type" : "string" }
+                 },
+                 "description": "Test value for int var"
+             }
         }
     }
         )";

@@ -672,16 +672,25 @@ namespace fin::msg
 
         inline Var Var::find(std::string_view key_path)
         {
-            size_t pos = key_path.find('.');
+            size_t pos = key_path.find('/');
             std::string_view key = key_path;
-            Var              ret(*this);
+            Var ret(*this);
 
             while (pos != std::string_view::npos)
             {
                 key = key.substr(0, pos);
-                ret      = ret.get_item(key);
+                if (ret.is_object())
+                    ret = ret.get_item(key);
+                else if (ret.is_array())
+                {
+                    uint32_t value = 0;
+                    auto [ptr, ec] = std::from_chars(key.data(), key.data() + key.size(), value);
+                    ret = ret.get_item(value);
+                }
+                else
+                    return {};
                 key_path = key_path.substr(pos + 1);
-                pos      = key_path.find('.');
+                pos = key_path.find('/');
             }
             return ret.get_item(key_path);
         }

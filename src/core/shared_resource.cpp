@@ -252,6 +252,27 @@ std::shared_ptr<Atlas> Atlas::load_shared(std::string_view pth)
     return ptr;
 }
 
+std::pair<std::shared_ptr<Atlas>, Atlas::sprite *> Atlas::load_shared_sprite(std::string_view pth)
+{
+    auto pos = pth.rfind(',');
+    if (pos == std::string_view::npos)
+    {
+        return { load_shared(pth), nullptr };
+    }
+
+    auto fullpath = pth.substr(0, pos);
+    auto atl = load_shared(fullpath);
+    if (atl)
+    {
+        auto spr = pth.substr(pos + 1);
+        if (auto n = atl->find_sprite(spr))
+        {
+            return {atl, &atl->get(n+1)};
+        }
+    }
+    return {atl, nullptr};
+}
+
 std::shared_ptr<Catalogue> Catalogue::load_shared(std::string_view pth)
 {
     auto it = _shared_res._cataloques.find(pth);

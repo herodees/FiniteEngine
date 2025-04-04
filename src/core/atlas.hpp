@@ -51,6 +51,7 @@ namespace fin
         const Texture2D& texture() const;
 
         static std::shared_ptr<Atlas> load_shared(std::string_view pth);
+        static std::pair<std::shared_ptr<Atlas>, Atlas::sprite *> load_shared_sprite(std::string_view pth);
 
     protected:
         bool load(msg::Value ar);
@@ -116,69 +117,65 @@ namespace fin
             }
         }
 
-        auto* txt = texture().get_texture();
+        auto *txt = texture().get_texture();
         auto txt_size = texture().get_size();
 
-        if (items.is_array())
+        for (auto &el : items.elements())
         {
-            for (auto& el : items.elements())
-            {
-                auto& spr = _sprites.emplace_back();
-                spr._name = el["id"].str();
-                spr._source.x = (float)el["x"].get(0);
-                spr._source.y = (float)el["y"].get(0);
-                spr._source.width = (float)el["w"].get(0);
-                spr._source.height = (float)el["h"].get(0);
-                spr._origina.x = (float)el["oxa"].get(0);
-                spr._origina.y = (float)el["oya"].get(0);
-                spr._originb.x = (float)el["oxb"].get(0);
-                spr._originb.y = (float)el["oyb"].get(0);
-                spr._texture = txt;
-            }
+            auto &spr = _sprites.emplace_back();
+            spr._name = el["id"].str();
+            spr._source.x = (float)el["x"].get(0);
+            spr._source.y = (float)el["y"].get(0);
+            spr._source.width = (float)el["w"].get(0);
+            spr._source.height = (float)el["h"].get(0);
+            spr._origina.x = (float)el["oxa"].get(0);
+            spr._origina.y = (float)el["oya"].get(0);
+            spr._originb.x = (float)el["oxb"].get(0);
+            spr._originb.y = (float)el["oyb"].get(0);
+            spr._texture = txt;
         }
 
-        if (composites.is_array())
+        for (auto &el : composites.elements())
         {
-            for (auto& el : composites.elements())
-            {
-                auto& cmp = _composites.emplace_back();
-                auto  els = el["items"];
-                cmp._name = el["id"].str();
-                cmp._texture = txt;
-                cmp._begin = cmp._end = (vertex*)_mesh.size();
+            auto &cmp = _composites.emplace_back();
+            auto els = el["items"];
+            cmp._name = el["id"].str();
+            cmp._texture = txt;
+            cmp._begin = cmp._end = (vertex *)_mesh.size();
 
-                for (auto& s : els.elements())
+            for (auto &s : els.elements())
+            {
+                if (auto sprid = find_sprite(s["s"].str()))
                 {
-                    if (auto sprid = find_sprite(s["s"].str()))
-                    {
-                        auto& spr = get(sprid);
-                        matrix2d tr({ (float)s["x"].get_number(0), (float)s["y"].get_number(0) },
-                            { (float)s["sx"].get_number(1.), (float)s["sy"].get_number(1.) },
-                            spr._origina,
-                            (float)s["r"].get_number(0));
+                    auto &spr = get(sprid);
+                    matrix2d tr({(float)s["x"].get_number(0), (float)s["y"].get_number(0)},
+                                {(float)s["sx"].get_number(1.), (float)s["sy"].get_number(1.)},
+                                spr._origina,
+                                (float)s["r"].get_number(0));
 
-                        vertex vtx[4];
-                        vtx[0].uv.x = spr._source.x / txt_size.width;
-                        vtx[0].uv.y = spr._source.y / txt_size.height;
-                        vtx[2].uv.x = spr._source.x2() / txt_size.width;
-                        vtx[2].uv.y = spr._source.y2() / txt_size.height;
-                        vtx[1].uv.x = vtx[0].uv.x;
-                        vtx[1].uv.y = vtx[2].uv.y;
-                        vtx[3].uv.x = vtx[2].uv.x;
-                        vtx[3].uv.y = vtx[0].uv.y;
-                        vtx[0].position = tr.transform_point(Vec2f());
-                        vtx[1].position = tr.transform_point(Vec2f(0, spr._source.height));
-                        vtx[2].position = tr.transform_point(Vec2f(spr._source.width, spr._source.height));
-                        vtx[2].position = tr.transform_point(Vec2f(spr._source.width, 0));
-                        _mesh.push_back(vtx[0]);
-                        _mesh.push_back(vtx[1]);
-                        _mesh.push_back(vtx[2]);
-                        _mesh.push_back(vtx[3]);
-                    }
-                    cmp._end = (vertex*)_mesh.size();
+                    vertex vtx[4];
+                    vtx[0].uv.x = spr._source.x / txt_size.width;
+                    vtx[0].uv.y = spr._source.y / txt_size.height;
+                    vtx[2].uv.x = spr._source.x2() / txt_size.width;
+                    vtx[2].uv.y = spr._source.y2() / txt_size.height;
+                    vtx[1].uv.x = vtx[0].uv.x;
+                    vtx[1].uv.y = vtx[2].uv.y;
+                    vtx[3].uv.x = vtx[2].uv.x;
+                    vtx[3].uv.y = vtx[0].uv.y;
+                    vtx[0].position = tr.transform_point(Vec2f());
+                    vtx[1].position = tr.transform_point(Vec2f(0, spr._source.height));
+                    vtx[2].position =
+                        tr.transform_point(Vec2f(spr._source.width, spr._source.height));
+                    vtx[2].position = tr.transform_point(Vec2f(spr._source.width, 0));
+                    _mesh.push_back(vtx[0]);
+                    _mesh.push_back(vtx[1]);
+                    _mesh.push_back(vtx[2]);
+                    _mesh.push_back(vtx[3]);
                 }
+                cmp._end = (vertex *)_mesh.size();
             }
         }
+        
 
         for (auto& el : _composites)
         {

@@ -998,12 +998,16 @@ namespace fin
 
         inline ValMembers Value::members() const
         {
-            return ValMembers(first(), last());
+            if (is_object())
+                return ValMembers(first(), last());
+            return ValMembers(Value(), Value());
         }
 
         inline ValElements Value::elements() const
         {
-            return ValElements(first(), last());
+            if (is_array())
+                return ValElements(first(), last());
+            return ValElements(Value(), Value());
         }
 
         inline bool Value::to_string(std::string& s) const
