@@ -341,6 +341,13 @@ namespace fin
         {
             _map.on_imgui_menu();
 
+            _show_editor = false;
+            if (ImGui::BeginTabItem("Prototype"))
+            {
+                _show_editor = true;
+                ImGui::EndTabItem();
+            }
+
             ImGui::EndTabBar();
         }
 
@@ -349,10 +356,14 @@ namespace fin
         if (ImGui::BeginChildFrame(-1, { -1,-1 },
             ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar))
         {
-            _map.on_imgui_workspace();
-
-
-
+            if (_show_editor)
+            {
+                _prototypes.show_workspace();
+            }
+            else
+            {
+                _map.on_imgui_workspace();
+            }
         }
         ImGui::EndChildFrame();
 
@@ -366,10 +377,18 @@ namespace fin
             return;
         }
 
-        _map.on_imgui_props();
+        if (_show_editor)
+        {
+            _prototypes.show_props();
+        }
+        else
+        {
+            _map.on_imgui_props();
+        }
 
         ImGui::End();
     }
 
- 
+
+
 }

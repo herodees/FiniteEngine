@@ -1,0 +1,21 @@
+{
+    "title": "NPC",
+    "description": "Base NPCs and others",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string"
+        },
+        "gender": {
+            "enum": [
+                "male",
+                "female",
+                "nil"
+            ]
+        },
+        "age": {
+            "type": "integer",
+            "minimum": 0
+        }
+    }
+}

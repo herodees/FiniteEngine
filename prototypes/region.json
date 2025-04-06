@@ -1,0 +1,14 @@
+{
+    "title": "Region",
+    "description": "Base items",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string"
+        },
+        "value": {
+            "type": "integer",
+            "minimum": 0
+        }
+    }
+}

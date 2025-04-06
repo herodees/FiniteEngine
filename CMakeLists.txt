@@ -21,6 +21,21 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+
+
+# Required for file globbing and add_custom_command
+set(GENERATED_HEADER "${CMAKE_BINARY_DIR}/generated/json_blobs.hpp")
+
+add_custom_command(
+    OUTPUT ${GENERATED_HEADER}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/json_folder_to_combined_header.py
+            ${CMAKE_SOURCE_DIR}/prototypes ${GENERATED_HEADER}
+    DEPENDS ${CMAKE_SOURCE_DIR}/prototypes/*.json ${CMAKE_SOURCE_DIR}/tools/json_folder_to_combined_header.py
+    COMMENT "Generating combined json_blobs.hpp"
+)
+
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Define PROJECT_INCLUDE to be the path to the include directory of the project
 set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src")
@@ -177,3 +192,11 @@ foreach(FILE ${SRC_FILES})
     string(REPLACE "/" "\\" GROUP_NAME "${GROUP_NAME}")
     source_group("${GROUP_NAME}" FILES "${FILE}")
 endforeach()
+
+
+add_custom_target(generate_json_blobs ALL DEPENDS ${GENERATED_HEADER})
+add_dependencies(${PROJECT_NAME} generate_json_blobs)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/generated)
+
+# Find Python (needed for script)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)

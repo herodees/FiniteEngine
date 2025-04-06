@@ -562,9 +562,6 @@ namespace fin
         case edit_mode::objects:
             on_imgui_props_object();
             break;
-        case edit_mode::prototype:
-            on_imgui_props_prototype();
-            break;
         }
     }
 
@@ -675,81 +672,10 @@ namespace fin
 
     }
 
-    void Scene::on_imgui_props_prototype()
-    {
-        Prototype *current;
-
-        if (ImGui::CollapsingHeader("Catalogue", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (ImGui::BeginCombo("Catalogue##catcb", _catalogue ? _catalogue->path().c_str() : ""))
-            {
-                auto files = open_file_dialog("", "");
-                if (!files.empty())
-                {
-                    _catalogue = Catalogue::load_shared(files[0]);
-                }
-                ImGui::CloseCurrentPopup();
-                ImGui::EndCombo();
-            }
-
-            if (!_catalogue)
-                return;
-
-            if (ImGui::Combo("Type",
-                             &_active_prototype_type,
-                             "Props\0NPCs\0Lights\0Shadows\0Chests\0"))
-                _active_prototype = -1;
-
-            if (ImGui::BeginCombo("Prototype##prtcb",
-                                  _active_prototype >= _catalogue->size()
-                                      ? ""
-                                      : _catalogue->get(_active_prototype)->_name.c_str()))
-            {
-                if (ImGui::Button("New"))
-                {
-                    _active_prototype = _catalogue->size();
-                    current = _catalogue->create();
-                    current->_name = ImGui::FormatStr("Proto_%p", current);
-                    current->_type = _active_prototype_type;
-                    ImGui::CloseCurrentPopup();
-                }
-
-                for (uint32_t n = 0; n < _catalogue->size(); ++n)
-                {
-                    auto* proto = _catalogue->get(n);
-                    if (_active_prototype_type != proto->_type)
-                        continue;
-
-                    ImGui::PushID(n);
-                    if (ImGui::Selectable(proto->_name.c_str(), n == _active_prototype))
-                    {
-                        _active_prototype = n;
-                    }
-                    ImGui::PopID();
-                }
-
-                ImGui::EndCombo();
-            }
-        }
-
-        if (!_catalogue)
-            return;
-
-        if (_active_prototype >= _catalogue->size())
-            return;
-
-        current = _catalogue->get(_active_prototype);
-
-        if (ImGui::CollapsingHeader("Prototype", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            ImGui::InputText("Name", &current->_name);
-
-         //   ImGui::InputJsonSchema("", current->_params);
-        }
-    }
-
     void Scene::on_imgui_menu()
     {
+        _mode = edit_mode::undefined;
+
         if (ImGui::BeginTabItem("Map"))
         {
             _mode = edit_mode::map;
@@ -800,39 +726,10 @@ namespace fin
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Prototype"))
-        {
-            _mode = edit_mode::prototype;
-            ImGui::Checkbox("Show prototype##shwprt", &_debug_draw_prototype);
-            ImGui::SameLine();
-            ImGui::Dummy({16, 1});
-            ImGui::EndTabItem();
-        }
     }
 
     void Scene::on_imgui_workspace()
     {
-        if (_mode == edit_mode::prototype)
-        {
-            Params params;
-            ImVec2 visible_size = ImGui::GetContentRegionAvail();
-            params.pos = ImGui::GetWindowPos();
-            auto cur = ImGui::GetCursorPos();
-            params.dc = ImGui::GetWindowDrawList();
-            auto mpos = ImGui::GetMousePos();
-            params.mouse = {mpos.x - params.pos.x + ImGui::GetScrollX(),
-                            mpos.y - params.pos.y + ImGui::GetScrollY()};
-            params.scroll = {ImGui::GetScrollX(), ImGui::GetScrollY()};
-            params.pos.x -= ImGui::GetScrollX();
-            params.pos.y -= ImGui::GetScrollY();
-
-            ImGui::InvisibleButton("Canvas", ImVec2(2000, 2000));
-            on_imgui_workspace_prototype(params);
-            return;
-        }
-
-
-
         auto size = get_scene_size();
         if (size.x && size.y)
         {
@@ -949,16 +846,6 @@ namespace fin
 
     void Scene::on_imgui_workspace_map(Params& params)
     {
-    }
-
-    void Scene::on_imgui_workspace_prototype(Params &params)
-    {
-        params.pos.x += 1000;
-        params.pos.y += 1000;
-        params.dc->AddLine(params.pos - ImVec2(0, 1000), params.pos + ImVec2(0, 1000), 0x7f00ff00);
-        params.dc->AddLine(params.pos - ImVec2(1000, 0), params.pos + ImVec2(1000, 0), 0x7f0000ff);
-
-
     }
 
     Vec2f Scene::GetCentroid(const CDT::Triangle *tri) const
