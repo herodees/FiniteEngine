@@ -297,44 +297,13 @@ namespace fin
             }
         }
 
-        if (_debug_draw_grid)
-        {
-            Color clr{ 255, 255, 0, 255 };
-            dc.set_color(clr);
-            for (int y = minpos.y; y < maxpos.y; ++y)
-            {
-                dc.render_line((float)minpos.x * tile_size, (float)y * tile_size, 
-                    (float)maxpos.x * tile_size, (float)y * tile_size);
-            }
-
-            for (int x = minpos.x; x < maxpos.x; ++x)
-            {
-                dc.render_line((float)x * tile_size, (float)minpos.y * tile_size,
-                    (float)x * tile_size, (float)maxpos.y * tile_size);
-            }
-        }
-
-        if (_debug_draw_navmesh)
-        {
-            Color clr(255, 0, 0, 255);
-            dc.set_color(clr);
-            for (auto& el : _cdt.triangles)
-            {
-                dc.render_line(_cdt.vertices[el.vertices[0]].x, _cdt.vertices[el.vertices[0]].y,
-                    _cdt.vertices[el.vertices[1]].x, _cdt.vertices[el.vertices[1]].y);
-                dc.render_line(_cdt.vertices[el.vertices[1]].x, _cdt.vertices[el.vertices[1]].y,
-                    _cdt.vertices[el.vertices[2]].x, _cdt.vertices[el.vertices[2]].y);
-                dc.render_line(_cdt.vertices[el.vertices[2]].x, _cdt.vertices[el.vertices[2]].y,
-                    _cdt.vertices[el.vertices[0]].x, _cdt.vertices[el.vertices[0]].y);
-            }
-        }
-
         dc.set_color(WHITE);
         for (auto *obj : _iso)
         {
             if (!obj->_ptr->is_hidden())
                 obj->_ptr->render(dc);
         }
+
 
         if (_debug_draw_object)
         {
@@ -345,6 +314,39 @@ namespace fin
                 dc.render_debug_text({obj->_origin.point1.x + 16, obj->_origin.point1.y + 16},
                                      "%d",
                                      obj->_depth);
+            }
+        }
+
+        if (_debug_draw_navmesh)
+        {
+            Color clr(128, 128, 128, 255);
+            dc.set_color(clr);
+
+            auto edges = _pathfinder.GetEdgesForDebug();
+            for (auto& el : edges)
+            {
+                dc.render_line(el.b, el.e);
+            }
+        }
+
+        if (_debug_draw_grid)
+        {
+            Color clr{255, 255, 0, 255};
+            dc.set_color(clr);
+            for (int y = minpos.y; y < maxpos.y; ++y)
+            {
+                dc.render_line((float)minpos.x * tile_size,
+                               (float)y * tile_size,
+                               (float)maxpos.x * tile_size,
+                               (float)y * tile_size);
+            }
+
+            for (int x = minpos.x; x < maxpos.x; ++x)
+            {
+                dc.render_line((float)x * tile_size,
+                               (float)minpos.y * tile_size,
+                               (float)x * tile_size,
+                               (float)maxpos.y * tile_size);
             }
         }
 

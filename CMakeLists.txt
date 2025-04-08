@@ -22,6 +22,8 @@ set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
+# Find Python (needed for script)
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
 # Required for file globbing and add_custom_command
 set(GENERATED_HEADER "${CMAKE_BINARY_DIR}/generated/json_blobs.hpp")
@@ -56,6 +58,8 @@ add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/raylib-extras/rlImGui" rlIm
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/cdt")
 
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/navmesh")
+
 set(BUILD_SHARED_LIBS FALSE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
 set(BUILD_GAMES OFF CACHE BOOL "" FORCE) # don't build the supplied example games
@@ -87,7 +91,6 @@ if (APPLE)
     find_library(CORE_VIDEO_LIBRARY CoreVideo)
 
     target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE})
-    target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/external/portable-file-dialogs")
 
     find_library(ANGLE_GLESv2_DLL libGLESv2.dylib PATHS ${ANGLE_DIR})
     if(NOT ANGLE_GLESv2_DLL)
@@ -104,7 +107,7 @@ if (APPLE)
     endif()
 
     # Define PROJECT_SOURCES as a list of all source files
-    target_link_libraries(${PROJECT_NAME} PRIVATE raylib imgui rlImGui CDT::CDT ${COCOA_LIBRARY} ${OPENGL_LIBRARY} ${IOKIT_LIBRARY} ${CORE_FOUNDATION_LIBRARY} ${CORE_VIDEO_LIBRARY})
+    target_link_libraries(${PROJECT_NAME} PRIVATE raylib imgui navmesh rlImGui CDT::CDT ${COCOA_LIBRARY} ${OPENGL_LIBRARY} ${IOKIT_LIBRARY} ${CORE_FOUNDATION_LIBRARY} ${CORE_VIDEO_LIBRARY})
 
     # Copy the MacOS Angle libraries to the build directory
     file(COPY "${ANGLE_DIR}/" DESTINATION "${CMAKE_BINARY_DIR}")
@@ -116,7 +119,6 @@ elseif (WIN32)
     # Define PROJECT_SOURCES as a list of all source files
 
     target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INCLUDE} )
-    target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/external/portable-file-dialogs")
 
     find_library(ANGLE_GLESv2_DLL libGLESv2.dll.lib PATHS ${ANGLE_LIB_DIR})
     if(NOT ANGLE_GLESv2_DLL)
@@ -132,7 +134,7 @@ elseif (WIN32)
         message(STATUS "Found ANGLE_EGL_DLL: ${ANGLE_EGL_DLL}")
     endif()
 
-    target_link_libraries(${PROJECT_NAME} PRIVATE raylib imgui rlImGui CDT::CDT ${ANGLE_GLESv2_DLL} ${ANGLE_EGL_DLL})
+    target_link_libraries(${PROJECT_NAME} PRIVATE raylib imgui navmesh rlImGui CDT::CDT ${ANGLE_GLESv2_DLL} ${ANGLE_EGL_DLL})
 
     # Copy the Win64 Angle libraries to the build directory
     if (MSVC)
@@ -197,6 +199,6 @@ endforeach()
 add_custom_target(generate_json_blobs ALL DEPENDS ${GENERATED_HEADER})
 add_dependencies(${PROJECT_NAME} generate_json_blobs)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_BINARY_DIR}/generated)
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/external/portable-file-dialogs")
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/external/navmesh")
 
-# Find Python (needed for script)
-find_package(Python3 COMPONENTS Interpreter REQUIRED)

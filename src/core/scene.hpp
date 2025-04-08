@@ -4,6 +4,7 @@
 #include "shared_resource.hpp"
 #include "scene_object.hpp"
 #include "renderer.hpp"
+#include "path_finder.h"
 #include "CDT.h"
 #include "prototype.hpp"
 
@@ -95,6 +96,7 @@ namespace fin
         std::vector<Vec2f> _navmesh_points;
         std::vector<SceneObject*> _scene;
         lq::SpatialDatabase _spatial_db;
+        NavMesh::PathFinder _pathfinder;
         SceneObject* _edit_object{};
 
         int32_t _active_prototype_type{};
