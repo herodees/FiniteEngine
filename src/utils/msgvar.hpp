@@ -177,6 +177,9 @@ namespace fin::msg
             void             make_array(uint32_t s);
             void             make_object(uint32_t s);
 
+            static Var       array(uint32_t s);
+            static Var       object(uint32_t s);
+
             uint32_t         size() const;
             void             clear();
 
@@ -749,6 +752,20 @@ namespace fin::msg
                 _arr = MsgCreate<ArrData>();
             }
             _arr->reserve(s * 2);
+        }
+
+        inline Var Var::array(uint32_t s)
+        {
+            Var v;
+            v.make_array(s);
+            return v;
+        }
+
+        inline Var Var::object(uint32_t s)
+        {
+            Var v;
+            v.make_object(s);
+            return v;
         }
 
         inline Var Var::operator[](uint32_t n)

@@ -31,7 +31,7 @@ set(GENERATED_HEADER "${CMAKE_BINARY_DIR}/generated/json_blobs.hpp")
 add_custom_command(
     OUTPUT ${GENERATED_HEADER}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/json_folder_to_combined_header.py
+    COMMAND python ${CMAKE_SOURCE_DIR}/tools/json_folder_to_combined_header.py
             ${CMAKE_SOURCE_DIR}/prototypes ${GENERATED_HEADER}
     DEPENDS ${CMAKE_SOURCE_DIR}/prototypes/*.json ${CMAKE_SOURCE_DIR}/tools/json_folder_to_combined_header.py
     COMMENT "Generating combined json_blobs.hpp"

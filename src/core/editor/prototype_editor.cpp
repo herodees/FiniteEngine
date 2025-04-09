@@ -48,6 +48,27 @@ bool PrototypeEditor::show_props()
 
 bool PrototypeEditor::show_workspace()
 {
+    if (_active_tab >= _data.size())
+        return false;
+    if (_active_item >= _data[_active_tab].size())
+        return false;
+
+    auto object = _data[_active_tab].get_item(_active_item);
+    auto scene_object = object.get_item(SceneObjId);
+    auto sprite_info = scene_object.get_item("spr");
+    std::shared_ptr<Atlas> atlas_ptr;
+    Atlas::sprite *atlas_spr{};
+    if (sprite_info.is_array())
+    {
+        auto atl_path = sprite_info.get_item(0);
+        auto spr_path = sprite_info.get_item(1);
+        atlas_ptr = Atlas::load_shared(atl_path.str());
+        if (atlas_ptr)
+            if (auto n = atlas_ptr->find_sprite(spr_path.str()))
+                atlas_spr = &atlas_ptr->get(n);
+
+    }
+
     Scene::Params params;
 
     ImVec2 visible_size = ImGui::GetContentRegionAvail();
@@ -62,9 +83,20 @@ bool PrototypeEditor::show_workspace()
     params.pos.y -= ImGui::GetScrollY();
 
     ImGui::InvisibleButton("Canvas", ImVec2(2000, 2000));
-
     params.pos.x += 1000;
     params.pos.y += 1000;
+
+    if (atlas_spr)
+    {
+        ImVec2 txs(atlas_spr->_texture->width, atlas_spr->_texture->height);
+        params.dc->AddImage((ImTextureID)atlas_spr->_texture,
+            {params.pos.x - atlas_spr->_origina.x, params.pos.y - atlas_spr->_origina.y},
+            {params.pos.x + atlas_spr->_source.width - atlas_spr->_origina.x,
+             params.pos.y + atlas_spr->_source.height - atlas_spr->_origina.y},
+                            {atlas_spr->_source.x / txs.x, atlas_spr->_source.y / txs.y},
+                            {atlas_spr->_source.x2() / txs.x, atlas_spr->_source.y2() / txs.y});
+    }
+
     params.dc->AddLine(params.pos - ImVec2(0, 1000), params.pos + ImVec2(0, 1000), 0x7f00ff00);
     params.dc->AddLine(params.pos - ImVec2(1000, 0), params.pos + ImVec2(1000, 0), 0x7f0000ff);
 
@@ -73,7 +105,7 @@ bool PrototypeEditor::show_workspace()
 
 bool PrototypeEditor::show_proto_props()
 {
-    auto sel = _prototypes[_active_tab].second.get_item("@sel").get(0);
+    _active_item = _prototypes[_active_tab].second.get_item("@sel").get(0);
 
     if (ImGui::Button("Add"))
     {
@@ -86,19 +118,19 @@ bool PrototypeEditor::show_proto_props()
     ImGui::SameLine();
     if (ImGui::Button("Del"))
     {
-        if (sel < _data[_active_tab].size())
-            _data[_active_tab].erase(sel);
+        if (_active_item < _data[_active_tab].size())
+            _data[_active_tab].erase(_active_item);
     }
 
-    if (ImGui::BeginChildFrame(1, { -1,150 }))
+    if (ImGui::BeginChildFrame(1, { -1, 150 }))
     {
         int32_t n = 0;
         for (auto el : _data[_active_tab].elements())
         {
             ImGui::PushID(n);
-            if (ImGui::Selectable(_prototypes[_active_tab].first.c_str(), sel == n))
+            if (ImGui::Selectable(_prototypes[_active_tab].first.c_str(), _active_item == n))
             {
-                sel = n;
+                _active_item = n;
             }
             ImGui::PopID();
             ++n;
@@ -106,10 +138,10 @@ bool PrototypeEditor::show_proto_props()
     }
     ImGui::EndChildFrame();
 
-    if (sel < _data[_active_tab].size())
+    if (_active_item < _data[_active_tab].size())
     {
-        _prototypes[_active_tab].second.set_item("@sel", sel);
-        auto obj = _data[_active_tab].get_item(sel);
+        _prototypes[_active_tab].second.set_item("@sel", _active_item);
+        auto obj = _data[_active_tab].get_item(_active_item);
         return _json_edit.show(obj);
     }
 

@@ -106,7 +106,7 @@ namespace fin
         colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.45f, 0.20f, 0.30f, 0.78f);
         colors[ImGuiCol_ResizeGripActive] = ImVec4(0.45f, 0.20f, 0.30f, 1.00f);
         colors[ImGuiCol_Tab] = ImVec4(0.45f, 0.20f, 0.30f, 0.76f);
-        colors[ImGuiCol_TabHovered] = ImVec4(0.45f, 0.20f, 0.30f, 0.86f);
+        colors[ImGuiCol_TabHovered] = ImVec4(0.45f, 0.20f, 0.30f, 0.96f);
         colors[ImGuiCol_TabActive] = ImVec4(0.50f, 0.07f, 0.25f, 1.00f);
         colors[ImGuiCol_TabUnfocused] = ImVec4(0.07f, 0.10f, 0.15f, 0.97f);
         colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.45f, 0.20f, 0.30f, 1.00f);

@@ -1,7 +1,7 @@
 {
     "title": "NPC",
     "description": "Base NPCs and others",
-    "type": "object",
+    "type": "scene",
     "properties": {
         "name": {
             "type": "string"

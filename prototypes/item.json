@@ -8,7 +8,19 @@
         },
         "value": {
             "type": "integer",
+            "format": "slider",
             "minimum": 0
+        },
+        "value2": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+        },
+        "sprite": {
+            "type": "sprite"
+        },
+        "points": {
+            "type": "point_array"
         }
     }
 }

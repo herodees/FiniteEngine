@@ -7,10 +7,12 @@
 namespace fin
 {
 
+constexpr std::string_view SceneObjId("$scn");
+
 class JsonEdit
 {
 public:
-    JsonEdit() = default;
+    JsonEdit();
     virtual ~JsonEdit() = default;
 
     bool show(msg::Var &data);
@@ -42,10 +44,14 @@ protected:
 
     bool show_array(msg::Var &sch, msg::Var &dat);
     bool show_object(msg::Var &sch, msg::Var &dat);
+    bool show_scene_object(msg::Var &sch, msg::Var &dat);
+    bool show_points(msg::Var &sch, Val &value, std::string_view key);
+    bool show_sprite(msg::Var &sch, Val &value, std::string_view key);
     bool show_schema(msg::Var &sch, Val &value, std::string_view key);
 
     msg::Var *_root{};
     msg::Var _schema;
+    msg::Var _scene_schema;
     std::string _buffer;
     std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _atlases;
 };
