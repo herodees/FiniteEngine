@@ -220,9 +220,9 @@ bool JsonEdit::show_sprite(msg::Var &sch, Val &value, std::string_view title)
         ImGui::SameLine();
         ImGui::BeginGroup();
         {
-            if (ImGui::OpenFileInput(title.data(),
+            if (ImGui::OpenFileName(title.data(),
                                      _buffer,
-                                     "Atlas file|*.atlas|JSON atlas|*.json|All items|*"))
+                                     ".atlas"))
             {
                 if (!spr.is_array())
                 {

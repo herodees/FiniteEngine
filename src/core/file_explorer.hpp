@@ -136,9 +136,6 @@ public:
 
         ImGui::End();
 
-
-
-
         if (!ImGui::Begin("Setup"))
         {
             ImGui::End();

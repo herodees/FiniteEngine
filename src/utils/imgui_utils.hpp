@@ -16,4 +16,7 @@ const char *FormatStr(const char *fmt, ...);
 void SetDragData(void *d);
 void *GetDragData();
 
+bool FileMenu(const char *label, std::string &path, const char *filter);
+bool OpenFileName(const char *label, std::string &path, const char *filter);
+
 }
