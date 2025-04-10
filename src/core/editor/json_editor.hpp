@@ -8,6 +8,7 @@ namespace fin
 {
 
 constexpr std::string_view SceneObjId("$scn");
+constexpr std::string_view ObjId("$id");
 
 class JsonEdit
 {
@@ -52,6 +53,7 @@ protected:
     msg::Var *_root{};
     msg::Var _schema;
     msg::Var _scene_schema;
+    msg::Var _default_schema;
     std::string _buffer;
     std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _atlases;
 };

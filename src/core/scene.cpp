@@ -8,64 +8,8 @@ namespace fin
 {
     constexpr int32_t tile_size(512);
 
-    // Function to generate the scene boundary and hole vertices
-    void generateMapWithHole(std::vector<CDT::V2d<float>>& vertices, std::vector<CDT::Edge>& edges, float map_size, float hole_size) {
-        // Map boundary (4 corners of the large rectangle)
-        vertices.push_back(CDT::V2d<float>(0, 0)); // Bottom-left
-        vertices.push_back(CDT::V2d<float>(map_size, 0)); // Bottom-right
-        vertices.push_back(CDT::V2d<float>(map_size, map_size)); // Top-right
-        vertices.push_back(CDT::V2d<float>(0, map_size)); // Top-left
-
-        // Add edges for the boundary of the scene (outer rectangle)
-        edges.push_back(CDT::Edge(0, 1)); // Bottom edge
-        edges.push_back(CDT::Edge(1, 2)); // Right edge
-        edges.push_back(CDT::Edge(2, 3)); // Top edge
-        edges.push_back(CDT::Edge(3, 0)); // Left edge
-
-        // Hole dimensions and position (centered in the scene)
-        float hole_left = (map_size - hole_size) / 2;
-        float hole_right = hole_left + hole_size;
-        float hole_bottom = (map_size - hole_size) / 2;
-        float hole_top = hole_bottom + hole_size;
-
-        // Hole boundary vertices (4 corners)
-        int hole_offset = vertices.size();
-        vertices.push_back(CDT::V2d<float>(hole_left, hole_bottom)); // Bottom-left of hole
-        vertices.push_back(CDT::V2d<float>(hole_right, hole_bottom)); // Bottom-right of hole
-        vertices.push_back(CDT::V2d<float>(hole_right, hole_top)); // Top-right of hole
-        vertices.push_back(CDT::V2d<float>(hole_left, hole_top)); // Top-left of hole
-
-        // Hole edges (to be inserted as constraints)
-        edges.push_back(CDT::Edge(hole_offset, hole_offset + 1)); // Bottom edge of hole
-        edges.push_back(CDT::Edge(hole_offset + 1, hole_offset + 2)); // Right edge of hole
-        edges.push_back(CDT::Edge(hole_offset + 2, hole_offset + 3)); // Top edge of hole
-        edges.push_back(CDT::Edge(hole_offset + 3, hole_offset)); // Left edge of hole
-    }
-
-
-
     Scene::Scene()
     {
-    }
-
-    bool Scene::build_graph()
-    {
-        decltype(_cdt.vertices) vec;
-        vec.swap(_cdt.vertices);
-
-        _cdt = CDT::Triangulation<float>();
-        //   _cdt.insertVertices(vec);
-          // _cdt.eraseSuperTriangle();
-        //   _cdt.eraseOuterTrianglesAndHoles();
-
-
-        std::vector<CDT::V2d<float>> vertices;
-        std::vector<CDT::Edge> edges;
-        generateMapWithHole(vertices, edges, 600, 100);
-        _cdt.insertVertices(vertices);
-        _cdt.insertEdges(edges);
-        _cdt.eraseOuterTrianglesAndHoles();
-        return true;
     }
 
     bool Scene::setup_background_texture(const std::filesystem::path& file)
@@ -103,25 +47,6 @@ namespace fin
     const float& getX_V2d(const Vec2f& v) { return v.x; }
     const float& getY_V2d(const Vec2f& v) { return v.y; }
 
-    bool Scene::setup_navmesh()
-    {
-        if (_navmesh_points.size() < 4)
-            return true;
-
-        _cdt = CDT::Triangulation<float>();
-        _cdt.insertVertices(_navmesh_points.begin(), _navmesh_points.end(), getX_V2d, getY_V2d);
-
-        std::vector<CDT::Edge> edges;
-        edges.push_back({ 0,1 });
-        edges.push_back({ 1,2 });
-        edges.push_back({ 2,3 });
-        edges.push_back({ 3,0 });
-        _cdt.insertEdges(edges);
-
-        _cdt.eraseOuterTrianglesAndHoles();
-        //  _cdt.eraseSuperTriangle();
-        return true;
-    }
 
     void Scene::activate_grid(const Recti& screen)
     {
@@ -573,28 +498,10 @@ namespace fin
         {
             if (ImGui::Button(" Delete "))
             {
-                if ((size_t)_active_point < _navmesh_points.size())
-                {
-                    _navmesh_points[_active_point] = _navmesh_points.back();
-                    _navmesh_points.pop_back();
-                }
             }
 
             if (ImGui::BeginChildFrame(-1, { -1, -1 }, 0))
             {
-                ImGuiListClipper clipper;
-                clipper.Begin(_navmesh_points.size());
-                while (clipper.Step())
-                {
-                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
-                    {
-                        auto& el = _navmesh_points[n];
-                        if (ImGui::Selectable(ImGui::FormatStr("%f x %f", el.x, el.y), _active_point == n))
-                        {
-                            _active_point = n;
-                        }
-                    }
-                }
 
             }
             ImGui::EndChildFrame();
@@ -700,20 +607,10 @@ namespace fin
             }
 
             ImGui::SameLine();
-            if (ImGui::Button(" Generate "))
-            {
-                setup_navmesh();
-            }
-            ImGui::SameLine();
             ImGui::Dummy({ 16,1 });
             ImGui::SameLine();
             if (ImGui::Button(" Delete "))
             {
-                if ((size_t)_active_point < _navmesh_points.size())
-                {
-                    _navmesh_points[_active_point] = _navmesh_points.back();
-                    _navmesh_points.pop_back();
-                }
             }
 
             ImGui::EndTabItem();
@@ -771,48 +668,6 @@ namespace fin
     void Scene::on_imgui_workspace_navmesh(Params& params)
     {
 
-        int32_t hover_point = -1;
-        for (int32_t n = 0; n < (int32_t)_navmesh_points.size(); ++n)
-        {
-            auto el = _navmesh_points[n];
-
-            params.dc->AddCircle({ params.pos.x + el.x, params.pos.y + el.y }, 5, n == _active_point ? 0xff00ffff : 0xffffffff, 6);
-
-            if (el.distance_squared({ params.mouse.x, params.mouse.y }) < 5 * 5)
-            {
-                hover_point = n;
-            }
-        }
-
-        if (ImGui::IsItemClicked(0))
-        {
-            if (_add_point) {
-                _navmesh_points.push_back({ params.mouse.x, params.mouse.y });
-            }
-            else {
-                _active_point = hover_point;
-                _move_point = true;
-            }
-        }
-
-        if (ImGui::IsMouseDown(0))
-        {
-            if ((size_t)_active_point < _navmesh_points.size())
-            {
-                auto el = _navmesh_points[_active_point];
-                auto drag = ImGui::GetMouseDragDelta(0);
-                params.dc->AddCircle({ drag.x + params.pos.x + el.x, drag.y + params.pos.y + el.y }, 5, 0xff00ffff, 6);
-            }
-        }
-        else
-        {
-            if (_move_point && (size_t)_active_point < _navmesh_points.size())
-            {
-                auto drag = ImGui::GetMouseDragDelta(0);
-                _navmesh_points[_active_point] += drag;
-            }
-            _move_point = false;
-        }
     }
 
     void Scene::on_imgui_workspace_object(Params& params)
@@ -849,276 +704,6 @@ namespace fin
     void Scene::on_imgui_workspace_map(Params& params)
     {
     }
-
-    Vec2f Scene::GetCentroid(const CDT::Triangle *tri) const
-    {
-        auto a = _cdt.vertices[tri->vertices[0]];
-        auto b = _cdt.vertices[tri->vertices[1]];
-        auto c = _cdt.vertices[tri->vertices[2]];
-        return { (a.x + b.x + c.x) / 3.0f,
-        (a.y + b.y + c.y) / 3.0f };
-    }
-
-    bool Scene::Contains(const Vec2f& point, const CDT::Triangle& tri) const
-    {
-        auto a = _cdt.vertices[tri.vertices[0]];
-        auto b = _cdt.vertices[tri.vertices[2]];
-        auto c = _cdt.vertices[tri.vertices[1]];
-
-        auto as_x = point.x - a.x;
-        auto as_y = point.y - a.y;
-
-        bool s_ab = (b.x - a.x) * as_y - (b.y - a.y) * as_x > 0;
-
-        if ((c.x - a.x) * as_y - (c.y - a.y) * as_x > 0 == s_ab)
-            return false;
-        if ((c.x - b.x) * (point.y - b.y) - (c.y - b.y) * (point.x - b.x) > 0 != s_ab)
-            return false;
-        return true;
-    }
-
-
-    const CDT::Triangle* Scene::FindTriangle(const Vec2f& point)
-    {
-        for (auto& tri : _cdt.triangles) {
-            if (Contains(point, tri)) {
-                return &tri;
-            }
-        }
-        return nullptr;
-    }
-
-    void Scene::AddPoint(Vec2f p)
-    {
-        CDT::V2d<float> pos{ p.x, p.y };
-
-        if (std::find(_cdt.vertices.begin(), _cdt.vertices.end(), pos) == _cdt.vertices.end())
-        {
-            decltype(_cdt.vertices) vec;
-            vec.swap(_cdt.vertices);
-            vec.push_back(pos);
-
-            _cdt = CDT::Triangulation<float>();
-            _cdt.insertVertices(vec);
-            _cdt.eraseSuperTriangle();
-
-            build_graph();
-        }
-    }
-
-    std::vector<const CDT::Triangle*> Scene::FindPath(Vec2f start, Vec2f goal)
-    {
-        struct PathNode
-        {
-            const CDT::Triangle* triangle;
-            float g_cost, h_cost;
-            PathNode* parent;
-
-            float FCost() const { return g_cost + h_cost; }
-        };
-
-        struct CompareFCost {
-            bool operator()(const PathNode* a, const PathNode* b) const {
-                return a->FCost() > b->FCost();
-            }
-        };
-
-        const CDT::Triangle* startTri = FindTriangle(start);
-        const CDT::Triangle* goalTri = FindTriangle(goal);
-        if (!startTri || !goalTri) return {};
-
-        std::priority_queue<PathNode*, std::vector<PathNode*>, CompareFCost> openSet;
-        std::unordered_map<const CDT::Triangle*, PathNode> allNodes;
-
-        allNodes[startTri] = { startTri, 0.0f, GetCentroid(startTri).distance(goal), nullptr };
-        openSet.push(&allNodes[startTri]);
-
-        while (!openSet.empty())
-        {
-            PathNode* current = openSet.top();
-            openSet.pop();
-
-            if (current->triangle == goalTri)
-            {
-                std::vector<const CDT::Triangle*> path;
-                while (current)
-                {
-                    path.push_back(current->triangle);
-                    current = current->parent;
-                }
-                std::reverse(path.begin(), path.end());
-                return path;
-            }
-
-            for (auto tr : current->triangle->neighbors)
-            {
-                if (tr == -1)continue;
-                CDT::Triangle* neighbor = &_cdt.triangles[tr];
-
-                float gCost = current->g_cost + GetCentroid(current->triangle).distance(GetCentroid(neighbor));
-                float hCost = GetCentroid(neighbor).distance(goal);
-
-                if (!allNodes.count(neighbor) || gCost < allNodes[neighbor].g_cost)
-                {
-                    allNodes[neighbor] = { neighbor, gCost, hCost, current };
-                    openSet.push(&allNodes[neighbor]);
-                }
-            }
-        }
-        return {};
-    }
-
-    bool Scene::FindSharedEdge(const CDT::Triangle& tri1, const CDT::Triangle* tri2, Vec2f& outStart, Vec2f& outEnd)
-    {
-        if (!tri2) return false; // No neighbor -> no shared edge
-
-        for (int i = 0; i < 3; ++i) {
-            auto a = tri1.vertices[i];
-            auto b = tri1.vertices[(i + 1) % 3];
-
-            for (int j = 0; j < 3; ++j) {
-                auto c = tri2->vertices[j];
-                auto d = tri2->vertices[(j + 1) % 3];
-
-                if ((a == c && b == d) || (a == d && b == c)) {
-                    outStart = _cdt.vertices[a];
-                    outEnd = _cdt.vertices[b];
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-
-    std::vector<std::pair<Vec2f, Vec2f>>  Scene::ExtractPortals(
-        const std::vector<const CDT::Triangle*>& trianglePath,
-        Vec2f start, Vec2f goal)
-    {
-        std::vector<std::pair<Vec2f, Vec2f>> portals;
-
-        // Add a portal from the start point to the first shared edge
-        if (trianglePath.size() > 1) {
-            Vec2f edgeStart, edgeEnd;
-            if (FindSharedEdge(*trianglePath[0], trianglePath[1], edgeStart, edgeEnd)) {
-                //     portals.push_back({ start, start });
-                portals.push_back({ edgeStart, edgeEnd });
-            }
-        }
-
-        // Extract shared edges between adjacent triangles
-        for (int i = 1; i < (int)trianglePath.size() - 1; ++i) {
-            Vec2f edgeStart, edgeEnd;
-            if (FindSharedEdge(*trianglePath[i], trianglePath[i + 1], edgeStart, edgeEnd)) {
-                portals.push_back({ edgeStart, edgeEnd });
-            }
-        }
-
-        // Add the goal as the last portal
-        portals.push_back({ goal, goal });
-
-        return portals;
-    }
-
-    void Scene::EnsureCorrectPortalOrder(std::vector<std::pair<Vec2f, Vec2f>>& portals, Vec2f start) {
-        Vec2f prev = start;  // Start position
-
-        for (auto& portal : portals) {
-            Vec2f left = portal.first;
-            Vec2f right = portal.second;
-
-            Vec2f direction = left - prev;  // Path direction
-            Vec2f edge = right - left;      // Portal edge direction
-
-            // Check if the left point is actually on the left
-            if (direction.cross(edge) < 0.0f) {
-                std::swap(portal.first, portal.second); // Swap left and right if order is wrong
-            }
-
-            prev = (left + right) * 0.5f;  // Move to next portal (approximate midpoint)
-        }
-    }
-
-    std::vector<Vec2f> Scene::ComputeSmoothPath(const std::vector<std::pair<Vec2f, Vec2f>>& portals, Vec2f start)
-    {
-        std::vector<Vec2f> path;
-        path.reserve(portals.size() + 1);
-        path.push_back(start);
-
-        Vec2f apex = start;
-        Vec2f left = portals[0].first;
-        Vec2f right = portals[0].second;
-        size_t apexIndex = 0, leftIndex = 0, rightIndex = 0;
-
-        for (size_t i = 1; i < portals.size(); ++i) {
-            Vec2f newLeft = portals[i].first;
-            Vec2f newRight = portals[i].second;
-
-            // Pre-calculate difference vectors relative to the current apex.
-            Vec2f dNewLeft = newLeft - apex;
-            Vec2f dLeft = left - apex;
-            Vec2f dRight = right - apex;
-
-            // Check if the new left vertex is outside the funnel (i.e., not clearly left of the current right boundary)
-            float crossNewLeftRight = dNewLeft.cross(dRight);
-            if (crossNewLeftRight >= 0.0f) {
-                float crossNewLeftLeft = dNewLeft.cross(dLeft);
-                if (crossNewLeftLeft <= 0.0f) {
-                    // New left is still to the left of the left boundary: update left.
-                    left = newLeft;
-                    leftIndex = i;
-                }
-                else {
-                    // Funnel collapse on left: update the apex.
-                    apex = left;
-                    apexIndex = leftIndex;
-                    path.push_back(apex);
-
-                    // Reset the funnel boundaries starting from the new apex.
-                    left = apex;
-                    right = apex;
-                    leftIndex = apexIndex;
-                    rightIndex = apexIndex;
-
-                    // Reprocess this portal by setting i back.
-                    i = apexIndex;
-                    continue;
-                }
-            }
-
-            // Pre-calculate difference vector for new right.
-            Vec2f dNewRight = newRight - apex;
-            float crossNewRightLeft = dNewRight.cross(dLeft);
-            if (crossNewRightLeft <= 0.0f) {
-                float crossNewRightRight = dNewRight.cross(dRight);
-                if (crossNewRightRight >= 0.0f) {
-                    // New right is still to the right of the right boundary: update right.
-                    right = newRight;
-                    rightIndex = i;
-                }
-                else {
-                    // Funnel collapse on right: update the apex.
-                    apex = right;
-                    apexIndex = rightIndex;
-                    path.push_back(apex);
-
-                    // Reset the funnel boundaries.
-                    left = apex;
-                    right = apex;
-                    leftIndex = apexIndex;
-                    rightIndex = apexIndex;
-
-                    // Reprocess this portal by setting i back.
-                    i = apexIndex;
-                    continue;
-                }
-            }
-        }
-        // Append the final endpoint from the last portal.
-        path.push_back(portals.back().first);
-        return path;
-    }
-
 
     int32_t Scene::IsoObject::depth_get()
     {

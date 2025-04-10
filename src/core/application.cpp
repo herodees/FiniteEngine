@@ -12,10 +12,6 @@ namespace fin
 {
     application::application() 
     {
-        _map.AddPoint({ 0, 0 });
-        _map.AddPoint({ 800, 0 });
-        _map.AddPoint({ 800, 600 });
-        _map.AddPoint({ 0, 600 });
 
     }
 

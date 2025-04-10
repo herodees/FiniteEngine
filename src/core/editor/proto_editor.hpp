@@ -17,6 +17,7 @@ public:
 
     AtlasSceneObject _object;
     msg::Var _data;
+    std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _atlases;
 };
 
 inline bool ProtoFileEdit::on_init(std::string_view path)
@@ -56,12 +57,37 @@ inline bool ProtoFileEdit::on_edit()
     {
         for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++)
         {
-            auto obj = _data.get_item(row_n).get_item(SceneObjId);
-            auto label = obj.get_item("id");
-
             // Display a data item
             ImGui::PushID(row_n);
-            ImGui::Selectable(label.c_str());
+
+            auto obj = _data.get_item(row_n).get_item(ObjId);
+            auto scn = _data.get_item(row_n).get_item(SceneObjId);
+            if (scn.is_object())
+            {
+                auto sprite = scn.get_item("spr");
+                if (sprite.is_array())
+                {
+                    auto it = _atlases.find(sprite.get_item(0).str());
+                    if (it == _atlases.end())
+                    {
+                        _atlases[sprite.get_item(0).c_str()] =
+                            Atlas::load_shared(sprite.get_item(0).str());
+                    }
+                    else if (auto n = it->second->find_sprite(sprite.get_item(1).str()))
+                    {
+                        auto &sp = it->second->get(n);
+                        ImGui::Image(
+                            (ImTextureID)sp._texture,
+                            {24, 24},
+                            {sp._source.x / sp._texture->width, sp._source.y / sp._texture->height},
+                            {sp._source.x2() / sp._texture->width,
+                             sp._source.y2() / sp._texture->height});
+                        ImGui::SameLine();
+                    }
+                }
+            }
+
+            ImGui::Selectable(obj.c_str());
             ImGui::PopID();
         }
     }

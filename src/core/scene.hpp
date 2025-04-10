@@ -5,7 +5,6 @@
 #include "scene_object.hpp"
 #include "renderer.hpp"
 #include "path_finder.h"
-#include "CDT.h"
 
 namespace fin
 {
@@ -38,10 +37,8 @@ namespace fin
         };
 
         Scene();
-        bool build_graph();
 
         bool setup_background_texture(const std::filesystem::path& file);
-        bool setup_navmesh();
         void activate_grid(const Recti& screen);
         Vec2i get_active_grid_min() const;
         Vec2i get_active_grid_max() const;
@@ -77,23 +74,12 @@ namespace fin
         void on_imgui_workspace_object(Params& params);
         void on_imgui_workspace_map(Params& params);
 
-        void AddPoint(Vec2f pos);
-        std::vector<const CDT::Triangle*> FindPath(Vec2f start, Vec2f goal);
-        bool FindSharedEdge(const CDT::Triangle& tri, const CDT::Triangle* neighbor, Vec2f& outStart, Vec2f& outEnd);
-        std::vector<std::pair<Vec2f, Vec2f>> ExtractPortals(const std::vector<const CDT::Triangle*>& trianglePath, Vec2f start, Vec2f goal);
-        void EnsureCorrectPortalOrder(std::vector<std::pair<Vec2f, Vec2f>>& portals, Vec2f start);
-        std::vector<Vec2f> ComputeSmoothPath(const std::vector<std::pair<Vec2f, Vec2f>>& portals, Vec2f start);
-        const CDT::Triangle* FindTriangle(const Vec2f& point);
-        Vec2f GetCentroid(const CDT::Triangle* tri) const;
-        bool Contains(const Vec2f& point, const CDT::Triangle& tri) const;
-
         uint32_t _iso_pool_size{};
         std::vector<Texture2D> _grid_texture;
         std::vector<Surface> _grid_surface;
         std::vector<IsoObject> _iso_pool;
         std::vector<IsoObject*> _iso;
         std::vector<std::pair<size_t, bool>> _grid_active;
-        std::vector<Vec2f> _navmesh_points;
         std::vector<SceneObject*> _scene;
         lq::SpatialDatabase _spatial_db;
         NavMesh::PathFinder _pathfinder;
@@ -111,7 +97,6 @@ namespace fin
 
         Recti _active_region;
         Vec2i _grid_size;
-        CDT::Triangulation<float> _cdt;
         RenderTexture2D _canvas;
     };
 }

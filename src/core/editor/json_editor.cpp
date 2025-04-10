@@ -7,8 +7,7 @@ namespace fin
         {
             "type" : "object",
             "properties" : {
-                "id" : { "type" : "string" },
-                "spr" : { "type" : "sprite" },
+                "spr" : { "type" : "sprite", "title" : "Sprite" },
                 "isoa" : { "type" : "point" },
                 "isob" : { "type" : "point" },
                 "coll" : { "type" : "point_array" }
@@ -16,9 +15,12 @@ namespace fin
         }
     )";
 
+constexpr char default_schema[] = "{ \"type\" : \"string\", \"title\" : \"Unique ID\" }";
+
 JsonEdit::JsonEdit()
 {
     _scene_schema.from_string(scene_schema);
+    _default_schema.from_string(default_schema);
 }
 
 bool JsonEdit::show(msg::Var &data)
@@ -30,15 +32,21 @@ bool JsonEdit::show(msg::Var &data)
     {
         data.make_object(1);
     }
+
+    Val val{};
+    val.p = data;
+    val.k = ObjId;
+    auto r = show_schema(_default_schema, val, ObjId);
+
     if (type_el.str() == "scene")
     {
-        return show_scene_object(sch_items, data);
+        return show_scene_object(sch_items, data) || r;
     }
     if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        return show_object(sch_items, data);
+        return show_object(sch_items, data) || r;
     }
-    return false;
+    return r;
 }
 
 void JsonEdit::schema(const char *sch)
@@ -245,16 +253,18 @@ bool JsonEdit::show_sprite(msg::Var &sch, Val &value, std::string_view title)
                         auto &sp = it->second->get(n + 1);
                         ImGui::Image(
                             (ImTextureID)sp._texture,
-                            {32, 32},
+                            {24, 24},
                             {sp._source.x / sp._texture->width, sp._source.y / sp._texture->height},
                             {sp._source.x2() / sp._texture->width,
                              sp._source.y2() / sp._texture->height});
                         ImGui::SameLine();
+                        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 16});
                         if (ImGui::Selectable(sp._name.c_str(), sp._name == sprite_path.c_str()))
                         {
                             spr.set_item(1, sp._name);
                             modified = true;
                         }
+                        ImGui::PopStyleVar();
                     }
                     ImGui::EndCombo();
                 }
@@ -262,6 +272,13 @@ bool JsonEdit::show_sprite(msg::Var &sch, Val &value, std::string_view title)
                 if (ImGui::Button(ICON_FA_TRASH))
                 {
                     value.set_item(msg::Var());
+                }
+            }
+            else
+            {
+                if (ImGui::BeginCombo("##sprid", ""))
+                {
+                    ImGui::EndCombo();
                 }
             }
         }

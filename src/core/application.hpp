@@ -44,8 +44,5 @@ namespace fin
         double _time_accumulator = 0.0;
 
         bool _show_editor{true};
-
-        std::vector<const CDT::Triangle *> _triangles;
-        std::vector<std::pair<Vec2f, Vec2f>> _portals;
     };
 }

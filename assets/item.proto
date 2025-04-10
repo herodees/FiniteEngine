@@ -1,7 +1,8 @@
 {
 	"items":[
 		{
-			"name":"dfg"
+			"name":"dfg",
+			"$id":"nullitem"
 		}
 	]
 }

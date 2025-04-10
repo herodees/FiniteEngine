@@ -36,6 +36,7 @@ struct FileInfo
 
 static FileInfo s_root;
 static std::string s_active;
+static std::string s_temp;
 
 bool FileMenu(const char *label, std::string &path, const char *filter)
 {
@@ -97,7 +98,9 @@ bool FileInfo::show(std::string_view filter, std::string &selectedFile)
 
     for (auto &dir : _dir)
     {
-        if (ImGui::BeginMenu(dir._name.c_str()))
+        s_temp = ICON_FA_FOLDER " ";
+        s_temp += dir._name;
+        if (ImGui::BeginMenu(s_temp.c_str()))
         {
             auto _prev_size = s_active.size();
             s_active += '/';

@@ -107,7 +107,7 @@ namespace fin::msg
 
             ~Var() { clear(); }
             Var() : VarBase{} {}
-            Var(Var&& v) : VarBase{ v } { v._u64 = 0; v._tag = Tag::Undefined; }
+            Var(Var&& v) noexcept : VarBase{ v } { v._u64 = 0; v._tag = Tag::Undefined; }
             Var(const Var& v) : VarBase{ v } { if (_tag > Tag::Id) ++_arr->_ref; }
             Var(auto v) : VarBase{ v } {}
             Var(std::string_view v) : VarBase{} { (v.size() < sizeof(_u64)) ? setid(v) : setstr(v); }
@@ -1188,6 +1188,10 @@ namespace fin::msg
                 return _flt32;
             if (_tag == Tag::Flt64)
                 return float(_flt64);
+            if (_tag == Tag::Int64)
+                return _u64;
+            if (_tag == Tag::Int32)
+                return _u32;
             return def;
         }
 
@@ -1197,6 +1201,10 @@ namespace fin::msg
                 return _flt64;
             if (_tag == Tag::Flt32)
                 return _flt32;
+            if (_tag == Tag::Int64)
+                return _u64;
+            if (_tag == Tag::Int32)
+                return _u32;
             return def;
         }
 

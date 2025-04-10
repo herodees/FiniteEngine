@@ -56,8 +56,6 @@ add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/ocornut/imgui" imgui EXCLUD
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/raylib-extras/rlImGui" rlImGui EXCLUDE_FROM_ALL)
 
-add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/cdt")
-
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/external/navmesh")
 
 set(BUILD_SHARED_LIBS FALSE)
@@ -107,13 +105,17 @@ if (APPLE)
     endif()
 
     # Define PROJECT_SOURCES as a list of all source files
-    target_link_libraries(${PROJECT_NAME} PRIVATE raylib imgui navmesh rlImGui CDT::CDT ${COCOA_LIBRARY} ${OPENGL_LIBRARY} ${IOKIT_LIBRARY} ${CORE_FOUNDATION_LIBRARY} ${CORE_VIDEO_LIBRARY})
+    target_link_libraries(${PROJECT_NAME} PRIVATE raylib imgui navmesh rlImGui ${COCOA_LIBRARY} ${OPENGL_LIBRARY} ${IOKIT_LIBRARY} ${CORE_FOUNDATION_LIBRARY} ${CORE_VIDEO_LIBRARY})
 
     # Copy the MacOS Angle libraries to the build directory
     file(COPY "${ANGLE_DIR}/" DESTINATION "${CMAKE_BINARY_DIR}")
 elseif (WIN32)
     if(MINGW)
         set(MINGW32_LIBRARY mingw32 "-mwindows" CACHE STRING "link flags for MinGW")
+    endif()
+
+    if(MSVC)
+      add_definitions(/MP)
     endif()
 
     # Define PROJECT_SOURCES as a list of all source files
@@ -134,7 +136,7 @@ elseif (WIN32)
         message(STATUS "Found ANGLE_EGL_DLL: ${ANGLE_EGL_DLL}")
     endif()
 
-    target_link_libraries(${PROJECT_NAME} PRIVATE raylib imgui navmesh rlImGui CDT::CDT ${ANGLE_GLESv2_DLL} ${ANGLE_EGL_DLL})
+    target_link_libraries(${PROJECT_NAME} PRIVATE raylib imgui navmesh rlImGui ${ANGLE_GLESv2_DLL} ${ANGLE_EGL_DLL})
 
     # Copy the Win64 Angle libraries to the build directory
     if (MSVC)

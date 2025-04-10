@@ -278,6 +278,7 @@ bool PrototypeEditor::show_proto_props()
     {
         msg::Var obj;
         obj.make_object(1);
+        obj.set_item("$id", ImGui::FormatStr("item_%d", rand()));
         _data[_active_tab].push_back(obj);
     }
     ImGui::SameLine();
@@ -316,16 +317,23 @@ bool PrototypeEditor::show_proto_props()
 
     if (ImGui::BeginChildFrame(1, { -1, 150 }))
     {
-        int32_t n = 0;
-        for (auto el : _data[_active_tab].elements())
+        ImGuiListClipper clipper;
+        clipper.Begin(_data[_active_tab].size());
+        while (clipper.Step())
         {
-            ImGui::PushID(n);
-            if (ImGui::Selectable(_prototypes[_active_tab].first.c_str(), _active_item == n))
+            for (int row_n = clipper.DisplayStart; row_n < clipper.DisplayEnd; row_n++)
             {
-                _active_item = n;
+     
+                auto obj = _data[_active_tab].get_item(row_n).get_item(ObjId);
+
+                // Display a data item
+                ImGui::PushID(row_n);
+                if (ImGui::Selectable(obj.c_str(), row_n == _active_item))
+                {
+                    _active_item = row_n;
+                }
+                ImGui::PopID();
             }
-            ImGui::PopID();
-            ++n;
         }
     }
     ImGui::EndChildFrame();
