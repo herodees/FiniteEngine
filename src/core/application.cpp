@@ -344,6 +344,7 @@ namespace fin
             _show_editor = false;
             if (ImGui::BeginTabItem("Prototype"))
             {
+                _prototypes.show_menu();
                 _show_editor = true;
                 ImGui::EndTabItem();
             }
@@ -362,6 +363,7 @@ namespace fin
             }
             else
             {
+                _prototypes.scroll_to_center();
                 _map.on_imgui_workspace();
             }
         }

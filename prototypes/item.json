@@ -2,6 +2,7 @@
     "title": "Item",
     "description": "Base items",
     "type": "object",
+    "path": "assets/item.proto",
     "properties": {
         "name": {
             "type": "string"

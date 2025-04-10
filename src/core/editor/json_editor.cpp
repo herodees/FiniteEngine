@@ -7,9 +7,11 @@ namespace fin
         {
             "type" : "object",
             "properties" : {
+                "id" : { "type" : "string" },
                 "spr" : { "type" : "sprite" },
                 "isoa" : { "type" : "point" },
-                "isob" : { "type" : "point" }
+                "isob" : { "type" : "point" },
+                "coll" : { "type" : "point_array" }
             }
         }
     )";

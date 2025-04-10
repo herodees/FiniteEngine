@@ -6,7 +6,6 @@
 #include "renderer.hpp"
 #include "path_finder.h"
 #include "CDT.h"
-#include "prototype.hpp"
 
 namespace fin
 {
@@ -24,6 +23,7 @@ namespace fin
             ImVec2 mouse;
             ImVec2 pos;
             ImVec2 scroll;
+            float mouse_distance2(ImVec2 pos) const;
         };
 
         struct IsoObject
@@ -113,7 +113,5 @@ namespace fin
         Vec2i _grid_size;
         CDT::Triangulation<float> _cdt;
         RenderTexture2D _canvas;
-
-        std::shared_ptr<Catalogue> _catalogue;
     };
 }

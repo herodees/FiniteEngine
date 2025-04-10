@@ -2,6 +2,7 @@
     "title": "NPC",
     "description": "Base NPCs and others",
     "type": "scene",
+    "path": "assets/npc.proto",
     "properties": {
         "name": {
             "type": "string"

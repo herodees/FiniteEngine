@@ -2,6 +2,7 @@
     "title": "Static",
     "description": "Base items",
     "type": "object",
+    "path": "assets/static.proto",
     "properties": {
         "name": {
             "type": "string"

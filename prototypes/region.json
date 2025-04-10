@@ -2,6 +2,7 @@
     "title": "Region",
     "description": "Base items",
     "type": "object",
+    "path": "assets/region.proto",
     "properties": {
         "name": {
             "type": "string"

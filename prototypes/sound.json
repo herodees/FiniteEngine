@@ -2,6 +2,7 @@
     "title": "Sound",
     "description": "Base items",
     "type": "object",
+    "path": "assets/sound.proto",
     "properties": {
         "name": {
             "type": "string"

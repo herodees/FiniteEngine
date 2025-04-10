@@ -1141,4 +1141,11 @@ namespace fin
         return _depth;
     }
 
+    float Scene::Params::mouse_distance2(ImVec2 pos) const
+    {
+        auto dx = mouse.x - pos.x;
+        auto dy = mouse.y - pos.y;
+        return dx * dx + dy * dy;
+    }
+
     } // namespace fin
