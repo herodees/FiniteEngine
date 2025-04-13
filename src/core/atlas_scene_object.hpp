@@ -14,6 +14,7 @@ namespace fin
         AtlasSceneObject() = default;
         virtual ~AtlasSceneObject() = default;
 
+        void render_edit(Renderer &dc) override;
         void render(Renderer& dc) override;
         void serialize(msg::Writer& ar) override;
         void deserialize(msg::Value& ar) override;
@@ -34,6 +35,19 @@ namespace fin
     };
 
 
+
+    inline void AtlasSceneObject::render_edit(Renderer &dc)
+    {
+        Region<float> bbox;
+        Line<float> line;
+        get_iso(bbox, line);
+
+        dc.set_color(RED);
+        dc.render_line({bbox.x1, bbox.y1}, {bbox.x1, bbox.y2});
+        dc.render_line({bbox.x1, bbox.y2}, {bbox.x2, bbox.y2});
+        dc.render_line({bbox.x2, bbox.y2}, {bbox.x2, bbox.y1});
+        dc.render_line({bbox.x2, bbox.y1}, {bbox.x1, bbox.y1});
+    }
 
     inline void AtlasSceneObject::render(Renderer &dc)
     {

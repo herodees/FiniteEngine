@@ -195,6 +195,29 @@ namespace fin
         object_moveto(obj, p.x, p.y);
     }
 
+    SceneObject *Scene::object_find_at(Vec2f position, float radius)
+    {
+        struct
+        {
+            lq::SpatialDatabase::Proxy *obj = nullptr;
+            float dist = FLT_MAX;
+        } out;
+
+        auto cb = [&out, position](lq::SpatialDatabase::Proxy *obj, float dist) {
+            auto *object = static_cast<SceneObject *>(obj);
+            Region<float> bbox;
+            Line<float> line;
+            object->get_iso(bbox, line);
+            if (bbox.contains(position))
+            {
+                out.obj = obj;
+            }
+        };
+
+        _spatial_db.map_over_all_objects_in_locality(position.x, position.y, radius, cb);
+        return static_cast<SceneObject *>(out.obj);
+    }
+
     void Scene::render(Renderer& dc)
     {
         if (!_canvas)
@@ -243,6 +266,11 @@ namespace fin
                                      "%d",
                                      obj->_depth);
             }
+        }
+
+        if (_selected_object)
+        {
+            _selected_object->render_edit(dc);
         }
 
         if (_debug_draw_navmesh)
@@ -524,9 +552,9 @@ namespace fin
                     for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
                     {
                         auto *el = _scene[n];
-                        if (ImGui::Selectable(ImGui::FormatStr("%p", el)))
+                        if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _selected_object))
                         {
-
+                            _selected_object = el;
                         }
                     }
                 }
@@ -654,7 +682,26 @@ namespace fin
 
             ImGui::InvisibleButton("Canvas", ImVec2(size.x, size.y));
 
-            activate_grid(Recti(ImGui::GetScrollX(), ImGui::GetScrollY(), visible_size.x, visible_size.y));
+            activate_grid(
+                Recti(ImGui::GetScrollX(), ImGui::GetScrollY(), visible_size.x, visible_size.y));
+
+            if (ImGui::IsItemClicked(0))
+            {
+                _drag_active = true;
+                _drag_begin = params.mouse;
+                _drag_delta = {};
+            }
+
+            if (_drag_active && ImGui::IsMouseDown(0))
+            {
+                _drag_delta.x = params.mouse.x - _drag_begin.x;
+                _drag_delta.y = params.mouse.y - _drag_begin.y;
+                _drag_begin = params.mouse;
+            }
+            else
+            {
+                _drag_active = false;
+            }
 
             switch (_mode)
             {
@@ -676,6 +723,26 @@ namespace fin
     void Scene::on_imgui_workspace_object(Params& params)
     {
         _edit_object = nullptr;
+
+        if (ImGui::IsItemClicked(0))
+        {
+            if (auto* obj = object_find_at(params.mouse, 1024.f))
+            {
+                _selected_object = obj;
+            }
+            else
+            {
+                _selected_object = nullptr;
+            }
+        }
+
+        if (_drag_active && _selected_object)
+        {
+            object_move(_selected_object, _drag_delta);
+        }
+
+
+
         if (ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(

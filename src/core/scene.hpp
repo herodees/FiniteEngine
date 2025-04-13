@@ -54,6 +54,10 @@ namespace fin
         void object_move(SceneObject* obj, const Vec2f& d);
         void object_moveto(SceneObject* obj, const Vec2f& p);
 
+        SceneObject *object_find_at(Vec2f position, float radius);
+        template <typename CB>
+        void for_each_active(CB cb);
+
         void render(Renderer& dc);
         void update(float dt);
         void clear();
@@ -84,6 +88,10 @@ namespace fin
         lq::SpatialDatabase _spatial_db;
         NavMesh::PathFinder _pathfinder;
         SceneObject* _edit_object{};
+        SceneObject *_selected_object{};
+        bool _drag_active = false;
+        Vec2f _drag_begin;
+        Vec2f _drag_delta;
 
         int32_t _active_prototype_type{};
         uint32_t _active_prototype{0};
@@ -99,4 +107,16 @@ namespace fin
         Vec2i _grid_size;
         RenderTexture2D _canvas;
     };
-}
+
+
+    template <typename CB>
+    inline void Scene::for_each_active(CB cb)
+    {
+        for (auto* el : _iso)
+        {
+            if (cb(el->_ptr))
+                return;
+        }
+    }
+
+    } // namespace fin
