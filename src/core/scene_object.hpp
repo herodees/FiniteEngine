@@ -26,6 +26,7 @@ public:
     virtual ~SceneObject() = default;
 
     virtual void render(Renderer &dc) = 0;
+    virtual void render_edit(Renderer &dc){};
     virtual void serialize(msg::Writer &ar);
     virtual void deserialize(msg::Value &ar);
     virtual void get_iso(Region<float> &bbox, Line<float> &origin) = 0;

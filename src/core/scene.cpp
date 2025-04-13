@@ -1,5 +1,6 @@
 ﻿#include "scene.hpp"
 #include "atlas_scene_object.hpp"
+#include "proto_scene_object.hpp"
 
 #include "utils/dialog_utils.hpp"
 #include "utils/imgui_utils.hpp"
@@ -146,6 +147,8 @@ namespace fin
         
         if (ot == AtlasSceneObject::type_id)
             obj = new AtlasSceneObject();
+        if (ot == ProtoSceneObject::type_id)
+            obj = new ProtoSceneObject();
 
         if (obj)
             obj->deserialize(ar);
@@ -675,8 +678,37 @@ namespace fin
         _edit_object = nullptr;
         if (ImGui::BeginDragDropTarget())
         {
-            ImGuiDragDropFlags drop_target_flags = ImGuiDragDropFlags_AcceptPeekOnly | ImGuiDragDropFlags_AcceptNoPreviewTooltip;
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE", drop_target_flags))
+            if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(
+                    "PROTO",
+                    ImGuiDragDropFlags_AcceptPeekOnly | ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            {
+                if (auto object = static_cast<SceneObject *>(ImGui::GetDragData()))
+                {
+                    _edit_object = object;
+                    _edit_object->_position = {params.mouse.x, params.mouse.y};
+                }
+            }
+            if (const ImGuiPayload *payload =
+                    ImGui::AcceptDragDropPayload("PROTO",
+                                                 ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            {
+                if (auto object = static_cast<SceneObject *>(ImGui::GetDragData()))
+                {
+                    object->_position = {params.mouse.x, params.mouse.y};
+                    msg::Pack doc;
+                    auto ar = doc.create();
+                    object_serialize(object, ar);
+                    auto arr = doc.get();
+                    object_insert(object_deserialize(arr));
+                }
+            }
+
+
+
+
+            if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(
+                    "SPRITE",
+                    ImGuiDragDropFlags_AcceptPeekOnly | ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
                 if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
                 {
@@ -684,7 +716,6 @@ namespace fin
                     _edit_object->_position = {params.mouse.x, params.mouse.y};
                 }
             }
-
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
                 if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))

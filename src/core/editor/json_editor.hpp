@@ -2,60 +2,84 @@
 
 #include "include.hpp"
 #include "utils/imgui_utils.hpp"
-#include <core/atlas.hpp>
 
 namespace fin
 {
+class JsonEdit;
+struct JsonVal
+{
+    msg::Var get_item()
+    {
+        if (k.data())
+            return p.get_item(k);
+        if (n == 0xffffffff)
+            return p;
+        return p.get_item(n);
+    }
 
-constexpr std::string_view SceneObjId("$scn");
-constexpr std::string_view ObjId("$id");
+    void set_item(const msg::Var &v)
+    {
+        if (k.data())
+            p.set_item(k, v);
+        else if (n == 0xffffffff)
+            p = v;
+        else
+            p.set_item(n, v);
+    }
+
+    msg::Var p;
+    std::string_view k;
+    uint32_t n = 0;
+};
+
+class JsonType
+{
+public:
+    JsonType(std::string_view id);
+    virtual ~JsonType() = default;
+
+    virtual bool edit(msg::Var &sch, JsonVal &value, std::string_view key) = 0;
+
+    std::string _name;
+    JsonType *_next{};
+    JsonEdit *_edit{};
+};
 
 class JsonEdit
 {
 public:
     JsonEdit();
-    virtual ~JsonEdit() = default;
+    ~JsonEdit();
 
-    bool show(msg::Var &data);
+    bool show(msg::Var &data, const char* title);
+
     void schema(const char *sch);
     void schema(msg::Var &sch);
 
+    template <class T>
+    JsonEdit &add();
+
+    void next_open();
+    bool show_schema(msg::Var &sch, JsonVal &value, std::string_view key);
+    bool show_object(msg::Var &sch, JsonVal &value, std::string_view key);
+    bool show_array(msg::Var &sch, JsonVal &value, std::string_view key);
+
 protected:
-    struct Val
-    {
-        msg::Var get_item()
-        {
-            if (k.data())
-                return p.get_item(k);
-            return p.get_item(n);
-        }
-
-        void set_item(const msg::Var &v)
-        {
-            if (k.data())
-                 p.set_item(k,v);
-            else
-                p.set_item(n,v);
-        }
-
-        msg::Var p;
-        std::string_view k;
-        uint32_t n;
-    };
-
-    bool show_array(msg::Var &sch, msg::Var &dat);
-    bool show_object(msg::Var &sch, msg::Var &dat);
-    bool show_scene_object(msg::Var &sch, msg::Var &dat);
-    bool show_points(msg::Var &sch, Val &value, std::string_view key);
-    bool show_sprite(msg::Var &sch, Val &value, std::string_view key);
-    bool show_schema(msg::Var &sch, Val &value, std::string_view key);
-
     msg::Var *_root{};
+    JsonType *_types{};
     msg::Var _schema;
-    msg::Var _scene_schema;
-    msg::Var _default_schema;
     std::string _buffer;
-    std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _atlases;
+    bool _next_open = false;
 };
+
+template <class T>
+inline JsonEdit &JsonEdit::add()
+{
+    auto ptr = new T();
+    ptr->_next = _types;
+    ptr->_edit = this;
+    _types = ptr;
+    return *this;
+}
 
 } // namespace fin

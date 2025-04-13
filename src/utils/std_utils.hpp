@@ -96,4 +96,17 @@ inline optional<float> view_to_float(string_view str)
     return nullopt; // Return empty optional if conversion fails
 }
 
+inline uint64_t generate_unique_id()
+{
+    using namespace std::chrono;
+
+    static std::atomic<uint32_t> counter{0};
+
+    uint64_t now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+
+    uint32_t count = counter.fetch_add(1, std::memory_order_relaxed);
+
+    return (now << 16) | (count & 0xFFFF);
+}
+
 } // namespace std

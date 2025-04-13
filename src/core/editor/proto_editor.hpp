@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/atlas_scene_object.hpp"
+#include "core/proto_scene_object.hpp"
 #include "file_editor.hpp"
 #include "json_editor.hpp"
 
@@ -15,7 +15,7 @@ public:
     bool on_edit() override;
     bool on_setup() override;
 
-    AtlasSceneObject _object;
+    ProtoSceneObject _object;
     msg::Var _data;
     std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _atlases;
 };
@@ -88,6 +88,16 @@ inline bool ProtoFileEdit::on_edit()
             }
 
             ImGui::Selectable(obj.c_str());
+
+            // Our buttons are both drag sources and drag targets here!
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+            {
+                _object.load_prototype(_data.get_item(row_n));
+                ImGui::SetDragData(&_object);
+                ImGui::SetDragDropPayload("PROTO", &row_n, sizeof(int32_t));
+                ImGui::EndDragDropSource();
+            }
+
             ImGui::PopID();
         }
     }

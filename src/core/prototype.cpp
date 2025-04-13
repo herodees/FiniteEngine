@@ -1,13 +1,179 @@
-#include "prototype_editor.hpp"
+#include "prototype.hpp"
 #include "json_blobs.hpp"
 #include "core/scene.hpp"
 
 namespace fin
 {
+static PrototypeRegister *s_instance = nullptr;
 
-PrototypeEditor::PrototypeEditor()
+constexpr char scene_schema[] = R"(
+        {
+            "type" : "object",
+            "properties" : {
+                "spr" : { "type" : "sprite", "title" : "Sprite" },
+                "isoa" : { "type" : "point" },
+                "isob" : { "type" : "point" },
+                "coll" : { "type" : "point_array" }
+            }
+        }
+    )";
+
+constexpr char default_schema[] = "{ \"type\" : \"string\", \"title\" : \"Unique ID\" }";
+
+class SceneJsonType : public JsonType
 {
-    for (auto* str : json_blobs)
+public:
+    SceneJsonType() : JsonType("scene")
+    {
+        _default.from_string(default_schema);
+        _schema.from_string(scene_schema);
+    }
+
+    bool edit(msg::Var &sch, JsonVal &value, std::string_view key) override
+    {
+        bool modified = false;
+
+        auto scn = value.get_item().get_item(SceneObjId);
+        if (!scn.is_object())
+        {
+            scn.make_object(1);
+            value.get_item().set_item(SceneObjId, scn);
+        }
+        JsonVal val;
+        val.p = value.p;
+        val.k = ObjId;
+        modified |= _edit->show_schema(_default, val, "Unique ID");
+        val.k = SceneObjId;
+
+        _edit->next_open();
+        modified |= _edit->show_object(_schema, val, "Scene");
+
+        _edit->next_open();
+        modified |= _edit->show_object(sch, value, "Properties");
+
+        return modified;
+    }
+
+    msg::Var _schema;
+    msg::Var _default;
+};
+
+class SpriteJsonType : public JsonType
+{
+public:
+    SpriteJsonType() : JsonType("sprite"){};
+
+    bool edit(msg::Var &sch, JsonVal &val, std::string_view key) override
+    {
+        bool modified = false;
+        auto spr = val.get_item();
+        msg::Var sprite_path;
+
+        if (spr.size() == 2)
+        {
+            _buffer = spr.get_item(0).str();
+            sprite_path = spr.get_item(1).str();
+        }
+        else
+        {
+            _buffer.clear();
+        }
+
+        ImGui::BeginGroup();
+        {
+            auto it = _atlases.find(_buffer);
+            if (it == _atlases.end())
+            {
+                _atlases[_buffer] = Atlas::load_shared(_buffer);
+            }
+            else if (auto n = it->second->find_sprite(sprite_path.str()))
+            {
+                auto &sp = it->second->get(n);
+                ImGui::Image(
+                    (ImTextureID)sp._texture,
+                    {32, 32},
+                    {sp._source.x / sp._texture->width, sp._source.y / sp._texture->height},
+                    {sp._source.x2() / sp._texture->width, sp._source.y2() / sp._texture->height});
+                ImGui::SameLine();
+            }
+            else
+            {
+                ImGui::InvisibleButton("##img", {32, 32});
+            }
+
+            ImGui::SameLine();
+            ImGui::BeginGroup();
+            {
+                if (ImGui::OpenFileName(key.data(), _buffer, ".atlas"))
+                {
+                    if (!spr.is_array())
+                    {
+                        spr.make_array(2);
+                        val.set_item(spr);
+                    }
+                    spr.set_item(0, _buffer);
+                    spr.set_item(1, "");
+                    modified = true;
+                }
+
+                if (spr.size() == 2)
+                {
+                    if (ImGui::BeginCombo("##sprid", sprite_path.c_str()))
+                    {
+                        for (auto n = 0; n < it->second->size(); ++n)
+                        {
+                            auto &sp = it->second->get(n + 1);
+                            ImGui::Image((ImTextureID)sp._texture,
+                                         {24, 24},
+                                         {sp._source.x / sp._texture->width,
+                                          sp._source.y / sp._texture->height},
+                                         {sp._source.x2() / sp._texture->width,
+                                          sp._source.y2() / sp._texture->height});
+                            ImGui::SameLine();
+                            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 16});
+                            if (ImGui::Selectable(sp._name.c_str(),
+                                                  sp._name == sprite_path.c_str()))
+                            {
+                                spr.set_item(1, sp._name);
+                                modified = true;
+                            }
+                            ImGui::PopStyleVar();
+                        }
+                        ImGui::EndCombo();
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::Button(ICON_FA_TRASH))
+                    {
+                        val.set_item(msg::Var());
+                    }
+                }
+                else
+                {
+                    if (ImGui::BeginCombo("##sprid", ""))
+                    {
+                        ImGui::EndCombo();
+                    }
+                }
+            }
+            ImGui::EndGroup();
+        }
+        ImGui::EndGroup();
+
+        return modified;
+    }
+
+    std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>>
+        _atlases;
+    std::string _buffer;
+};
+
+PrototypeRegister::PrototypeRegister()
+{
+    s_instance = this;
+    _json_edit.add<SceneJsonType>();
+    _json_edit.add<SpriteJsonType>();
+
+    for (auto *str : json_blobs)
     {
         msg::Var sch;
         sch.from_string(str);
@@ -40,14 +206,31 @@ PrototypeEditor::PrototypeEditor()
         }
         _data.emplace_back(data);
     }
+
+    for (auto& its : _data)
+    {
+        for (auto el : its.elements())
+        {
+            auto uid = el.get_item(ObjUid).get(0ull);
+            _proto[uid] = el;
+        }
+    }
 }
 
-PrototypeEditor::~PrototypeEditor()
+PrototypeRegister::~PrototypeRegister()
 {
 
 }
 
-bool PrototypeEditor::show_props()
+msg::Var PrototypeRegister::prototype(uint64_t uid) const
+{
+    auto it = _proto.find(uid);
+    if (it == _proto.end())
+        return msg::Var();
+    return it->second;
+}
+
+bool PrototypeRegister::show_props()
 {
     _active_tab = -1;
     bool ret{};
@@ -72,7 +255,7 @@ bool PrototypeEditor::show_props()
     return ret;
 }
 
-bool PrototypeEditor::show_workspace()
+bool PrototypeRegister::show_workspace()
 {
     if (_active_tab >= _data.size())
         return false;
@@ -89,6 +272,7 @@ bool PrototypeEditor::show_workspace()
         auto atl_path = sprite_info.get_item(0);
         auto spr_path = sprite_info.get_item(1);
         atlas_ptr = Atlas::load_shared(atl_path.str());
+        _atlas_ptr = atlas_ptr;
         if (atlas_ptr)
             if (auto n = atlas_ptr->find_sprite(spr_path.str()))
                 atlas_spr = &atlas_ptr->get(n);
@@ -243,7 +427,7 @@ bool PrototypeEditor::show_workspace()
     return false;
 }
 
-bool PrototypeEditor::show_menu()
+bool PrototypeRegister::show_menu()
 {
     if (ImGui::RadioButton("Select", (!_edit_collision && !_edit_origin)))
     {
@@ -265,20 +449,28 @@ bool PrototypeEditor::show_menu()
     return false;
 }
 
-void PrototypeEditor::scroll_to_center()
+void PrototypeRegister::scroll_to_center()
 {
     _scroll_to_center = true;
 }
 
-bool PrototypeEditor::show_proto_props()
+PrototypeRegister &PrototypeRegister::instance()
+{
+    return *s_instance;
+}
+
+bool PrototypeRegister::show_proto_props()
 {
     _active_item = _prototypes[_active_tab].second.get_item("@sel").get(0);
 
     if (ImGui::Button("Add"))
     {
         msg::Var obj;
+        auto uid = std::generate_unique_id();
         obj.make_object(1);
-        obj.set_item("$id", ImGui::FormatStr("item_%d", rand()));
+        obj.set_item(ObjId, ImGui::FormatStr("item_%d", rand()));
+        obj.set_item(ObjUid, uid);
+        _proto[uid] = obj;
         _data[_active_tab].push_back(obj);
     }
     ImGui::SameLine();
@@ -312,7 +504,11 @@ bool PrototypeEditor::show_proto_props()
     if (ImGui::Button("Del"))
     {
         if (_active_item < _data[_active_tab].size())
+        {
+            auto uid = _data[_active_tab].get_item(_active_item).get_item(ObjUid).get(0ull);
+            _proto.erase(uid);
             _data[_active_tab].erase(_active_item);
+        }
     }
 
     if (ImGui::BeginChildFrame(1, { -1, 150 }))
@@ -342,7 +538,7 @@ bool PrototypeEditor::show_proto_props()
     {
         _prototypes[_active_tab].second.set_item("@sel", _active_item);
         auto obj = _data[_active_tab].get_item(_active_item);
-        return _json_edit.show(obj);
+        return _json_edit.show(obj, "Properties");
     }
 
     return false;

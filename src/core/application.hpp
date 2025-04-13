@@ -6,8 +6,7 @@
 #include "scene.hpp"
 #include "file_explorer.hpp"
 #include "renderer.hpp"
-#include "editor/json_editor.hpp"
-#include "editor/prototype_editor.hpp"
+#include "prototype.hpp"
 
 namespace fin
 {
@@ -32,7 +31,7 @@ namespace fin
         std::span<char *> _argv;
         FileExplorer _explorer;
         Renderer _renderer;
-        PrototypeEditor _prototypes;
+        PrototypeRegister _prototypes;
         Scene _map;
         int32_t _target_fps = 60;
         float _fixed_fps = 60.0f;
