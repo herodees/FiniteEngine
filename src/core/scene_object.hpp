@@ -7,6 +7,7 @@
 namespace fin
 {
 class Renderer;
+class JsonEdit;
 
 enum SceneObjectFlag
 {
@@ -27,14 +28,13 @@ public:
 
     virtual void render(Renderer &dc) = 0;
     virtual void render_edit(Renderer &dc){};
+    virtual void begin_edit(){};
+    virtual void end_edit(){};
+    virtual bool edit();
     virtual void serialize(msg::Writer &ar);
     virtual void deserialize(msg::Value &ar);
     virtual void get_iso(Region<float> &bbox, Line<float> &origin) = 0;
-    virtual std::string_view object_type()
-    {
-        return type_id;
-    };
-
+    virtual std::string_view object_type() { return type_id; };
 
     bool flag_get(SceneObjectFlag f) const;
     void flag_reset(SceneObjectFlag f);
@@ -62,6 +62,7 @@ protected:
     uint32_t _id{};
     uint32_t _flag{};
 };
+
 
 
 inline void SceneObject::serialize(msg::Writer &ar)

@@ -195,6 +195,22 @@ namespace fin
         object_moveto(obj, p.x, p.y);
     }
 
+    void Scene::object_select(SceneObject *obj)
+    {
+        if (_selected_object != obj)
+        {
+            if (_selected_object)
+            {
+                _selected_object->end_edit();
+            }
+            _selected_object = obj;
+            if (_selected_object)
+            {
+                _selected_object->begin_edit();
+            }
+        }
+    }
+
     SceneObject *Scene::object_find_at(Vec2f position, float radius)
     {
         struct
@@ -554,12 +570,20 @@ namespace fin
                         auto *el = _scene[n];
                         if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _selected_object))
                         {
-                            _selected_object = el;
+                            object_select(el);
                         }
                     }
                 }
             }
             ImGui::EndChildFrame();
+        }
+
+        if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (_selected_object)
+            {
+                _selected_object->edit();
+            }
         }
     }
 
@@ -728,11 +752,11 @@ namespace fin
         {
             if (auto* obj = object_find_at(params.mouse, 1024.f))
             {
-                _selected_object = obj;
+                object_select(obj);
             }
             else
             {
-                _selected_object = nullptr;
+                object_select(nullptr);
             }
         }
 
@@ -829,6 +853,22 @@ namespace fin
         auto dx = mouse.x - pos.x;
         auto dy = mouse.y - pos.y;
         return dx * dx + dy * dy;
+    }
+
+    bool SceneObject::edit()
+    {
+        bool modified = false;
+        modified |= ImGui::CheckboxFlags("Disabled", &_flag, SceneObjectFlag::Disabled);
+        modified |= ImGui::CheckboxFlags("Hidden", &_flag, SceneObjectFlag::Hidden);
+
+        return modified;
+    }
+
+    bool ProtoSceneObject::edit()
+    {
+        bool modified = SceneObject::edit();
+
+        return modified;
     }
 
     } // namespace fin

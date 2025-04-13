@@ -53,6 +53,7 @@ namespace fin
         void object_moveto(SceneObject* obj, float x, float y);
         void object_move(SceneObject* obj, const Vec2f& d);
         void object_moveto(SceneObject* obj, const Vec2f& p);
+        void object_select(SceneObject *obj);
 
         SceneObject *object_find_at(Vec2f position, float radius);
         template <typename CB>
