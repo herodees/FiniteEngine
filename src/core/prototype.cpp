@@ -266,7 +266,7 @@ bool PrototypeRegister::show_workspace()
     auto scene_object = object.get_item(SceneObjId);
     auto sprite_info = scene_object.get_item("spr");
     std::shared_ptr<Atlas> atlas_ptr;
-    Atlas::sprite *atlas_spr{};
+    Atlas::Sprite *atlas_spr{};
     if (sprite_info.is_array())
     {
         auto atl_path = sprite_info.get_item(0);
@@ -286,6 +286,9 @@ bool PrototypeRegister::show_workspace()
     {
         s_drag_point = 0;
     }
+
+
+
     Scene::Params params;
 
     ImVec2 visible_size = ImGui::GetContentRegionAvail();

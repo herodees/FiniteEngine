@@ -13,6 +13,10 @@ namespace fin
     {
     }
 
+    Scene::~Scene()
+    {
+    }
+
     bool Scene::setup_background_texture(const std::filesystem::path& file)
     {
         Surface sf;
@@ -171,43 +175,11 @@ namespace fin
         _scene[id]->_id = id;
     }
 
-    void Scene::object_move(SceneObject* obj, float dx, float dy)
-    {
-        obj->_position.x += dx;
-        obj->_position.y += dy;
-        _spatial_db.update_for_new_location(obj);
-    }
-
-    void Scene::object_moveto(SceneObject* obj, float x, float y)
-    {
-        obj->_position.x = x;
-        obj->_position.y = y;
-        _spatial_db.update_for_new_location(obj);
-    }
-
-    void Scene::object_move(SceneObject* obj, const Vec2f& d)
-    {
-        object_move(obj, d.x, d.y);
-    }
-
-    void Scene::object_moveto(SceneObject* obj, const Vec2f& p)
-    {
-        object_moveto(obj, p.x, p.y);
-    }
-
     void Scene::object_select(SceneObject *obj)
     {
         if (_selected_object != obj)
         {
-            if (_selected_object)
-            {
-                _selected_object->end_edit();
-            }
             _selected_object = obj;
-            if (_selected_object)
-            {
-                _selected_object->begin_edit();
-            }
         }
     }
 
@@ -265,7 +237,7 @@ namespace fin
         }
 
         dc.set_color(WHITE);
-        for (auto *obj : _iso)
+        for (auto *obj : _iso_manager._iso)
         {
             if (!obj->_ptr->is_hidden())
                 obj->_ptr->render(dc);
@@ -275,7 +247,8 @@ namespace fin
         if (_debug_draw_object)
         {
             dc.set_color({255, 0, 0, 255});
-            for (auto *obj : _iso)
+
+            for (auto *obj : _iso_manager._iso)
             {
                 dc.render_line(obj->_origin.point1, obj->_origin.point2);
                 dc.render_debug_text({obj->_origin.point1.x + 16, obj->_origin.point1.y + 16},
@@ -327,83 +300,8 @@ namespace fin
     }
 
     void Scene::update(float dt)
-    { 
-        _iso_pool_size = 0;
-        auto cb = [&](lq::SpatialDatabase::Proxy *item) {
-            if (_iso_pool_size >= _iso_pool.size())
-                _iso_pool.resize(_iso_pool_size + 32);
-
-            _iso_pool[_iso_pool_size]._ptr = static_cast<SceneObject *>(item);
-            ++_iso_pool_size;
-        };
-
-        auto add_pool_item = [&](size_t n) {
-            _iso[n] = &_iso_pool[n];
-            _iso_pool[n]._depth = 0;
-            _iso_pool[n]._depth_active = false;
-            _iso_pool[n]._back.clear();
-            _iso_pool[n]._ptr->get_iso(_iso_pool[n]._bbox, _iso_pool[n]._origin);
-            _iso_pool[n]._ptr->flag_reset(SceneObjectFlag::Marked);
-        };
-
-        // Query active region
-        _spatial_db.map_over_all_objects_in_locality({(float)_active_region.x - tile_size,
-                                                      (float)_active_region.y - tile_size,
-                                                      (float)_active_region.width + 2*tile_size,
-                                                      (float)_active_region.height + 2*tile_size},
-            cb);
-
-        if (_iso_pool_size >= _iso_pool.size())
-            _iso_pool.resize(_iso_pool_size + 32);
-
-        // Reset iso depth and sort data
-        _iso.resize(_iso_pool_size);
-        for (size_t n = 0; n < _iso_pool_size; ++n)
-        {
-            add_pool_item(n);
-        }
-
-        // Add edit object to render queue
-        if (_edit_object)
-        {
-            _iso_pool[_iso_pool_size]._ptr = _edit_object;
-            _iso.emplace_back();
-            add_pool_item(_iso_pool_size);
-        }
-
-        // Topology sort
-        if (_iso.size() > 1)
-        {
-            // Determine depth relationships
-            for (size_t i = 0; i < _iso.size(); ++i)
-            {
-                auto *a = _iso[i];
-                for (size_t j = i + 1; j < _iso.size(); ++j)
-                {
-                    auto *b = _iso[j];
-                    // Ignore non overlaped rectangles
-                    if (a->_bbox.intersects(b->_bbox))
-                    {
-                        // Check if x2 is above iso line
-                        if (b->_origin.compare(a->_origin) >= 0)
-                        {
-                            a->_back.push_back(b);
-                        }
-                        else
-                        {
-                            b->_back.push_back(a);
-                        }
-                    }
-                }
-            }
-
-            // Recursive function to calculate depth
-            for (auto *obj : _iso)
-                obj->depth_get();
-
-            // Sort objects by depth
-            std::sort(_iso.begin(), _iso.end(), [](const IsoObject *a, const IsoObject *b) { return a->_depth < b->_depth; });
-        }
+    {
+        _iso_manager.update(_spatial_db, _active_region, _edit_object);
     }
 
 
@@ -527,13 +425,13 @@ namespace fin
     {
         switch (_mode)
         {
-        case edit_mode::map:
+        case Mode::Map:
             on_imgui_props_map();
             break;
-        case edit_mode::navmesh:
+        case Mode::Navmesh:
             on_imgui_props_navmesh();
             break;
-        case edit_mode::objects:
+        case Mode::Objects:
             on_imgui_props_object();
             break;
         }
@@ -638,18 +536,18 @@ namespace fin
 
     void Scene::on_imgui_menu()
     {
-        _mode = edit_mode::undefined;
+        _mode = Mode::Undefined;
 
         if (ImGui::BeginTabItem("Map"))
         {
-            _mode = edit_mode::map;
+            _mode = Mode::Map;
             ImGui::Checkbox("Show grid", &_debug_draw_grid);
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("Navmesh"))
         {
-            _mode = edit_mode::navmesh;
+            _mode = Mode::Navmesh;
             ImGui::Checkbox("Show navmesh", &_debug_draw_navmesh);
             ImGui::SameLine();
 
@@ -673,7 +571,7 @@ namespace fin
 
         if (ImGui::BeginTabItem("Objects"))
         {
-            _mode = edit_mode::objects;
+            _mode = Mode::Objects;
             ImGui::Checkbox("Show bounding box##shwobj", &_debug_draw_object);
             ImGui::SameLine();
             ImGui::Dummy({16, 1});
@@ -729,11 +627,11 @@ namespace fin
 
             switch (_mode)
             {
-            case edit_mode::map:
+            case Mode::Map:
                 on_imgui_workspace_map(params); break;
-            case edit_mode::navmesh:
+            case Mode::Navmesh:
                 on_imgui_workspace_navmesh(params); break;
-            case edit_mode::objects:
+            case Mode::Objects:
                 on_imgui_workspace_object(params); break;
             }
         }
@@ -762,7 +660,7 @@ namespace fin
 
         if (_drag_active && _selected_object)
         {
-            object_move(_selected_object, _drag_delta);
+            _selected_object->move(_drag_delta);
         }
 
 
@@ -869,6 +767,94 @@ namespace fin
         bool modified = SceneObject::edit();
 
         return modified;
+    }
+
+    void Scene::IsoManager::update(lq::SpatialDatabase &db,const Recti& region, SceneObject* edit)
+    {
+        _iso_pool_size = 0;
+        auto cb = [&](lq::SpatialDatabase::Proxy *item) {
+            if (_iso_pool_size >= _iso_pool.size())
+                _iso_pool.resize(_iso_pool_size + 32);
+
+            _iso_pool[_iso_pool_size]._ptr =
+                static_cast<SceneObject *>(item);
+            ++_iso_pool_size;
+        };
+
+        auto add_pool_item = [&](size_t n) {
+            _iso[n] = &_iso_pool[n];
+            _iso_pool[n]._depth = 0;
+            _iso_pool[n]._depth_active = false;
+            _iso_pool[n]._back.clear();
+            _iso_pool[n]._ptr->get_iso(_iso_pool[n]._bbox,
+                                       _iso_pool[n]._origin);
+            _iso_pool[n]._ptr->flag_reset(SceneObjectFlag::Marked);
+        };
+
+
+        // Query active region
+        db.map_over_all_objects_in_locality({(float)region.x - tile_size,
+                                             (float)region.y - tile_size,
+                                             (float)region.width + 2 * tile_size,
+                                             (float)region.height + 2 * tile_size},
+                                                     cb);
+
+        
+        if (_iso_pool_size >= _iso_pool.size())
+            _iso_pool.resize(_iso_pool_size + 32);
+
+        // Reset iso depth and sort data
+        _iso.resize(_iso_pool_size);
+        for (size_t n = 0; n < _iso_pool_size; ++n)
+        {
+            add_pool_item(n);
+        }
+
+        // Add edit object to render queue
+        if (edit)
+        {
+            _iso_pool[_iso_pool_size]._ptr = edit;
+            _iso.emplace_back();
+            add_pool_item(_iso_pool_size);
+        }
+
+        
+
+        // Topology sort
+        if (_iso.size() > 1)
+        {
+            // Determine depth relationships
+            for (size_t i = 0; i < _iso.size(); ++i)
+            {
+                auto *a = _iso[i];
+                for (size_t j = i + 1; j < _iso.size(); ++j)
+                {
+                    auto *b = _iso[j];
+                    // Ignore non overlaped rectangles
+                    if (a->_bbox.intersects(b->_bbox))
+                    {
+                        // Check if x2 is above iso line
+                        if (b->_origin.compare(a->_origin) >= 0)
+                        {
+                            a->_back.push_back(b);
+                        }
+                        else
+                        {
+                            b->_back.push_back(a);
+                        }
+                    }
+                }
+            }
+
+            // Recursive function to calculate depth
+            for (auto *obj : _iso)
+                obj->depth_get();
+
+            // Sort objects by depth
+            std::sort(_iso.begin(), _iso.end(), [](const IsoObject *a, const IsoObject *b) {
+                return a->_depth < b->_depth;
+            });
+        }
     }
 
     } // namespace fin

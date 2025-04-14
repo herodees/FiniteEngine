@@ -32,6 +32,7 @@ namespace fin
         FileExplorer _explorer;
         Renderer _renderer;
         PrototypeRegister _prototypes;
+        SceneFactory _factory;
         Scene _map;
         int32_t _target_fps = 60;
         float _fixed_fps = 60.0f;

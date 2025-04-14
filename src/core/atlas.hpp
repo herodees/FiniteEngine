@@ -10,7 +10,7 @@ namespace fin
     class Atlas : std::enable_shared_from_this<Atlas>
     {
     public:
-        struct texture_region
+        struct TextureRegion
         {
             const Texture* _texture;
             Rectf _source;
@@ -18,23 +18,29 @@ namespace fin
             Vec2f _originb;
         };
 
-        struct sprite : texture_region
+        struct Sprite : TextureRegion
         {
             std::string _name;
         };
 
-        struct vertex
+        struct Vertex
         {
             Vec2f position;
             Vec2f uv;
         };
 
-        struct composite
+        struct Composite
         {
             std::string _name;
             const Texture* _texture;
-            vertex* _begin;
-            vertex* _end;
+            Vertex* _begin;
+            Vertex* _end;
+        };
+
+        struct Pack
+        {
+            std::shared_ptr<Atlas> atlas;
+            Sprite *sprite{};
         };
 
         bool load_from_file(std::string_view pth);
@@ -44,22 +50,22 @@ namespace fin
         uint32_t find_composite(std::string_view name) const;
         uint32_t size() const;
         uint32_t size_c() const;
-        const sprite& get(uint32_t n) const;
-        sprite& get(uint32_t n);
-        const composite& get_c(uint32_t n) const;
-        composite& get_c(uint32_t n);
+        const Sprite& get(uint32_t n) const;
+        Sprite& get(uint32_t n);
+        const Composite& get_c(uint32_t n) const;
+        Composite& get_c(uint32_t n);
         const Texture2D& texture() const;
 
         static std::shared_ptr<Atlas> load_shared(std::string_view pth);
-        static std::pair<std::shared_ptr<Atlas>, Atlas::sprite *> load_shared_sprite(std::string_view pth);
+        static Pack load_shared(std::string_view pth, std::string_view spr);
 
     protected:
         bool load(msg::Value ar);
         std::string _path;
         Texture2D _texture{};
-        std::vector<sprite> _sprites;
-        std::vector<composite> _composites;
-        std::vector<vertex> _mesh;
+        std::vector<Sprite> _sprites;
+        std::vector<Composite> _composites;
+        std::vector<Vertex> _mesh;
     };
 
 
@@ -141,7 +147,7 @@ namespace fin
             auto els = el["items"];
             cmp._name = el["id"].str();
             cmp._texture = txt;
-            cmp._begin = cmp._end = (vertex *)_mesh.size();
+            cmp._begin = cmp._end = (Vertex *)_mesh.size();
 
             for (auto &s : els.elements())
             {
@@ -153,7 +159,7 @@ namespace fin
                                 spr._origina,
                                 (float)s["r"].get_number(0));
 
-                    vertex vtx[4];
+                    Vertex vtx[4];
                     vtx[0].uv.x = spr._source.x / txt_size.width;
                     vtx[0].uv.y = spr._source.y / txt_size.height;
                     vtx[2].uv.x = spr._source.x2() / txt_size.width;
@@ -172,7 +178,7 @@ namespace fin
                     _mesh.push_back(vtx[2]);
                     _mesh.push_back(vtx[3]);
                 }
-                cmp._end = (vertex *)_mesh.size();
+                cmp._end = (Vertex *)_mesh.size();
             }
         }
         
@@ -216,22 +222,22 @@ namespace fin
         return uint32_t(_composites.size());
     }
 
-    inline const Atlas::sprite& Atlas::get(uint32_t n) const
+    inline const Atlas::Sprite& Atlas::get(uint32_t n) const
     {
         return _sprites[n - 1];
     }
 
-    inline Atlas::sprite& Atlas::get(uint32_t n)
+    inline Atlas::Sprite& Atlas::get(uint32_t n)
     {
         return _sprites[n - 1];
     }
 
-    inline const Atlas::composite& Atlas::get_c(uint32_t n) const
+    inline const Atlas::Composite& Atlas::get_c(uint32_t n) const
     {
         return _composites[n - 1];
     }
 
-    inline Atlas::composite& Atlas::get_c(uint32_t n)
+    inline Atlas::Composite& Atlas::get_c(uint32_t n)
     {
         return _composites[n - 1];
     }

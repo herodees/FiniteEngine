@@ -22,16 +22,16 @@ namespace fin
         void get_iso(Region<float> &bbox, Line<float> &origin) override;
 
         void set_atlas(std::shared_ptr<Atlas>& atlas);
-        void set_sprite(Atlas::sprite* spr);
+        void set_sprite(Atlas::Sprite* spr);
         bool load_atlas(std::string_view path);
         bool load_sprite(std::string_view path);
 
         Atlas *get_atlas();
-        Atlas::sprite *get_sprite();
+        Atlas::Sprite *get_sprite();
 
     protected:
         std::shared_ptr<Atlas> _atlas;
-        Atlas::sprite* _spr{};
+        Atlas::Sprite* _spr{};
     };
 
 
@@ -65,7 +65,7 @@ namespace fin
         set_sprite(nullptr);
     }
 
-    inline void AtlasSceneObject::set_sprite(Atlas::sprite* spr)
+    inline void AtlasSceneObject::set_sprite(Atlas::Sprite* spr)
     {
         _spr = spr;
     }
@@ -96,7 +96,7 @@ namespace fin
         return _atlas.get();
     }
 
-    inline Atlas::sprite *AtlasSceneObject::get_sprite()
+    inline Atlas::Sprite *AtlasSceneObject::get_sprite()
     {
         return _spr;
     }

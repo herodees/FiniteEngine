@@ -3,11 +3,12 @@
 #include "include.hpp"
 #include "utils/lquery.hpp"
 #include "utils/spatial.hpp"
+#include "atlas.hpp"
 
 namespace fin
 {
 class Renderer;
-class JsonEdit;
+class Scene;
 
 enum SceneObjectFlag
 {
@@ -26,6 +27,7 @@ public:
     SceneObject() = default;
     virtual ~SceneObject() = default;
 
+    virtual void update(float dt){};
     virtual void render(Renderer &dc) = 0;
     virtual void render_edit(Renderer &dc){};
     virtual void begin_edit(){};
@@ -40,57 +42,62 @@ public:
     void flag_reset(SceneObjectFlag f);
     void flag_set(SceneObjectFlag f);
 
-    bool is_disabled() const
-    {
-        return flag_get(SceneObjectFlag::Disabled);
-    }
-    void disable(bool v)
-    {
-        v ? flag_set(SceneObjectFlag::Disabled) : flag_reset(SceneObjectFlag::Disabled);
-    }
+    bool is_disabled() const;
+    void disable(bool v);
 
-    bool is_hidden() const
-    {
-        return flag_get(SceneObjectFlag::Hidden);
-    }
-    void hide(bool v)
-    {
-        v ? flag_set(SceneObjectFlag::Hidden) : flag_reset(SceneObjectFlag::Hidden);
-    }
+    bool is_hidden() const;
+    void hide(bool v);
+
+    Scene *scene();
+
+    Vec2f position() const;
+    void move(Vec2f pos);
+    void move_to(Vec2f pos);
+
+    void attach(Scene *scene);
+    void detach();
+
+    Atlas::Pack &set_sprite(std::string_view path, std::string_view spr);
+    Atlas::Pack &sprite();
+    Line<float> iso() const;
+    Region<float> bounding_box() const;
+
+    virtual void save(msg::Writer &ar);
+    virtual void load(msg::Value &ar);
+
+    static SceneObject *create(msg::Value &ar);
 
 protected:
     uint32_t _id{};
     uint32_t _flag{};
+    Scene *_scene{};
+    Atlas::Pack _img;
+    Line<float> _iso;
+};
+
+
+class SceneFactory
+{
+    using fact_t = SceneObject*(*)();
+public:
+    SceneFactory();
+    ~SceneFactory() = default;
+    static SceneFactory& instance();
+
+    SceneObject *create(std::string_view type) const;
+    template <class T>
+    SceneFactory &factory(std::string_view type);
+
+private:
+    std::unordered_map<std::string, fact_t, std::string_hash, std::equal_to<>> _factory;
 };
 
 
 
-inline void SceneObject::serialize(msg::Writer &ar)
+template <class T>
+inline SceneFactory &SceneFactory::factory(std::string_view type)
 {
-    ar.member("x", _position.x);
-    ar.member("y", _position.y);
-    ar.member("fl", _flag);
+    _factory[std::string(type)] = []() { return new T(); };
 }
 
-inline void SceneObject::deserialize(msg::Value &ar)
-{
-    _position.x = ar["x"].get(_position.x);
-    _position.y = ar["y"].get(_position.y);
-    _flag = ar["fl"].get(_flag);
-}
-
-inline bool SceneObject::flag_get(SceneObjectFlag f) const
-{
-    return _flag & f;
-}
-
-inline void SceneObject::flag_reset(SceneObjectFlag f)
-{
-    _flag &= ~f;
-}
-
-inline void SceneObject::flag_set(SceneObjectFlag f)
-{
-    _flag |= f;
-}
 } // namespace fin

@@ -266,7 +266,7 @@ namespace fin
         Polygon() = default;
 
         // Add a vertex to the polygon
-        void add_vertex(const Vec2<T>& vertex) { bbox.width = 0; vertices.push_back(vertex); }
+        void add_vertex(const Vec2<T>& Vertex) { bbox.width = 0; vertices.push_back(Vertex); }
 
         // Check if a point is inside the polygon using the ray-casting algorithm
         bool contains(const Vec2<T>& point) const
@@ -288,8 +288,8 @@ namespace fin
         Polygon rotated_around(const Vec2<T>& center, T radians) const
         {
             Polygon rotated;
-            for (const auto& vertex : vertices) {
-                rotated.add_vertex(vertex.rotated_around(center, radians));
+            for (const auto& Vertex : vertices) {
+                rotated.add_vertex(Vertex.rotated_around(center, radians));
             }
             return rotated;
         }
@@ -298,8 +298,8 @@ namespace fin
         void rotate_around(const Vec2<T>& center, T radians)
         {
             bbox.width = 0;
-            for (auto& vertex : vertices) {
-                vertex = vertex.rotated_around(center, radians);
+            for (auto& Vertex : vertices) {
+                Vertex = Vertex.rotated_around(center, radians);
             }
         }
 
@@ -314,11 +314,11 @@ namespace fin
             T min_x = vertices[0].x, max_x = vertices[0].x;
             T min_y = vertices[0].y, max_y = vertices[0].y;
 
-            for (const auto& vertex : vertices) {
-                min_x = std::min(min_x, vertex.x);
-                max_x = std::max(max_x, vertex.x);
-                min_y = std::min(min_y, vertex.y);
-                max_y = std::max(max_y, vertex.y);
+            for (const auto& Vertex : vertices) {
+                min_x = std::min(min_x, Vertex.x);
+                max_x = std::max(max_x, Vertex.x);
+                min_y = std::min(min_y, Vertex.y);
+                max_y = std::max(max_y, Vertex.y);
             }
 
             bbox = Rect<T>(min_x, min_y, max_x - min_x, max_y - min_y);

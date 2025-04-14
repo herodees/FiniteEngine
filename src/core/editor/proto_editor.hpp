@@ -64,16 +64,16 @@ inline bool ProtoFileEdit::on_edit()
             auto scn = _data.get_item(row_n).get_item(SceneObjId);
             if (scn.is_object())
             {
-                auto sprite = scn.get_item("spr");
-                if (sprite.is_array())
+                auto Sprite = scn.get_item("spr");
+                if (Sprite.is_array())
                 {
-                    auto it = _atlases.find(sprite.get_item(0).str());
+                    auto it = _atlases.find(Sprite.get_item(0).str());
                     if (it == _atlases.end())
                     {
-                        _atlases[sprite.get_item(0).c_str()] =
-                            Atlas::load_shared(sprite.get_item(0).str());
+                        _atlases[Sprite.get_item(0).c_str()] =
+                            Atlas::load_shared(Sprite.get_item(0).str());
                     }
-                    else if (auto n = it->second->find_sprite(sprite.get_item(1).str()))
+                    else if (auto n = it->second->find_sprite(Sprite.get_item(1).str()))
                     {
                         auto &sp = it->second->get(n);
                         ImGui::Image(

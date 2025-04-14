@@ -249,25 +249,17 @@ std::shared_ptr<Atlas> Atlas::load_shared(std::string_view pth)
     return ptr;
 }
 
-std::pair<std::shared_ptr<Atlas>, Atlas::sprite *> Atlas::load_shared_sprite(std::string_view pth)
+Atlas::Pack Atlas::load_shared(std::string_view pth, std::string_view spr)
 {
-    auto pos = pth.rfind(',');
-    if (pos == std::string_view::npos)
+    Pack out;
+    if (out.atlas = load_shared(pth))
     {
-        return { load_shared(pth), nullptr };
-    }
-
-    auto fullpath = pth.substr(0, pos);
-    auto atl = load_shared(fullpath);
-    if (atl)
-    {
-        auto spr = pth.substr(pos + 1);
-        if (auto n = atl->find_sprite(spr))
+        if (auto n = out.atlas->find_sprite(spr))
         {
-            return {atl, &atl->get(n+1)};
+            out.sprite = &out.atlas->get(n);
         }
     }
-    return {atl, nullptr};
+    return out;
 }
 
 } // namespace fin
