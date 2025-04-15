@@ -753,6 +753,34 @@ namespace fin
         return dx * dx + dy * dy;
     }
 
+    void SceneObject::render(Renderer &dc)
+    {
+        if (!_img.sprite)
+            return;
+
+        Rectf dest;
+        dest.x = _position.x - _img.sprite->_origina.x;
+        dest.y = _position.y - _img.sprite->_origina.y;
+        dest.width = _img.sprite->_source.width;
+        dest.height = _img.sprite->_source.height;
+
+        dc.render_texture(_img.sprite->_texture, _img.sprite->_source, dest);
+    }
+
+    void SceneObject::render_edit(Renderer &dc)
+    {
+        if (!_img.sprite)
+            return;
+
+        Region<float> bbox(bounding_box());
+
+        dc.set_color(RED);
+        dc.render_line({bbox.x1, bbox.y1}, {bbox.x1, bbox.y2});
+        dc.render_line({bbox.x1, bbox.y2}, {bbox.x2, bbox.y2});
+        dc.render_line({bbox.x2, bbox.y2}, {bbox.x2, bbox.y1});
+        dc.render_line({bbox.x2, bbox.y1}, {bbox.x1, bbox.y1});
+    }
+
     bool SceneObject::edit()
     {
         bool modified = false;

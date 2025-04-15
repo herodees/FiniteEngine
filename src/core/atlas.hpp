@@ -1,9 +1,9 @@
 #pragma once
 
-#include "shared_resource.hpp"
 #include "file_explorer.hpp"
-#include "utils/msgbuff.hpp"
+#include "shared_resource.hpp"
 #include "utils/matrix2d.hpp"
+#include "utils/msgbuff.hpp"
 
 namespace fin
 {
@@ -13,9 +13,9 @@ namespace fin
         struct TextureRegion
         {
             const Texture* _texture;
-            Rectf _source;
-            Vec2f _origina;
-            Vec2f _originb;
+            Rectf          _source;
+            Vec2f          _origina;
+            Vec2f          _originb;
         };
 
         struct Sprite : TextureRegion
@@ -31,56 +31,55 @@ namespace fin
 
         struct Composite
         {
-            std::string _name;
+            std::string    _name;
             const Texture* _texture;
-            Vertex* _begin;
-            Vertex* _end;
+            Vertex*        _begin;
+            Vertex*        _end;
         };
 
         struct Pack
         {
             std::shared_ptr<Atlas> atlas;
-            Sprite *sprite{};
+            Sprite*                sprite{};
         };
 
-        bool load_from_file(std::string_view pth);
-        void unload();
+        bool               load_from_file(std::string_view pth);
+        void               unload();
         const std::string& get_path() const;
-        uint32_t find_sprite(std::string_view name) const;
-        uint32_t find_composite(std::string_view name) const;
-        uint32_t size() const;
-        uint32_t size_c() const;
-        const Sprite& get(uint32_t n) const;
-        Sprite& get(uint32_t n);
-        const Composite& get_c(uint32_t n) const;
-        Composite& get_c(uint32_t n);
-        const Texture2D& texture() const;
+        uint32_t           find_sprite(std::string_view name) const;
+        uint32_t           find_composite(std::string_view name) const;
+        uint32_t           size() const;
+        uint32_t           size_c() const;
+        const Sprite&      get(uint32_t n) const;
+        Sprite&            get(uint32_t n);
+        const Composite&   get_c(uint32_t n) const;
+        Composite&         get_c(uint32_t n);
+        const Texture2D&   texture() const;
 
         static std::shared_ptr<Atlas> load_shared(std::string_view pth);
-        static Pack load_shared(std::string_view pth, std::string_view spr);
+        static Pack                   load_shared(std::string_view pth, std::string_view spr);
 
     protected:
-        bool load(msg::Value ar);
-        std::string _path;
-        Texture2D _texture{};
-        std::vector<Sprite> _sprites;
+        bool                   load(msg::Value ar);
+        std::string            _path;
+        Texture2D              _texture{};
+        std::vector<Sprite>    _sprites;
         std::vector<Composite> _composites;
-        std::vector<Vertex> _mesh;
+        std::vector<Vertex>    _mesh;
     };
-
 
 
     inline bool Atlas::load_from_file(std::string_view pth)
     {
         unload();
-        _path     = pth;
+        _path = pth;
 
-        auto *txt = LoadFileText(_path.c_str());
+        auto* txt = LoadFileText(_path.c_str());
         if (!txt)
             return false;
 
         msg::Pack doc;
-        auto r = doc.from_string(txt);
+        auto      r = doc.from_string(txt);
         UnloadFileText(txt);
 
         if (msg::VarError::ok != r)
@@ -102,10 +101,10 @@ namespace fin
 
     inline bool Atlas::load(msg::Value ar)
     {
-        auto items  = ar["items"];
+        auto items      = ar["items"];
         auto composites = ar["composites"];
-        auto txture = ar["texture"];
-        auto meta   = ar["metadata"];
+        auto txture     = ar["texture"];
+        auto meta       = ar["metadata"];
 
         _sprites.clear();
         _sprites.reserve(items.size());
@@ -123,65 +122,64 @@ namespace fin
             }
         }
 
-        auto *txt = texture().get_texture();
-        auto txt_size = texture().get_size();
+        auto* txt      = texture().get_texture();
+        auto  txt_size = texture().get_size();
 
-        for (auto &el : items.elements())
+        for (auto& el : items.elements())
         {
-            auto &spr = _sprites.emplace_back();
-            spr._name = el["id"].str();
-            spr._source.x = (float)el["x"].get(0);
-            spr._source.y = (float)el["y"].get(0);
-            spr._source.width = (float)el["w"].get(0);
+            auto& spr          = _sprites.emplace_back();
+            spr._name          = el["id"].str();
+            spr._source.x      = (float)el["x"].get(0);
+            spr._source.y      = (float)el["y"].get(0);
+            spr._source.width  = (float)el["w"].get(0);
             spr._source.height = (float)el["h"].get(0);
-            spr._origina.x = (float)el["oxa"].get(0);
-            spr._origina.y = (float)el["oya"].get(0);
-            spr._originb.x = (float)el["oxb"].get(0);
-            spr._originb.y = (float)el["oyb"].get(0);
-            spr._texture = txt;
+            spr._origina.x     = (float)el["oxa"].get(0);
+            spr._origina.y     = (float)el["oya"].get(0);
+            spr._originb.x     = (float)el["oxb"].get(0);
+            spr._originb.y     = (float)el["oyb"].get(0);
+            spr._texture       = txt;
         }
 
-        for (auto &el : composites.elements())
+        for (auto& el : composites.elements())
         {
-            auto &cmp = _composites.emplace_back();
-            auto els = el["items"];
-            cmp._name = el["id"].str();
+            auto& cmp    = _composites.emplace_back();
+            auto  els    = el["items"];
+            cmp._name    = el["id"].str();
             cmp._texture = txt;
-            cmp._begin = cmp._end = (Vertex *)_mesh.size();
+            cmp._begin = cmp._end = (Vertex*)_mesh.size();
 
-            for (auto &s : els.elements())
+            for (auto& s : els.elements())
             {
                 if (auto sprid = find_sprite(s["s"].str()))
                 {
-                    auto &spr = get(sprid);
+                    auto&    spr = get(sprid);
                     matrix2d tr({(float)s["x"].get_number(0), (float)s["y"].get_number(0)},
                                 {(float)s["sx"].get_number(1.), (float)s["sy"].get_number(1.)},
                                 spr._origina,
                                 (float)s["r"].get_number(0));
 
                     Vertex vtx[4];
-                    vtx[0].uv.x = spr._source.x / txt_size.width;
-                    vtx[0].uv.y = spr._source.y / txt_size.height;
-                    vtx[2].uv.x = spr._source.x2() / txt_size.width;
-                    vtx[2].uv.y = spr._source.y2() / txt_size.height;
-                    vtx[1].uv.x = vtx[0].uv.x;
-                    vtx[1].uv.y = vtx[2].uv.y;
-                    vtx[3].uv.x = vtx[2].uv.x;
-                    vtx[3].uv.y = vtx[0].uv.y;
+                    vtx[0].uv.x     = spr._source.x / txt_size.width;
+                    vtx[0].uv.y     = spr._source.y / txt_size.height;
+                    vtx[2].uv.x     = spr._source.x2() / txt_size.width;
+                    vtx[2].uv.y     = spr._source.y2() / txt_size.height;
+                    vtx[1].uv.x     = vtx[0].uv.x;
+                    vtx[1].uv.y     = vtx[2].uv.y;
+                    vtx[3].uv.x     = vtx[2].uv.x;
+                    vtx[3].uv.y     = vtx[0].uv.y;
                     vtx[0].position = tr.transform_point(Vec2f());
                     vtx[1].position = tr.transform_point(Vec2f(0, spr._source.height));
-                    vtx[2].position =
-                        tr.transform_point(Vec2f(spr._source.width, spr._source.height));
+                    vtx[2].position = tr.transform_point(Vec2f(spr._source.width, spr._source.height));
                     vtx[2].position = tr.transform_point(Vec2f(spr._source.width, 0));
                     _mesh.push_back(vtx[0]);
                     _mesh.push_back(vtx[1]);
                     _mesh.push_back(vtx[2]);
                     _mesh.push_back(vtx[3]);
                 }
-                cmp._end = (Vertex *)_mesh.size();
+                cmp._end = (Vertex*)_mesh.size();
             }
         }
-        
+
 
         for (auto& el : _composites)
         {
@@ -246,4 +244,4 @@ namespace fin
     {
         return _texture;
     }
-} // namespace box
+} // namespace fin

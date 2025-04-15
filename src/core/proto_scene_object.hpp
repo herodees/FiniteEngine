@@ -24,8 +24,6 @@ public:
         return type_id;
     };
     void get_iso(Region<float> &bbox, Line<float> &origin) override;
-    void begin_edit() override;
-    void end_edit() override;
     bool edit() override;
 
     bool load_prototype(const msg::Var &ar);
@@ -78,14 +76,6 @@ inline void ProtoSceneObject::get_iso(Region<float> &bbox, Line<float> &origin)
         origin.point1 = _position + _isoa;
         origin.point2 = _position + _isob;
     }
-}
-
-inline void ProtoSceneObject::begin_edit()
-{
-}
-
-inline void ProtoSceneObject::end_edit()
-{
 }
 
 inline bool ProtoSceneObject::load_prototype(const msg::Var &ar)
