@@ -1,7 +1,7 @@
 #pragma once
 
-#include "atlas.hpp"
 #include "include.hpp"
+#include "atlas.hpp"
 #include "utils/lquery.hpp"
 #include "utils/spatial.hpp"
 
@@ -27,6 +27,7 @@ namespace fin
     class SceneObject : public lq::SpatialDatabase::Proxy
     {
         friend class Scene;
+        friend class SceneFactory;
 
     public:
         inline static std::string_view type_id = "scno";
@@ -67,6 +68,7 @@ namespace fin
 
         Atlas::Pack&  set_sprite(std::string_view path, std::string_view spr);
         Atlas::Pack&  sprite();
+        msg::Var&     collision();
         Line<float>   iso() const;
         Region<float> bounding_box() const;
 
@@ -81,6 +83,7 @@ namespace fin
         Scene*      _scene{};
         Atlas::Pack _img;
         Line<float> _iso;
+        msg::Var    _collision;
     };
 
 
@@ -107,6 +110,7 @@ namespace fin
         void show_workspace();
         void show_menu();
         void show_properties();
+        void center_view();
 
     private:
         struct ClassInfo
@@ -126,6 +130,9 @@ namespace fin
         std::string                                                                   _base_folder;
         ClassInfo*                                                                    _edit{};
         std::string                                                                   _buff;
+        bool                                                                          _scroll_to_center = true;
+        bool                                                                          _edit_origin      = false;
+        bool                                                                          _edit_collision   = false;
     };
 
 

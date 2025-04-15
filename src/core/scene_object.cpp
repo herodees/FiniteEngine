@@ -1,6 +1,7 @@
 #include "scene_object.hpp"
 
 #include "scene.hpp"
+#include "editor/imgui_control.hpp"
 
 namespace fin
 {
@@ -50,6 +51,11 @@ namespace fin
         return _img;
     }
 
+    msg::Var& SceneObject::collision()
+    {
+        return _collision;
+    }
+
     Line<float> SceneObject::iso() const
     {
         return Line<float>(_iso.point1 + _position, _iso.point2 + _position);
@@ -68,6 +74,50 @@ namespace fin
         return out;
     }
 
+    void SceneObject::render(Renderer& dc)
+    {
+        if (!_img.sprite)
+            return;
+
+        Rectf dest;
+        dest.x      = _position.x - _img.sprite->_origina.x;
+        dest.y      = _position.y - _img.sprite->_origina.y;
+        dest.width  = _img.sprite->_source.width;
+        dest.height = _img.sprite->_source.height;
+
+        dc.render_texture(_img.sprite->_texture, _img.sprite->_source, dest);
+    }
+
+    void SceneObject::render_edit(Renderer& dc)
+    {
+        if (!_img.sprite)
+            return;
+
+        Region<float> bbox(bounding_box());
+
+        dc.set_color(RED);
+        dc.render_line({bbox.x1, bbox.y1}, {bbox.x1, bbox.y2});
+        dc.render_line({bbox.x1, bbox.y2}, {bbox.x2, bbox.y2});
+        dc.render_line({bbox.x2, bbox.y2}, {bbox.x2, bbox.y1});
+        dc.render_line({bbox.x2, bbox.y1}, {bbox.x1, bbox.y1});
+    }
+
+    bool SceneObject::edit()
+    {
+        if (!ImGui::CollapsingHeader("Scene object"))
+            return false;
+
+        bool modified = false;
+
+        modified |= ImGui::CheckboxFlags("Disabled", &_flag, SceneObjectFlag::Disabled);
+        modified |= ImGui::CheckboxFlags("Hidden", &_flag, SceneObjectFlag::Hidden);
+
+        modified |= ImGui::SpriteInput("Sprite", &_img);
+        modified |= ImGui::PointVector("Collision", &_collision, {-1, ImGui::GetFrameHeightWithSpacing() * 4});
+
+        return modified;
+    }
+
     void SceneObject::save(msg::Var& ar)
     {
         ar.set_item(Sc::Class, object_type());
@@ -80,6 +130,10 @@ namespace fin
         iso.push_back(_iso.point2.x);
         iso.push_back(_iso.point2.y);
         ar.set_item("iso", iso);
+        if (_collision.size())
+        {
+            ar.set_item("coll", _collision.clone());
+        }
         if (_img.atlas)
         {
             ar.set_item("atl", _img.atlas->get_path());
@@ -95,6 +149,7 @@ namespace fin
         _position.x = ar["x"].get(_position.x);
         _position.y = ar["y"].get(_position.y);
         _flag       = ar["fl"].get(_flag);
+        _collision  = ar["coll"].clone();
         set_sprite(ar["atl"].str(), ar["spr"].str());
         auto iso      = ar.get_item("iso");
         _iso.point1.x = iso.get_item(0).get(0.f);
@@ -239,16 +294,157 @@ namespace fin
         _base_folder = startPath;
     }
 
+    void SceneFactory::center_view()
+    {
+        _scroll_to_center = true;
+    }
+
     void SceneFactory::show_workspace()
     {
         if (!_edit || !_edit->is_selected())
             return;
 
-        auto active = _edit->items.get_item(_edit->selected);
+        static int                 s_drag_point = 0;
+        static ImVec2              s_prev_mpos;
+        static std::vector<ImVec2> s_points;
+        if (!ImGui::IsMouseDown(0))
+        {
+            s_drag_point = 0;
+        }
+
+        auto          spr = _edit->obj->sprite();
+        Scene::Params params;
+
+        ImVec2 visible_size = ImGui::GetContentRegionAvail();
+        params.pos          = ImGui::GetWindowPos();
+        auto cur            = ImGui::GetCursorPos();
+        params.dc           = ImGui::GetWindowDrawList();
+        auto mpos           = ImGui::GetMousePos();
+
+        params.scroll = {ImGui::GetScrollX(), ImGui::GetScrollY()};
+        params.pos.x -= ImGui::GetScrollX();
+        params.pos.y -= ImGui::GetScrollY();
+
+        ImGui::InvisibleButton("Canvas", ImVec2(2000, 2000));
+        params.pos.x += 1000;
+        params.pos.y += 1000;
+
+        params.mouse = {mpos.x - params.pos.x, mpos.y - params.pos.y};
+
+        if (_scroll_to_center)
+        {
+            _scroll_to_center = false;
+            ImGui::SetScrollHereX();
+            ImGui::SetScrollHereY();
+        }
+
+        if (spr.sprite)
+        {
+            Region<float> reg(params.pos.x - spr.sprite->_origina.x,
+                              params.pos.y - spr.sprite->_origina.y,
+                              params.pos.x + spr.sprite->_source.width - spr.sprite->_origina.x,
+                              params.pos.y + spr.sprite->_source.height - spr.sprite->_origina.y);
+
+            ImVec2 txs(spr.sprite->_texture->width, spr.sprite->_texture->height);
+            params.dc->AddImage((ImTextureID)spr.sprite->_texture,
+                                {reg.x1, reg.y1},
+                                {reg.x2, reg.y2},
+                                {spr.sprite->_source.x / txs.x, spr.sprite->_source.y / txs.y},
+                                {spr.sprite->_source.x2() / txs.x, spr.sprite->_source.y2() / txs.y});
+
+            params.dc->AddRect({reg.x1, reg.y1}, {reg.x2, reg.y2}, 0x7fffff00);
+
+            if (_edit_origin)
+            {
+                ImVec2 a{params.pos.x + _edit->obj->_iso.point1.x, params.pos.y + _edit->obj->_iso.point1.y};
+                ImVec2 b{params.pos.x + _edit->obj->_iso.point2.x, params.pos.y + _edit->obj->_iso.point2.y};
+
+                bool hovera = params.mouse_distance2(a - params.pos) < 5 * 5;
+                bool hoverb = params.mouse_distance2(b - params.pos) < 5 * 5;
+
+                if (ImGui::IsItemClicked(0))
+                {
+                    if (hovera || hoverb)
+                    {
+                        s_prev_mpos  = params.mouse;
+                        s_drag_point = hovera ? 1 : 2;
+                    }
+                }
+
+                if (s_drag_point)
+                {
+                    auto diff   = s_prev_mpos - params.mouse;
+                    s_prev_mpos = params.mouse;
+                    auto& iso   = s_drag_point == 1 ? _edit->obj->_iso.point1 : _edit->obj->_iso.point2;
+                    iso -= diff;
+                }
+
+                params.dc->AddLine(a, b, 0xff909090, 2);
+                hovera ? params.dc->AddCircleFilled(a, 5, 0xff00ff00) : params.dc->AddCircle(a, 5, 0xff00ff00);
+                hoverb ? params.dc->AddCircleFilled(b, 5, 0xff0000ff) : params.dc->AddCircle(b, 5, 0xff0000ff);
+            }
+
+            if (_edit_collision && _edit->obj->collision().is_array())
+            {
+                auto coll = _edit->obj->collision();
+                s_points.clear();
+                for (auto n = 0; n < coll.size(); n += 2)
+                {
+                    ImVec2 a{params.pos.x + coll.get_item(n).get(0.0f), params.pos.y + coll.get_item(n + 1).get(0.0f)};
+                    bool   hovera = params.mouse_distance2(a - params.pos) < 5 * 5;
+                    if (ImGui::IsItemClicked(0))
+                    {
+                        if (hovera)
+                        {
+                            s_prev_mpos  = params.mouse;
+                            s_drag_point = n + 1;
+                        }
+                    }
+
+                    if (s_drag_point)
+                    {
+                        auto diff   = s_prev_mpos - params.mouse;
+                        s_prev_mpos = params.mouse;
+                        coll.set_item(s_drag_point - 1, coll.get_item(s_drag_point - 1).get(0.0f) - diff.x);
+                        coll.set_item(s_drag_point, coll.get_item(s_drag_point).get(0.0f) - diff.y);
+                    }
+
+                    s_points.push_back(a);
+                    hovera ? params.dc->AddCircleFilled(a, 5, 0xff00ff00) : params.dc->AddCircle(a, 5, 0xff00ff00);
+                }
+
+                if (s_points.size() >= 3)
+                {
+                    params.dc->AddPolyline(s_points.data(), (int)s_points.size(), 0xff909090, ImDrawFlags_Closed, 2);
+                }
+            }
+        }
+
+        params.dc->AddLine(params.pos - ImVec2(0, 1000), params.pos + ImVec2(0, 1000), 0x7f00ff00);
+        params.dc->AddLine(params.pos - ImVec2(1000, 0), params.pos + ImVec2(1000, 0), 0x7f0000ff);
+
+
     }
 
     void SceneFactory::show_menu()
     {
+        if (ImGui::RadioButton("Select", (!_edit_collision && !_edit_origin)))
+        {
+            _edit_origin    = false;
+            _edit_collision = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Origin", _edit_origin))
+        {
+            _edit_origin    = true;
+            _edit_collision = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Collision", _edit_collision))
+        {
+            _edit_origin    = false;
+            _edit_collision = true;
+        }
     }
 
     void SceneFactory::show_properties()
@@ -262,23 +458,24 @@ namespace fin
                 {
                     _edit = &el.second;
 
-                    if (ImGui::SmallButton(" " ICON_FA_LAPTOP " Add "))
+                    if (ImGui::Button(" " ICON_FA_LAPTOP " Add "))
                     {
                         auto obj = msg::Var::object(2);
                         obj.set_item(Sc::Uid, std::generate_unique_id());
                         obj.set_item(Sc::Class, el.first);
+                        obj.set_item(Sc::Id, ImGui::FormatStr("%s_%d", el.first.c_str(), el.second.items.size()));
                         el.second.items.push_back(obj);
                         el.second.select(el.second.items.size() - 1);
                     }
                     ImGui::SameLine();
-                    if (ImGui::SmallButton(" " ICON_FA_UPLOAD " Save "))
+                    if (ImGui::Button(" " ICON_FA_UPLOAD " Save "))
                     {
                         save_prototypes(el.first);
                     }
                     ImGui::SameLine();
                     ImGui::InvisibleButton("##ib", {-34, 1});
                     ImGui::SameLine();
-                    if (ImGui::SmallButton(" " ICON_FA_BAN " "))
+                    if (ImGui::Button(" " ICON_FA_BAN " "))
                     {
                         if ((uint32_t)el.second.selected < el.second.items.size())
                         {
@@ -298,7 +495,8 @@ namespace fin
                             {
                                 ImGui::PushID(n);
                                 auto val = el.second.items.get_item(n);
-                                if (ImGui::Selectable(ImGui::FormatStr("%d", n), el.second.selected == n))
+                                auto id = val.get_item(Sc::Id);
+                                if (ImGui::Selectable(id.c_str(), el.second.selected == n))
                                 {
                                     el.second.select(n);
                                 }
