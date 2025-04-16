@@ -1,7 +1,7 @@
 #pragma once
 
 #include "include.hpp"
-#include "utils/imgui_utils.hpp"
+#include "imgui_control.hpp"
 
 namespace fin
 {

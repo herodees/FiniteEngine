@@ -1,9 +1,6 @@
 ﻿#include "scene.hpp"
-#include "atlas_scene_object.hpp"
-#include "proto_scene_object.hpp"
-
 #include "utils/dialog_utils.hpp"
-#include "utils/imgui_utils.hpp"
+#include "editor/imgui_control.hpp"
 
 namespace fin
 {
@@ -139,30 +136,27 @@ namespace fin
     void Scene::object_serialize(SceneObject* obj, msg::Writer& ar)
     {
         ar.begin_object();
-        ar.member("ot", obj->object_type());
         obj->serialize(ar);
         ar.end_object();
     }
 
     SceneObject* Scene::object_deserialize(msg::Value& ar)
     {
-        auto ot = ar["ot"].get(std::string_view());
-        SceneObject* obj = nullptr;
-        
-        if (ot == AtlasSceneObject::type_id)
-            obj = new AtlasSceneObject();
-        if (ot == ProtoSceneObject::type_id)
-            obj = new ProtoSceneObject();
-
-        if (obj)
+        auto ot = ar[Sc::Uid].get(0ull);
+        if (SceneObject* obj = SceneFactory::instance().create(ot))
+        {
             obj->deserialize(ar);
-
-        return obj;
+            return obj;
+        }
+        return nullptr;
     }
 
     void Scene::object_insert(SceneObject* obj)
     {
+        if (!obj)
+            return;
         obj->_id = _scene.size();
+        obj->_scene = this;
         _scene.push_back(obj);
         _spatial_db.update_for_new_location(obj);
     }
@@ -195,8 +189,7 @@ namespace fin
             auto *object = static_cast<SceneObject *>(obj);
             Region<float> bbox;
             Line<float> line;
-            object->get_iso(bbox, line);
-            if (bbox.contains(position))
+            if (object->bounding_box().contains(position))
             {
                 out.obj = obj;
             }
@@ -259,14 +252,29 @@ namespace fin
 
         if (_selected_object)
         {
-            _selected_object->render_edit(dc);
+            _selected_object->edit_render(dc);
         }
 
         if (_debug_draw_navmesh)
         {
-            Color clr(128, 128, 128, 255);
-            dc.set_color(clr);
+            dc.set_color({255, 255, 0, 255});
+            for (auto* obj : _iso_manager._iso)
+            {
+                auto& coll = obj->_ptr->collision();
+                auto  sze  = coll.size();
+                if (coll.is_array() && sze >= 4)
+                {
+                    auto p = obj->_ptr->position();
+                    for (uint32_t n = 0; n < sze; n += 2)
+                    {
+                        Vec2f from(coll.get_item(n % sze).get(0.f), coll.get_item((n + 1) % sze).get(0.f));
+                        Vec2f to(coll.get_item((n + 2) % sze).get(0.f), coll.get_item((n + 3) % sze).get(0.f));
+                        dc.render_line(from + p, to + p);
+                    }
+                }
+            }
 
+            dc.set_color({128, 128, 128, 255});
             auto edges = _pathfinder.GetEdgesForDebug();
             for (auto& el : edges)
             {
@@ -316,6 +324,27 @@ namespace fin
         _spatial_db.init({}, 0, 0);
         _grid_surface.clear();
         _grid_texture.clear();
+    }
+
+    void Scene::generate_navmesh()
+    {
+        std::vector<NavMesh::Polygon> polygons;
+        std::for_each(_scene.begin(),
+                      _scene.end(),
+                      [&polygons](SceneObject* obj)
+                      {
+                          auto coll = obj->collision();
+                          if (coll.size() >= 6)
+                          {
+                              auto  pos  = obj->position();
+                              auto& poly = polygons.emplace_back();
+                              for (uint32_t n = 0; n < coll.size(); n += 2)
+                              {
+                                  poly.AddPoint(pos.x + coll.get_item(n).get(0.f), pos.y + coll.get_item(n + 1).get(0.f));
+                              }
+                          }
+                      });
+        _pathfinder.AddPolygons(polygons, 16);
     }
 
     void Scene::serialize(msg::Pack& out)
@@ -439,18 +468,7 @@ namespace fin
 
     void Scene::on_imgui_props_navmesh()
     {
-        if (ImGui::CollapsingHeader("Navmesh", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (ImGui::Button(" Delete "))
-            {
-            }
-
-            if (ImGui::BeginChildFrame(-1, { -1, -1 }, 0))
-            {
-
-            }
-            ImGui::EndChildFrame();
-        }
+        on_imgui_props_object();
     }
 
     void Scene::on_imgui_props_object()
@@ -480,7 +498,7 @@ namespace fin
         {
             if (_selected_object)
             {
-                _selected_object->edit();
+                _selected_object->edit_update();
             }
         }
     }
@@ -551,19 +569,10 @@ namespace fin
             ImGui::Checkbox("Show navmesh", &_debug_draw_navmesh);
             ImGui::SameLine();
 
-            if (ImGui::RadioButton("Add", _add_point)) {
-                _add_point = true;
-            }
-            ImGui::SameLine();
-            if (ImGui::RadioButton("Edit", !_add_point)) {
-                _add_point = false;
-            }
 
-            ImGui::SameLine();
-            ImGui::Dummy({ 16,1 });
-            ImGui::SameLine();
-            if (ImGui::Button(" Delete "))
+            if (ImGui::Button(" Generate "))
             {
+                generate_navmesh();
             }
 
             ImGui::EndTabItem();
@@ -639,7 +648,7 @@ namespace fin
 
     void Scene::on_imgui_workspace_navmesh(Params& params)
     {
-
+        on_imgui_workspace_object(params);
     }
 
     void Scene::on_imgui_workspace_object(Params& params)
@@ -667,56 +676,29 @@ namespace fin
 
         if (ImGui::BeginDragDropTarget())
         {
-            if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(
-                    "PROTO",
-                    ImGuiDragDropFlags_AcceptPeekOnly | ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB",
+                                                                           ImGuiDragDropFlags_AcceptPeekOnly |
+                                                                               ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
-                if (auto object = static_cast<SceneObject *>(ImGui::GetDragData()))
+                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
                 {
-                    _edit_object = object;
+                    _edit_object            = object;
                     _edit_object->_position = {params.mouse.x, params.mouse.y};
                 }
             }
-            if (const ImGuiPayload *payload =
-                    ImGui::AcceptDragDropPayload("PROTO",
-                                                 ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
-                if (auto object = static_cast<SceneObject *>(ImGui::GetDragData()))
+                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
                 {
                     object->_position = {params.mouse.x, params.mouse.y};
                     msg::Pack doc;
-                    auto ar = doc.create();
+                    auto      ar = doc.create();
                     object_serialize(object, ar);
                     auto arr = doc.get();
                     object_insert(object_deserialize(arr));
                 }
             }
 
-
-
-
-            if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload(
-                    "SPRITE",
-                    ImGuiDragDropFlags_AcceptPeekOnly | ImGuiDragDropFlags_AcceptNoPreviewTooltip))
-            {
-                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
-                {
-                    _edit_object = object;
-                    _edit_object->_position = {params.mouse.x, params.mouse.y};
-                }
-            }
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
-            {
-                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
-                {
-                    object->_position = {params.mouse.x, params.mouse.y};
-                    msg::Pack doc;
-                    auto ar = doc.create();
-                    object_serialize(object, ar);
-                    auto arr = doc.get();
-                    object_insert(object_deserialize(arr));
-                }
-            }
             ImGui::EndDragDropTarget();
         }
     }
@@ -754,13 +736,6 @@ namespace fin
     }
 
 
-    bool ProtoSceneObject::edit()
-    {
-        bool modified = SceneObject::edit();
-
-        return modified;
-    }
-
     void Scene::IsoManager::update(lq::SpatialDatabase &db,const Recti& region, SceneObject* edit)
     {
         _iso_pool_size = 0;
@@ -774,13 +749,14 @@ namespace fin
         };
 
         auto add_pool_item = [&](size_t n) {
+            auto& obj = *_iso_pool[n]._ptr;
             _iso[n] = &_iso_pool[n];
             _iso_pool[n]._depth = 0;
             _iso_pool[n]._depth_active = false;
             _iso_pool[n]._back.clear();
-            _iso_pool[n]._ptr->get_iso(_iso_pool[n]._bbox,
-                                       _iso_pool[n]._origin);
-            _iso_pool[n]._ptr->flag_reset(SceneObjectFlag::Marked);
+            _iso_pool[n]._bbox = obj.bounding_box();
+            _iso_pool[n]._origin = obj.iso();
+            obj.flag_reset(SceneObjectFlag::Marked);
         };
 
 

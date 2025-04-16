@@ -10,6 +10,7 @@ namespace fin
 
     void SceneObject::serialize(msg::Writer& ar)
     {
+        ar.member(Sc::Uid, _prefab_uid);
         ar.member("x", _position.x);
         ar.member("y", _position.y);
         ar.member("fl", _flag);
@@ -28,18 +29,6 @@ namespace fin
         _scene->_spatial_db.update_for_new_location(this);
     }
 
-    void SceneObject::attach(Scene* scene)
-    {
-        _scene = scene;
-        _scene->object_insert(this);
-    }
-
-    void SceneObject::detach()
-    {
-        _scene->object_remove(this);
-        _scene = nullptr;
-    }
-
     Atlas::Pack& SceneObject::set_sprite(std::string_view path, std::string_view spr)
     {
         _img = Atlas::load_shared(path, spr);
@@ -56,6 +45,11 @@ namespace fin
         return _collision;
     }
 
+    uint64_t SceneObject::prefab() const
+    {
+        return _prefab_uid;
+    }
+
     Line<float> SceneObject::iso() const
     {
         return Line<float>(_iso.point1 + _position, _iso.point2 + _position);
@@ -68,8 +62,8 @@ namespace fin
         {
             out.x1 -= _img.sprite->_origina.x;
             out.y1 -= _img.sprite->_origina.y;
-            out.x2 = out.x1 + _img.sprite->_texture->width;
-            out.y2 = out.y1 + _img.sprite->_texture->height;
+            out.x2 = out.x1 + _img.sprite->_source.width;
+            out.y2 = out.y1 + _img.sprite->_source.height;
         }
         return out;
     }
@@ -88,7 +82,7 @@ namespace fin
         dc.render_texture(_img.sprite->_texture, _img.sprite->_source, dest);
     }
 
-    void SceneObject::render_edit(Renderer& dc)
+    void SceneObject::edit_render(Renderer& dc)
     {
         if (!_img.sprite)
             return;
@@ -102,9 +96,9 @@ namespace fin
         dc.render_line({bbox.x2, bbox.y1}, {bbox.x1, bbox.y1});
     }
 
-    bool SceneObject::edit()
+    bool SceneObject::edit_update()
     {
-        if (!ImGui::CollapsingHeader("Scene object"))
+        if (!ImGui::CollapsingHeader("Scene object", ImGuiTreeNodeFlags_DefaultOpen))
             return false;
 
         bool modified = false;
@@ -120,9 +114,8 @@ namespace fin
 
     void SceneObject::save(msg::Var& ar)
     {
+        ar.set_item(Sc::Uid, _prefab_uid);
         ar.set_item(Sc::Class, object_type());
-        ar.set_item("x", _position.x);
-        ar.set_item("y", _position.y);
         ar.set_item("fl", _flag);
         auto iso = msg::Var::array(4);
         iso.push_back(_iso.point1.x);
@@ -146,9 +139,8 @@ namespace fin
 
     void SceneObject::load(msg::Var& ar)
     {
-        _position.x = ar["x"].get(_position.x);
-        _position.y = ar["y"].get(_position.y);
-        _flag       = ar["fl"].get(_flag);
+        _prefab_uid     = ar[Sc::Uid].get(0ull);
+        _flag       = ar["fl"].get(0);
         _collision  = ar["coll"].clone();
         set_sprite(ar["atl"].str(), ar["spr"].str());
         auto iso      = ar.get_item("iso");
@@ -158,15 +150,7 @@ namespace fin
         _iso.point2.y = iso.get_item(3).get(0.f);
     }
 
-    SceneObject* SceneObject::create(msg::Var& ar)
-    {
-        if (auto* obj = s_factory->create(ar[Sc::Class].str()))
-        {
-            obj->load(ar);
-            return obj;
-        }
-        return nullptr;
-    }
+
 
     void SceneObject::move(Vec2f pos)
     {
@@ -470,6 +454,7 @@ namespace fin
                     ImGui::SameLine();
                     if (ImGui::Button(" " ICON_FA_UPLOAD " Save "))
                     {
+                        el.second.select(el.second.selected);
                         save_prototypes(el.first);
                     }
                     ImGui::SameLine();
@@ -519,6 +504,78 @@ namespace fin
         }
     }
 
+    void SceneFactory::show_explorer()
+    {
+        if (!ImGui::Begin("Explorer"))
+        {
+            ImGui::End();
+            return;
+        }
+
+        if (ImGui::BeginTabBar("ExpFactTab"))
+        {
+            for (auto& [key, info] : _factory)
+            {
+                if (ImGui::BeginTabItem(info.name.c_str()))
+                {
+                    if (_explore != &info)
+                    {
+                        _explore = &info;
+                        reset_atlas_cache();
+                    }
+                   
+                    if (ImGui::BeginChildFrame(-1, { -1, -1 }))
+                    {
+                        _explore = &info;
+                        ImGuiListClipper clipper;
+                        clipper.Begin(info.items.size());
+                        while (clipper.Step())
+                        {
+                            for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                            {
+                                ImGui::PushID(n);
+                                auto val  = info.items.get_item(n);
+                                auto id   = val.get_item(Sc::Id);
+                                auto pack = load_atlas(val);
+
+                                if (ImGui::Selectable("##id", info.active == n, 0, {0, 25}))
+                                {
+                                    info.active = n;
+                                }
+
+                                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+                                {
+                                    info.select(n);
+                                    ImGui::SetDragData(info.obj.get());
+                                    ImGui::SetDragDropPayload("PREFAB", &n, sizeof(int32_t));
+                                    ImGui::EndDragDropSource();
+                                }
+
+                                if (pack.sprite)
+                                {
+                                    ImGui::SameLine();
+                                    ImGui::SpriteImage(pack.sprite, {25, 25});
+                                }
+                                ImGui::SameLine();
+                                ImGui::Text(id.c_str());
+
+                                ImGui::PopID();
+                            }
+                        }
+
+                    }
+                    ImGui::EndChildFrame();
+
+                    ImGui::EndTabItem();
+                }
+            }
+
+        }
+        ImGui::EndTabBar();
+
+        ImGui::End();
+    }
+
     void SceneFactory::show_properties(ClassInfo& info)
     {
         if (!info.is_selected())
@@ -531,7 +588,32 @@ namespace fin
             proto.set_item(Sc::Id, _buff);
         }
 
-        info.obj->edit();
+        info.obj->edit_update();
+    }
+
+    void SceneFactory::reset_atlas_cache()
+    {
+        _cache.clear();
+    }
+
+    Atlas::Pack SceneFactory::load_atlas(msg::Var& el)
+    {
+        Atlas::Pack out;
+        auto atl = el.get_item("atl");
+        auto spr = el.get_item("spr");
+        auto it = _cache.find(atl.str());
+        if (it == _cache.end())
+        {
+            out = Atlas::load_shared(atl.str(), spr.str());
+            _cache[atl.c_str()] = out.atlas;
+        }
+        else
+        {
+            out.atlas = it->second;
+            if (auto n = out.atlas->find_sprite(spr.str()))
+                out.sprite = &out.atlas->get(n);
+        }
+        return out;
     }
 
     void SceneFactory::ClassInfo::select(int32_t n)

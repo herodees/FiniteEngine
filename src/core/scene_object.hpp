@@ -30,22 +30,24 @@ namespace fin
         friend class SceneFactory;
 
     public:
-        inline static std::string_view type_id = "scno";
+        inline static std::string_view type_id = "sco";
 
         SceneObject()          = default;
         virtual ~SceneObject() = default;
 
-        virtual void             update(float dt) {};
-        virtual void             render(Renderer& dc);
-        virtual void             render_edit(Renderer& dc);
-        virtual bool             edit();
-        virtual void             serialize(msg::Writer& ar);
-        virtual void             deserialize(msg::Value& ar);
-        virtual void             get_iso(Region<float>& bbox, Line<float>& origin) {};
-        virtual std::string_view object_type()
-        {
-            return type_id;
-        };
+        virtual void update(float dt) {};
+        virtual void render(Renderer& dc);
+
+        virtual void edit_render(Renderer& dc);
+        virtual bool edit_update();
+
+        virtual void save(msg::Var& ar); // Save prefab
+        virtual void load(msg::Var& ar); // Load prefab
+
+        virtual void serialize(msg::Writer& ar); // Save to scene
+        virtual void deserialize(msg::Value& ar); // Load to scene
+
+        virtual std::string_view object_type() const;
 
         bool flag_get(SceneObjectFlag f) const;
         void flag_reset(SceneObjectFlag f);
@@ -63,23 +65,18 @@ namespace fin
         void  move(Vec2f pos);
         void  move_to(Vec2f pos);
 
-        void attach(Scene* scene);
-        void detach();
-
         Atlas::Pack&  set_sprite(std::string_view path, std::string_view spr);
         Atlas::Pack&  sprite();
+
+        uint64_t      prefab() const;
         msg::Var&     collision();
         Line<float>   iso() const;
         Region<float> bounding_box() const;
 
-        virtual void save(msg::Var& ar);
-        virtual void load(msg::Var& ar);
-
-        static SceneObject* create(msg::Var& ar);
-
     protected:
         uint32_t    _id{};
         uint32_t    _flag{};
+        uint64_t    _prefab_uid{};
         Scene*      _scene{};
         Atlas::Pack _img;
         Line<float> _iso;
@@ -110,6 +107,7 @@ namespace fin
         void show_workspace();
         void show_menu();
         void show_properties();
+        void show_explorer();
         void center_view();
 
     private:
@@ -121,14 +119,19 @@ namespace fin
             std::string                  name;
             msg::Var                     items;
             int32_t                      selected{-1};
+            int32_t                      active{-1};
             std::unique_ptr<SceneObject> obj{};
         };
         void show_properties(ClassInfo& info);
+        void reset_atlas_cache();
+        Atlas::Pack load_atlas(msg::Var& el);
 
         std::unordered_map<std::string, ClassInfo, std::string_hash, std::equal_to<>> _factory;
         std::unordered_map<uint64_t, msg::Var>                                        _prefab;
+        std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _cache;
         std::string                                                                   _base_folder;
         ClassInfo*                                                                    _edit{};
+        ClassInfo*                                                                    _explore{};
         std::string                                                                   _buff;
         bool                                                                          _scroll_to_center = true;
         bool                                                                          _edit_origin      = false;
@@ -144,6 +147,11 @@ namespace fin
         nfo.name       = label;
         nfo.obj.reset(nfo.fn());
         return *this;
+    }
+
+    inline std::string_view SceneObject::object_type() const
+    {
+        return type_id;
     }
 
 } // namespace fin

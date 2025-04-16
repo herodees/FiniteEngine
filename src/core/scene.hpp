@@ -74,6 +74,7 @@ public:
     void render(Renderer &dc);
     void update(float dt);
     void clear();
+    void generate_navmesh();
 
     void serialize(msg::Pack &ar);
     void deserialize(msg::Value &ar);

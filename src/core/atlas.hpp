@@ -1,6 +1,5 @@
 #pragma once
 
-#include "file_explorer.hpp"
 #include "shared_resource.hpp"
 #include "utils/matrix2d.hpp"
 #include "utils/msgbuff.hpp"
@@ -116,7 +115,7 @@ namespace fin
         {
             if (txture["file"].is_string())
             {
-                std::string pth(path_get_dir(_path));
+                std::string pth(GetPrevDirectoryPath(_path.c_str()));
                 pth.append("/").append(txture["file"].str());
                 _texture.load_from_file(pth);
             }

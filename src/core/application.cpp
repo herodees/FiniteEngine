@@ -1,7 +1,6 @@
 #include "application.hpp"
 
 #include "atlas.hpp"
-#include "atlas_scene_object.hpp"
 #include "imgui_internal.h"
 
 #if defined(PLATFORM_DESKTOP) && defined(GRAPHICS_API_OPENGL_ES3)
@@ -152,13 +151,15 @@ namespace fin
         }
         const std::filesystem::path basePath = basePathPtr;
 #endif
-        _explorer.set_root("./");
-        _explorer.select("./");
+
         _factory.set_root("./assets/");
 
 
-        _factory.factory<SceneObject>("sco", "Static");
-        _factory.load_prototypes("sco");
+        _factory.factory<SceneObject>(SceneObject::type_id, "Static");
+        _factory.load_prototypes(SceneObject::type_id);
+
+        _factory.factory<SceneObject>("npc", "NPC");
+        _factory.load_prototypes("npc");
 
         rlImGuiSetup(true);
         on_imgui_init(true);
@@ -330,7 +331,8 @@ namespace fin
 
     void application::on_imgui_dialogs()
     {
-        _explorer.render();
+        _factory.show_explorer();
+        //_explorer.render();
     }
 
     void application::on_imgui_workspace()
@@ -344,13 +346,7 @@ namespace fin
         {
             _map.on_imgui_menu();
 
-            _show_editor = _show_prefab = false;
-            if (ImGui::BeginTabItem("Prototype"))
-            {
-                _prototypes.show_menu();
-                _show_editor = true;
-                ImGui::EndTabItem();
-            }
+            _show_prefab = false;
 
             if (ImGui::BeginTabItem("Prefab"))
             {
@@ -368,17 +364,13 @@ namespace fin
                                    {-1, -1},
                                    ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar))
         {
-            if (_show_editor)
-            {
-                _prototypes.show_workspace();
-            }
-            else if (_show_prefab)
+            if (_show_prefab)
             {
                 _factory.show_workspace();
             }
             else
             {
-                _prototypes.scroll_to_center();
+                _factory.center_view();
                 _map.on_imgui_workspace();
             }
         }
@@ -395,11 +387,7 @@ namespace fin
             return;
         }
 
-        if (_show_editor)
-        {
-            _prototypes.show_props();
-        }
-        else if (_show_prefab)
+        if (_show_prefab)
         {
             _factory.show_properties();
         }
