@@ -546,7 +546,7 @@ namespace fin
                                 if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
                                 {
                                     info.select(n);
-                                    ImGui::SetDragData(info.obj.get());
+                                    ImGui::SetDragData(info.obj.get(),"PREFAB");
                                     ImGui::SetDragDropPayload("PREFAB", &n, sizeof(int32_t));
                                     ImGui::EndDragDropSource();
                                 }

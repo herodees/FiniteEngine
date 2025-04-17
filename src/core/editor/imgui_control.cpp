@@ -5,11 +5,15 @@
 
 #include <raylib.h>
 
+
 namespace ImGui
 {
     struct SharedData
     {
+        void*  drag_data = 0;
+        std::string   drag_type;
         std::string buff;
+        fin::msg::Var selected_var;
     } s_shared;
 
 
@@ -98,15 +102,13 @@ namespace ImGui
         return modified;
     }
 
-    bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size)
+    bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit)
     {
         bool modified = false;
         ImGui::PushID(ImGui::GetID(label));
 
-
-
         ImGui::Text(label);
-        if (ImGui::BeginChildFrame(-1, size))
+        if (ImGui::BeginChildFrame(-2, size))
         {
             for (auto n = 0; n < points->size(); n += 2)
             {
@@ -166,7 +168,7 @@ namespace ImGui
         return buf;
     }
 
-    static void* s_drag_data = 0;
+
 
     struct FileInfo
     {
@@ -270,14 +272,27 @@ namespace ImGui
     }
 
 
-    void SetDragData(void* d)
+    void SetDragData(void* d, const char* id)
     {
-        s_drag_data = d;
+        s_shared.drag_type = id ? id : "";
+        s_shared.drag_data = d;
     }
 
-    void* GetDragData()
+    void* GetDragData(const char* id)
     {
-        return s_drag_data;
+        if (!id || s_shared.drag_type == id)
+            return s_shared.drag_data;
+        return nullptr;
+    }
+
+    void SetActiveVar(fin::msg::Var el)
+    {
+        s_shared.selected_var = el;
+    }
+
+    fin::msg::Var& GetActiveVar()
+    {
+        return s_shared.selected_var;
     }
 
     void HelpMarker(const char* desc)

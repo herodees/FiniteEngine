@@ -164,8 +164,9 @@ namespace fin
     void Scene::object_remove(SceneObject* obj)
     {
         _spatial_db.remove_from_bin(obj);
-        const auto id = obj->_id;
-        _scene[id] = _scene.back();
+        const auto id   = obj->_id;
+        obj->_scene     = nullptr;
+        _scene[id]      = _scene.back();
         _scene[id]->_id = id;
     }
 
@@ -175,6 +176,15 @@ namespace fin
         {
             _selected_object = obj;
         }
+    }
+
+    void Scene::object_destroy(SceneObject* obj)
+    {
+        if (obj && obj->_scene)
+        {
+            object_remove(obj);
+        }
+        delete obj;
     }
 
     SceneObject *Scene::object_find_at(Vec2f position, float radius)
@@ -457,24 +467,24 @@ namespace fin
         case Mode::Map:
             on_imgui_props_map();
             break;
-        case Mode::Navmesh:
-            on_imgui_props_navmesh();
-            break;
         case Mode::Objects:
             on_imgui_props_object();
             break;
         }
     }
 
-    void Scene::on_imgui_props_navmesh()
-    {
-        on_imgui_props_object();
-    }
-
     void Scene::on_imgui_props_object()
     {
         if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen))
         {
+            if (ImGui::Button(" " ICON_FA_BAN " "))
+            {
+                if (_selected_object)
+                {
+                    object_destroy(_selected_object);
+                    _selected_object = nullptr;
+                }
+            }
             if (ImGui::BeginChildFrame(-1, { -1, 250 }, 0))
             {
                 ImGuiListClipper clipper;
@@ -563,27 +573,18 @@ namespace fin
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Navmesh"))
-        {
-            _mode = Mode::Navmesh;
-            ImGui::Checkbox("Show navmesh", &_debug_draw_navmesh);
-            ImGui::SameLine();
-
-
-            if (ImGui::Button(" Generate "))
-            {
-                generate_navmesh();
-            }
-
-            ImGui::EndTabItem();
-        }
-
         if (ImGui::BeginTabItem("Objects"))
         {
             _mode = Mode::Objects;
             ImGui::Checkbox("Show bounding box##shwobj", &_debug_draw_object);
             ImGui::SameLine();
-            ImGui::Dummy({16, 1});
+            ImGui::Checkbox("Show navmesh", &_debug_draw_navmesh);
+            ImGui::SameLine();
+            if (ImGui::Button(" Generate "))
+            {
+                generate_navmesh();
+            }
+
             ImGui::EndTabItem();
         }
 
@@ -638,17 +639,10 @@ namespace fin
             {
             case Mode::Map:
                 on_imgui_workspace_map(params); break;
-            case Mode::Navmesh:
-                on_imgui_workspace_navmesh(params); break;
             case Mode::Objects:
                 on_imgui_workspace_object(params); break;
             }
         }
-    }
-
-    void Scene::on_imgui_workspace_navmesh(Params& params)
-    {
-        on_imgui_workspace_object(params);
     }
 
     void Scene::on_imgui_workspace_object(Params& params)
@@ -680,7 +674,7 @@ namespace fin
                                                                            ImGuiDragDropFlags_AcceptPeekOnly |
                                                                                ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
-                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
+                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData("PREFAB")))
                 {
                     _edit_object            = object;
                     _edit_object->_position = {params.mouse.x, params.mouse.y};
@@ -688,7 +682,7 @@ namespace fin
             }
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
-                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData()))
+                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData("PREFAB")))
                 {
                     object->_position = {params.mouse.x, params.mouse.y};
                     msg::Pack doc;

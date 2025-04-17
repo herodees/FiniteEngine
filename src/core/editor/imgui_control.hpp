@@ -7,7 +7,7 @@
 namespace ImGui
 {
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack);
-    bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size);
+    bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit = false);
     void SpriteImage(fin::Atlas::Sprite* spr, ImVec2 size);
 
     bool OpenFileInput(const char* label, std::string& path, const char* filter);
@@ -17,8 +17,11 @@ namespace ImGui
 
     const char* FormatStr(const char* fmt, ...);
 
-    void  SetDragData(void* d);
-    void* GetDragData();
+    void  SetDragData(void* d, const char* id = nullptr);
+    void* GetDragData(const char* id = nullptr);
+
+    void SetActiveVar(fin::msg::Var el);
+    fin::msg::Var& GetActiveVar();
 
     bool FileMenu(const char* label, std::string& path, const char* filter);
     bool OpenFileName(const char* label, std::string& path, const char* filter);

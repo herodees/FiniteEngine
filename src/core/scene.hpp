@@ -18,7 +18,6 @@ public:
     {
         Undefined,
         Map,
-        Navmesh,
         Objects
     };
 
@@ -65,6 +64,7 @@ public:
     void object_insert(SceneObject *obj);
     void object_remove(SceneObject *obj);
     void object_select(SceneObject *obj);
+    void object_destroy(SceneObject* obj);
 
     SceneObject *object_find_at(Vec2f position, float radius);
 
@@ -83,12 +83,10 @@ public:
     void save();
 
     void on_imgui_props();
-    void on_imgui_props_navmesh();
     void on_imgui_props_object();
     void on_imgui_props_map();
     void on_imgui_menu();
     void on_imgui_workspace();
-    void on_imgui_workspace_navmesh(Params &params);
     void on_imgui_workspace_object(Params &params);
     void on_imgui_workspace_map(Params &params);
 
