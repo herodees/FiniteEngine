@@ -124,6 +124,7 @@ namespace fin
         bool                                 _debug_draw_navmesh{};
         bool                                 _debug_draw_regions{};
         bool                                 _debug_draw_object{};
+        bool                                 _edit_region{};
         Mode                                 _mode{Mode::Map};
         Recti                                _active_region;
         Vec2i                                _grid_size;

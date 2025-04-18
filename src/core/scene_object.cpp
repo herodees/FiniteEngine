@@ -646,20 +646,28 @@ namespace fin
     {
     }
 
-    Vec2f SceneRegion::position() const
-    {
-        return _position;
-    }
-
     void SceneRegion::move(Vec2f pos)
     {
-        _position += pos;
+        for (uint32_t n = 0; n < _region.size(); n+=2)
+        {
+            _region.set_item(n, _region.get_item(n).get(0.f) + pos.x);
+            _region.set_item(n + 1, _region.get_item(n + 1).get(0.f) + pos.y);
+        }
         change();
     }
 
     void SceneRegion::move_to(Vec2f pos)
     {
-        _position = pos;
+        if (_region.size() <= 2)
+            return;
+        pointf_t origin;
+        origin.x = _region.get_item(0).get(0.f);
+        origin.y = _region.get_item(1).get(0.f);
+        for (uint32_t n = 0; n < _region.size(); n += 2)
+        {
+            _region.set_item(n, _region.get_item(n).get(0.f) - origin.x + pos.x);
+            _region.set_item(n + 1, _region.get_item(n + 1).get(0.f) - origin.y + pos.y);
+        }
         change();
     }
 
@@ -704,8 +712,6 @@ namespace fin
 
     void SceneRegion::serialize(msg::Writer& ar)
     {
-        ar.member("x", _position.x);
-        ar.member("y", _position.y);
         ar.key("reg");
         ar.begin_array();
         for (auto el : _region.elements())
@@ -718,8 +724,6 @@ namespace fin
 
     void SceneRegion::deserialize(msg::Value& ar)
     {
-        _position.x = ar["x"].get(0.f);
-        _position.y = ar["y"].get(0.f);
         _region.clear();
         for (auto el : ar["reg"].elements())
         {
@@ -741,7 +745,7 @@ namespace fin
         {
             Vec2f from(_region.get_item(n % sze).get(0.f), _region.get_item((n + 1) % sze).get(0.f));
             Vec2f to(_region.get_item((n + 2) % sze).get(0.f), _region.get_item((n + 3) % sze).get(0.f));
-            dc.render_line(from + _position, to + _position);
+            dc.render_line(from, to);
         }
     }
 

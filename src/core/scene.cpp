@@ -696,6 +696,7 @@ namespace fin
     void Scene::on_imgui_menu()
     {
         _mode = Mode::Undefined;
+        _debug_draw_regions = false;
 
         if (ImGui::BeginTabItem(ICON_FA_MAP " Map"))
         {
@@ -720,8 +721,15 @@ namespace fin
 
         if (ImGui::BeginTabItem(ICON_FA_MAP_LOCATION_DOT " Regions"))
         {
-            _mode = Mode::Regions;
-            ImGui::Checkbox("Show regions", &_debug_draw_regions);
+            _mode               = Mode::Regions;
+            _debug_draw_regions = true;
+
+            if (ImGui::RadioButton("Edit", _edit_region))
+                _edit_region = true;
+            ImGui::SameLine();
+            if (ImGui::RadioButton("Add", !_edit_region))
+                _edit_region = false;
+
             ImGui::EndTabItem();
         }
     }

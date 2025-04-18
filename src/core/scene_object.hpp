@@ -1,7 +1,7 @@
 #pragma once
 
-#include "include.hpp"
 #include "atlas.hpp"
+#include "include.hpp"
 #include "utils/lquery.hpp"
 #include "utils/spatial.hpp"
 
@@ -35,7 +35,7 @@ namespace fin
         SceneObject()          = default;
         virtual ~SceneObject() = default;
 
-        virtual void update(float dt) {};
+        virtual void update(float dt){};
         virtual void render(Renderer& dc);
 
         virtual void edit_render(Renderer& dc);
@@ -44,7 +44,7 @@ namespace fin
         virtual void save(msg::Var& ar); // Save prefab
         virtual void load(msg::Var& ar); // Load prefab
 
-        virtual void serialize(msg::Writer& ar); // Save to scene
+        virtual void serialize(msg::Writer& ar);  // Save to scene
         virtual void deserialize(msg::Value& ar); // Load to scene
 
         virtual std::string_view object_type() const;
@@ -65,8 +65,8 @@ namespace fin
         void  move(Vec2f pos);
         void  move_to(Vec2f pos);
 
-        Atlas::Pack&  set_sprite(std::string_view path, std::string_view spr);
-        Atlas::Pack&  sprite();
+        Atlas::Pack& set_sprite(std::string_view path, std::string_view spr);
+        Atlas::Pack& sprite();
 
         uint64_t      prefab() const;
         msg::Var&     collision();
@@ -84,17 +84,16 @@ namespace fin
     };
 
 
-
     class SceneRegion
     {
         friend class Scene;
+
     public:
         SceneRegion();
         ~SceneRegion();
 
-        Vec2f position() const;
-        void  move(Vec2f pos);
-        void  move_to(Vec2f pos);
+        void move(Vec2f pos);
+        void move_to(Vec2f pos);
 
         const Region<float>& bounding_box();
         msg::Var&            points();
@@ -108,13 +107,11 @@ namespace fin
 
     protected:
         uint32_t              _id{};
-        Vec2f                 _position;
         Scene*                _scene{};
         msg::Var              _region;
         mutable bool          _need_update{};
         mutable Region<float> _bounding_box;
     };
-
 
 
     class SceneFactory
@@ -155,20 +152,20 @@ namespace fin
             int32_t                      active{-1};
             std::unique_ptr<SceneObject> obj{};
         };
-        void show_properties(ClassInfo& info);
-        void reset_atlas_cache();
+        void        show_properties(ClassInfo& info);
+        void        reset_atlas_cache();
         Atlas::Pack load_atlas(msg::Var& el);
 
-        std::unordered_map<std::string, ClassInfo, std::string_hash, std::equal_to<>> _factory;
-        std::unordered_map<uint64_t, msg::Var>                                        _prefab;
+        std::unordered_map<std::string, ClassInfo, std::string_hash, std::equal_to<>>              _factory;
+        std::unordered_map<uint64_t, msg::Var>                                                     _prefab;
         std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _cache;
-        std::string                                                                   _base_folder;
-        ClassInfo*                                                                    _edit{};
-        ClassInfo*                                                                    _explore{};
-        std::string                                                                   _buff;
-        bool                                                                          _scroll_to_center = true;
-        bool                                                                          _edit_origin      = false;
-        bool                                                                          _edit_collision   = false;
+        std::string                                                                                _base_folder;
+        ClassInfo*                                                                                 _edit{};
+        ClassInfo*                                                                                 _explore{};
+        std::string                                                                                _buff;
+        bool _scroll_to_center = true;
+        bool _edit_origin      = false;
+        bool _edit_collision   = false;
     };
 
 
