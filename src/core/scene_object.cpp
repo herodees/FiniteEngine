@@ -638,4 +638,111 @@ namespace fin
         return (uint32_t)selected < items.size();
     }
 
+    SceneRegion::SceneRegion()
+    {
+    }
+
+    SceneRegion::~SceneRegion()
+    {
+    }
+
+    Vec2f SceneRegion::position() const
+    {
+        return _position;
+    }
+
+    void SceneRegion::move(Vec2f pos)
+    {
+        _position += pos;
+        change();
+    }
+
+    void SceneRegion::move_to(Vec2f pos)
+    {
+        _position = pos;
+        change();
+    }
+
+    const Region<float>& SceneRegion::bounding_box()
+    {
+        if (_need_update)
+        {
+            _bounding_box = {};
+            if (_region.size())
+            {
+                _bounding_box = {FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX};
+                for (uint32_t n = 0; n < _region.size(); n += 2)
+                {
+                    const auto x = _region.get_item(n).get(0.f);
+                    const auto y = _region.get_item(n + 1).get(0.f);
+
+                    if (_bounding_box.x1 > x)
+                        _bounding_box.x1 = x;
+                    if (_bounding_box.x2 < x)
+                        _bounding_box.x2 = x;
+
+                    if (_bounding_box.y1 > y)
+                        _bounding_box.y1 = y;
+                    if (_bounding_box.y2 < y)
+                        _bounding_box.y2 = y;
+                }
+            }
+            _need_update = false;
+        }
+        return _bounding_box;
+    }
+
+    msg::Var& SceneRegion::points()
+    {
+        return _region;
+    }
+
+    void SceneRegion::change()
+    {
+        _need_update = true;
+    }
+
+    void SceneRegion::serialize(msg::Writer& ar)
+    {
+        ar.member("x", _position.x);
+        ar.member("y", _position.y);
+        ar.key("reg");
+        ar.begin_array();
+        for (auto el : _region.elements())
+        {
+            ar.value(el.get(0.f));
+        }
+        ar.end_array();
+
+    }
+
+    void SceneRegion::deserialize(msg::Value& ar)
+    {
+        _position.x = ar["x"].get(0.f);
+        _position.y = ar["y"].get(0.f);
+        _region.clear();
+        for (auto el : ar["reg"].elements())
+        {
+            _region.push_back(el.get(0.f));
+        }
+    }
+
+    bool SceneRegion::edit_update()
+    {
+        auto modified = ImGui::PointVector("Points", &_region, {-1, 150});
+
+        return modified;
+    }
+
+    void SceneRegion::edit_render(Renderer& dc)
+    {
+        auto sze = _region.size();
+        for (uint32_t n = 0; n < sze; n += 2)
+        {
+            Vec2f from(_region.get_item(n % sze).get(0.f), _region.get_item((n + 1) % sze).get(0.f));
+            Vec2f to(_region.get_item((n + 2) % sze).get(0.f), _region.get_item((n + 3) % sze).get(0.f));
+            dc.render_line(from + _position, to + _position);
+        }
+    }
+
 } // namespace fin

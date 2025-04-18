@@ -187,7 +187,58 @@ namespace fin
         delete obj;
     }
 
-    SceneObject *Scene::object_find_at(Vec2f position, float radius)
+    void Scene::region_serialize(SceneRegion* obj, msg::Writer& ar)
+    {
+        ar.begin_object();
+        obj->serialize(ar);
+        ar.end_object();
+    }
+
+    SceneRegion* Scene::region_deserialize(msg::Value& ar)
+    {
+        if (SceneRegion* obj = new SceneRegion)
+        {
+            obj->deserialize(ar);
+            return obj;
+        }
+        return nullptr;
+    }
+
+    void Scene::region_insert(SceneRegion* obj)
+    {
+        if (!obj)
+            return;
+        obj->_id    = _regions.size();
+        obj->_scene = this;
+        _regions.push_back(obj);
+    }
+
+    void Scene::region_remove(SceneRegion* obj)
+    {
+        const auto id   = obj->_id;
+        obj->_scene     = nullptr;
+        _regions[id]    = _regions.back();
+        _regions[id]->_id = id;
+    }
+
+    void Scene::region_select(SceneRegion* obj)
+    {
+        if (_selected_region != obj)
+        {
+            _selected_region = obj;
+        }
+    }
+
+    void Scene::region_destroy(SceneRegion* obj)
+    {
+        if (obj && obj->_scene)
+        {
+            region_remove(obj);
+        }
+        delete obj;
+    }
+
+    SceneObject* Scene::object_find_at(Vec2f position, float radius)
     {
         struct
         {
@@ -207,6 +258,19 @@ namespace fin
 
         _spatial_db.map_over_all_objects_in_locality(position.x, position.y, radius, cb);
         return static_cast<SceneObject *>(out.obj);
+    }
+
+    SceneRegion* Scene::region_find_at(Vec2f position)
+    {
+        for (auto* reg : _regions)
+        {
+            //FIXME: add polygon hit test
+            if (reg->bounding_box().contains(position))
+            {
+                return reg;
+            }
+        }
+        return nullptr;
     }
 
     void Scene::render(Renderer& dc)
@@ -289,6 +353,14 @@ namespace fin
             for (auto& el : edges)
             {
                 dc.render_line(el.b, el.e);
+            }
+        }
+
+        if (_debug_draw_regions)
+        {
+            for (auto* reg : _regions)
+            {
+                reg->edit_render(dc);
             }
         }
 
@@ -394,6 +466,16 @@ namespace fin
                 }
             }
             ar.end_array();
+
+            ar.key("regions");
+            ar.begin_array();
+            {
+                for (auto* obj : _regions)
+                {
+                    region_serialize(obj, ar);
+                }
+            }
+            ar.end_array();
         }
         ar.end_object();
     }
@@ -428,6 +510,12 @@ namespace fin
         for (auto el : obs)
         {
             object_insert(object_deserialize(el));
+        }
+
+        auto rbs = ar["regions"].elements();
+        for (auto el : rbs)
+        {
+            region_insert(region_deserialize(el));
         }
 
         _grid_texture.resize(_grid_surface.size());
@@ -470,6 +558,9 @@ namespace fin
         case Mode::Objects:
             on_imgui_props_object();
             break;
+        case Mode::Regions:
+            on_imgui_props_region();
+            break;
         }
     }
 
@@ -509,6 +600,46 @@ namespace fin
             if (_selected_object)
             {
                 _selected_object->edit_update();
+            }
+        }
+    }
+
+    void Scene::on_imgui_props_region()
+    {
+        if (ImGui::CollapsingHeader("Regions", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (ImGui::Button(" " ICON_FA_BAN " "))
+            {
+                if (_selected_region)
+                {
+                    region_destroy(_selected_region);
+                    _selected_region = nullptr;
+                }
+            }
+            if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
+            {
+                ImGuiListClipper clipper;
+                clipper.Begin(_regions.size());
+                while (clipper.Step())
+                {
+                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                    {
+                        auto* el = _regions[n];
+                        if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _selected_region))
+                        {
+                            region_select(el);
+                        }
+                    }
+                }
+            }
+            ImGui::EndChildFrame();
+        }
+
+        if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (_selected_region)
+            {
+                _selected_region->edit_update();
             }
         }
     }
@@ -566,14 +697,14 @@ namespace fin
     {
         _mode = Mode::Undefined;
 
-        if (ImGui::BeginTabItem("Map"))
+        if (ImGui::BeginTabItem(ICON_FA_MAP " Map"))
         {
             _mode = Mode::Map;
             ImGui::Checkbox("Show grid", &_debug_draw_grid);
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Objects"))
+        if (ImGui::BeginTabItem(ICON_FA_MAP_PIN " Objects"))
         {
             _mode = Mode::Objects;
             ImGui::Checkbox("Show bounding box##shwobj", &_debug_draw_object);
@@ -584,10 +715,15 @@ namespace fin
             {
                 generate_navmesh();
             }
-
             ImGui::EndTabItem();
         }
 
+        if (ImGui::BeginTabItem(ICON_FA_MAP_LOCATION_DOT " Regions"))
+        {
+            _mode = Mode::Regions;
+            ImGui::Checkbox("Show regions", &_debug_draw_regions);
+            ImGui::EndTabItem();
+        }
     }
 
     void Scene::on_imgui_workspace()
@@ -637,10 +773,15 @@ namespace fin
 
             switch (_mode)
             {
-            case Mode::Map:
-                on_imgui_workspace_map(params); break;
-            case Mode::Objects:
-                on_imgui_workspace_object(params); break;
+                case Mode::Map:
+                    on_imgui_workspace_map(params);
+                    break;
+                case Mode::Objects:
+                    on_imgui_workspace_object(params);
+                    break;
+                case Mode::Regions:
+                    on_imgui_workspace_object(params);
+                    break;
             }
         }
     }

@@ -348,7 +348,7 @@ namespace fin
 
             _show_prefab = false;
 
-            if (ImGui::BeginTabItem("Prefab"))
+            if (ImGui::BeginTabItem(ICON_FA_BOX_ARCHIVE " Prefabs"))
             {
                 _show_prefab = true;
                 _factory.show_menu();

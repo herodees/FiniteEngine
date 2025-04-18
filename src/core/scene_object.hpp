@@ -84,6 +84,39 @@ namespace fin
     };
 
 
+
+    class SceneRegion
+    {
+        friend class Scene;
+    public:
+        SceneRegion();
+        ~SceneRegion();
+
+        Vec2f position() const;
+        void  move(Vec2f pos);
+        void  move_to(Vec2f pos);
+
+        const Region<float>& bounding_box();
+        msg::Var&            points();
+        void                 change();
+
+        void serialize(msg::Writer& ar);  // Save to scene
+        void deserialize(msg::Value& ar); // Load to scene
+
+        bool edit_update();
+        void edit_render(Renderer& dc);
+
+    protected:
+        uint32_t              _id{};
+        Vec2f                 _position;
+        Scene*                _scene{};
+        msg::Var              _region;
+        mutable bool          _need_update{};
+        mutable Region<float> _bounding_box;
+    };
+
+
+
     class SceneFactory
     {
         using fact_t = SceneObject* (*)();

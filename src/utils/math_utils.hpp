@@ -380,6 +380,10 @@ namespace fin
         T width() const { return x2 - x1; }
         T height() const { return y2 - y1; }
         Vec2<T> size() const { return { x2 - x1, y2 - y1 }; }
+        Vec2<T> center() const
+        {
+            return {(x1 + x2) / 2, (y1 + y2) / 2};
+        }
 
         void move(T dx, T dy) { x1 += dx; x2 += dx; y1 += dy; y2 += dy; }
         void moveto(T x, T y)
