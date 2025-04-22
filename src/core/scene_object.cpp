@@ -700,6 +700,26 @@ namespace fin
         return _bounding_box;
     }
 
+    bool SceneRegion::contains(Vec2f point)
+    {
+        if (!bounding_box().contains(point))
+            return false;
+
+        bool    inside = false;
+        int32_t n      = get_size();
+        for (size_t i = 0, j = n - 1; i < n; j = i++)
+        {
+            const auto v1 = get_point(i);
+            const auto v2 = get_point(j);
+            if (((v1.y > point.y) != (v2.y > point.y)) &&
+                (point.x < (v2.x - v1.x) * (point.y - v1.y) / (v2.y - v1.y) + v1.x))
+            {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
     msg::Var& SceneRegion::points()
     {
         return _region;
@@ -708,6 +728,60 @@ namespace fin
     void SceneRegion::change()
     {
         _need_update = true;
+    }
+
+    int32_t SceneRegion::find_point(Vec2f pt, float radius)
+    {
+        auto sze = _region.size();
+        for (uint32_t n = 0; n < sze; n += 2)
+        {
+            Vec2f pos(_region.get_item(n).get(0.f), _region.get_item(n + 1).get(0.f));
+            if (pos.distance_squared(pt) <= (radius * radius))
+            {
+                return n / 2;
+            }
+        }
+        return -1;
+    }
+
+    SceneRegion& SceneRegion::insert_point(Vec2f pt, int32_t n)
+    {
+        _need_update = true;
+        if (uint32_t(n * 2) >= _region.size())
+        {
+            _region.push_back(pt.x);
+            _region.push_back(pt.y);
+        }
+        else
+        {
+            n = n * 2;
+            _region.insert(n, pt.x);
+            _region.insert(n + 1, pt.y);
+        }
+        return *this;
+    }
+
+    Vec2f SceneRegion::get_point(int32_t n)
+    {
+        n = n * 2;
+        return (uint32_t(n) < _region.size()) ? Vec2f{_region.get_item(n).get(0.f), _region.get_item(n + 1).get(0.f)}
+                                              : Vec2f{0, 0};
+    }
+
+    void SceneRegion::set_point(Vec2f pt, int32_t n)
+    {
+        n = n * 2;
+        if (uint32_t(n) < _region.size())
+        {
+            _need_update = true;
+            _region.set_item(n, pt.x);
+            _region.set_item(n + 1, pt.y);
+        }
+    }
+
+    int32_t SceneRegion::get_size() const
+    {
+        return _region.size() / 2;
     }
 
     void SceneRegion::serialize(msg::Writer& ar)
@@ -729,12 +803,17 @@ namespace fin
         {
             _region.push_back(el.get(0.f));
         }
+        change();
     }
 
     bool SceneRegion::edit_update()
     {
-        auto modified = ImGui::PointVector("Points", &_region, {-1, 150});
-
+        auto modified = false; 
+        if (ImGui::PointVector("Points", &_region, {-1, 150}))
+        {
+            change();
+            auto modified = true;
+        }
         return modified;
     }
 

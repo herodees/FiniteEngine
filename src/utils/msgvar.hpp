@@ -44,6 +44,16 @@ namespace fin::msg
                 ::memset(_data + _capacity, 0, sizeof(T) * (n - _capacity));
                 _capacity = n;
             }
+            void insert(uint32_t index, const T& value)
+            {
+                if (index > _size)
+                    return push_back(value);
+                reserve((_size + 4) & ~3); // grow capacity if needed, same trick as push_back
+                // Shift existing elements up
+                ::memmove(_data + index + 1, _data + index, sizeof(T) * (_size - index));
+                new (&_data[index]) T(value); // Placement new to construct in-place
+                ++_size;
+            }
             void push_back(const T& x) { reserve((_size + 4) & ~3); new(&_data[_size++])T(x); }
             void resize(uint32_t n) { reserve(n); _size = n; }
             T& back() { return _data[_size - 1]; }
@@ -160,6 +170,7 @@ namespace fin::msg
         
             void             push_back(auto v) { push_back(Var(v)); };
             void             push_back(const Var& v);
+            void             insert(uint32_t n, const Var& v);
             void             push_back(std::string_view key, const Var& v);
 
             Var              get_item(uint32_t n);
@@ -636,6 +647,17 @@ namespace fin::msg
             _arr->reserve((_arr->_size + 4) & ~3);
             new(&_arr->_data[_arr->_size]) Var(v);
             ++_arr->_size;
+        }
+
+        inline void Var::insert(uint32_t n, const Var& v)
+        {
+            if (_tag != Tag::Array)
+            {
+                clear();
+                _tag = Tag::Array;
+                _arr = MsgCreate<ArrData>();
+            }
+            _arr->insert(n, v);
         }
 
         inline void Var::set_item(std::string_view key, const Var& v)

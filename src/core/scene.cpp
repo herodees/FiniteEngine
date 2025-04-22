@@ -168,13 +168,14 @@ namespace fin
         obj->_scene     = nullptr;
         _scene[id]      = _scene.back();
         _scene[id]->_id = id;
+        _scene.pop_back();
     }
 
     void Scene::object_select(SceneObject *obj)
     {
-        if (_selected_object != obj)
+        if (_edit._selected_object != obj)
         {
-            _selected_object = obj;
+            _edit._selected_object = obj;
         }
     }
 
@@ -219,13 +220,14 @@ namespace fin
         obj->_scene     = nullptr;
         _regions[id]    = _regions.back();
         _regions[id]->_id = id;
+        _regions.pop_back();
     }
 
     void Scene::region_select(SceneRegion* obj)
     {
-        if (_selected_region != obj)
+        if (_edit._selected_region != obj)
         {
-            _selected_region = obj;
+            _edit._selected_region = obj;
         }
     }
 
@@ -264,8 +266,7 @@ namespace fin
     {
         for (auto* reg : _regions)
         {
-            //FIXME: add polygon hit test
-            if (reg->bounding_box().contains(position))
+            if (reg->contains(position))
             {
                 return reg;
             }
@@ -324,9 +325,9 @@ namespace fin
             }
         }
 
-        if (_selected_object)
+        if (_edit._selected_object)
         {
-            _selected_object->edit_render(dc);
+            _edit._selected_object->edit_render(dc);
         }
 
         if (_debug_draw_navmesh)
@@ -362,6 +363,22 @@ namespace fin
             {
                 reg->edit_render(dc);
             }
+
+            if (_edit._selected_region)
+            {
+                dc.set_color({255, 255, 0, 255});
+                auto bbox = _edit._selected_region->bounding_box();
+                dc.render_line_rect(bbox.rect());
+
+                for (auto n = 0; n < _edit._selected_region->get_size(); ++n)
+                {
+                    auto pt = _edit._selected_region->get_point(n);
+                    if (_edit._active_point == n)
+                        dc.render_circle(pt, 3);
+                    else
+                        dc.render_line_circle(pt, 3);
+                }
+            }
         }
 
         if (_debug_draw_grid)
@@ -391,7 +408,7 @@ namespace fin
 
     void Scene::update(float dt)
     {
-        _iso_manager.update(_spatial_db, _active_region, _edit_object);
+        _iso_manager.update(_spatial_db, _active_region, _edit._edit_object);
     }
 
 
@@ -570,10 +587,10 @@ namespace fin
         {
             if (ImGui::Button(" " ICON_FA_BAN " "))
             {
-                if (_selected_object)
+                if (_edit._selected_object)
                 {
-                    object_destroy(_selected_object);
-                    _selected_object = nullptr;
+                    object_destroy(_edit._selected_object);
+                    _edit._selected_object = nullptr;
                 }
             }
             if (ImGui::BeginChildFrame(-1, { -1, 250 }, 0))
@@ -585,7 +602,7 @@ namespace fin
                     for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
                     {
                         auto *el = _scene[n];
-                        if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _selected_object))
+                        if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _edit._selected_object))
                         {
                             object_select(el);
                         }
@@ -597,9 +614,9 @@ namespace fin
 
         if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (_selected_object)
+            if (_edit._selected_object)
             {
-                _selected_object->edit_update();
+                _edit._selected_object->edit_update();
             }
         }
     }
@@ -610,10 +627,10 @@ namespace fin
         {
             if (ImGui::Button(" " ICON_FA_BAN " "))
             {
-                if (_selected_region)
+                if (_edit._selected_region)
                 {
-                    region_destroy(_selected_region);
-                    _selected_region = nullptr;
+                    region_destroy(_edit._selected_region);
+                    _edit._selected_region = nullptr;
                 }
             }
             if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
@@ -625,7 +642,7 @@ namespace fin
                     for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
                     {
                         auto* el = _regions[n];
-                        if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _selected_region))
+                        if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _edit._selected_region))
                         {
                             region_select(el);
                         }
@@ -637,9 +654,9 @@ namespace fin
 
         if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (_selected_region)
+            if (_edit._selected_region)
             {
-                _selected_region->edit_update();
+                _edit._selected_region->edit_update();
             }
         }
     }
@@ -747,7 +764,8 @@ namespace fin
             auto cur = ImGui::GetCursorPos();
             params.dc = ImGui::GetWindowDrawList();
             auto mpos = ImGui::GetMousePos();
-            params.mouse = { mpos.x - params.pos.x + ImGui::GetScrollX(), mpos.y - params.pos.y + ImGui::GetScrollY() };
+            params.mouse = {mpos.x - params.pos.x - cur.x + ImGui::GetScrollX(),
+                            mpos.y - params.pos.y - cur.y + ImGui::GetScrollY()};
 
             params.dc->AddImage((ImTextureID)&_canvas.get_texture()->texture, { cur.x + params.pos.x, cur.y + params.pos.y },
                 { cur.x + params.pos.x + _canvas.get_width(), cur.y + params.pos.y + _canvas.get_height() }, {0, 1}, {1, 0});
@@ -761,23 +779,7 @@ namespace fin
             activate_grid(
                 Recti(ImGui::GetScrollX(), ImGui::GetScrollY(), visible_size.x, visible_size.y));
 
-            if (ImGui::IsItemClicked(0))
-            {
-                _drag_active = true;
-                _drag_begin = params.mouse;
-                _drag_delta = {};
-            }
-
-            if (_drag_active && ImGui::IsMouseDown(0))
-            {
-                _drag_delta.x = params.mouse.x - _drag_begin.x;
-                _drag_delta.y = params.mouse.y - _drag_begin.y;
-                _drag_begin = params.mouse;
-            }
-            else
-            {
-                _drag_active = false;
-            }
+            _drag.update(params.mouse.x, params.mouse.y);
 
             switch (_mode)
             {
@@ -788,7 +790,7 @@ namespace fin
                     on_imgui_workspace_object(params);
                     break;
                 case Mode::Regions:
-                    on_imgui_workspace_object(params);
+                    on_imgui_workspace_region(params);
                     break;
             }
         }
@@ -796,7 +798,7 @@ namespace fin
 
     void Scene::on_imgui_workspace_object(Params& params)
     {
-        _edit_object = nullptr;
+        _edit._edit_object = nullptr;
 
         if (ImGui::IsItemClicked(0))
         {
@@ -809,10 +811,14 @@ namespace fin
                 object_select(nullptr);
             }
         }
-
-        if (_drag_active && _selected_object)
+        if (ImGui::IsItemClicked(1))
         {
-            _selected_object->move(_drag_delta);
+            object_select(nullptr);
+        }
+
+        if (_drag._active && _edit._selected_object)
+        {
+            _edit._selected_object->move(_drag._delta);
         }
 
 
@@ -825,8 +831,8 @@ namespace fin
             {
                 if (auto object = static_cast<SceneObject*>(ImGui::GetDragData("PREFAB")))
                 {
-                    _edit_object            = object;
-                    _edit_object->_position = {params.mouse.x, params.mouse.y};
+                    _edit._edit_object      = object;
+                    _edit._edit_object->_position = {params.mouse.x, params.mouse.y};
                 }
             }
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
@@ -843,6 +849,59 @@ namespace fin
             }
 
             ImGui::EndDragDropTarget();
+        }
+    }
+
+    void Scene::on_imgui_workspace_region(Params& params)
+    {
+        // Edit region points
+        if (_edit_region)
+        {
+            if (_edit._selected_region)
+            {
+                if (ImGui::IsItemClicked(0))
+                {
+                    _edit._active_point = _edit._selected_region->find_point(params.mouse, 5);
+                }
+                if (ImGui::IsItemClicked(1))
+                {
+                    region_select(nullptr);
+                }
+            }
+            else if (ImGui::IsItemClicked(0))
+            {
+                _edit._selected_region = region_find_at(params.mouse);
+            }
+
+            if (_drag._active && _edit._active_point != -1 && _edit._selected_region)
+            {
+                auto pt = _edit._selected_region->get_point(_edit._active_point) + _drag._delta;
+                _edit._selected_region->set_point(pt, _edit._active_point);
+            }
+        }
+        // Create region
+        else
+        {
+            if (ImGui::IsItemClicked(0))
+            {
+                if (_edit._selected_region)
+                {
+                    _edit._selected_region->insert_point(params.mouse, _edit._active_point + 1);
+                    _edit._active_point = _edit._active_point + 1;
+                }
+                else
+                {
+                    region_select(new SceneRegion);
+                    region_insert(_edit._selected_region);
+                    _edit._active_point = 0;
+                    _edit._selected_region->insert_point(params.mouse);
+                }
+            }
+            if (ImGui::IsItemClicked(1))
+            {
+                _edit._active_point = -1;
+                region_select(nullptr);
+            }
         }
     }
 
@@ -968,4 +1027,25 @@ namespace fin
         }
     }
 
-    } // namespace fin
+    void Scene::DragData::update(float x, float y)
+    {
+        if (ImGui::IsItemClicked(0))
+        {
+            _active = true;
+            _begin  = {x, y};
+            _delta  = {};
+        }
+
+        if (_active && ImGui::IsMouseDown(0))
+        {
+            _delta.x = x - _begin.x;
+            _delta.y = y - _begin.y;
+            _begin   = {x, y};
+        }
+        else
+        {
+            _active = false;
+        }
+    }
+
+} // namespace fin

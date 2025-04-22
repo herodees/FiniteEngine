@@ -50,6 +50,25 @@ namespace fin
             void                    update(lq::SpatialDatabase& db, const Recti& region, SceneObject* edit);
         };
 
+        struct DragData
+        {
+            Vec2f _begin;
+            Vec2f _delta;
+            bool  _active{};
+
+            void update(float x, float y);
+        };
+
+        struct EditData
+        {
+            SceneObject* _edit_object{};
+            SceneObject* _selected_object{};
+            SceneRegion* _selected_region{};
+            int32_t      _active_point{-1};
+            bool         _add_point{};
+            bool         _move_point{};
+        };
+
         Scene();
         ~Scene();
 
@@ -98,6 +117,7 @@ namespace fin
         void on_imgui_menu();
         void on_imgui_workspace();
         void on_imgui_workspace_object(Params& params);
+        void on_imgui_workspace_region(Params& params);
         void on_imgui_workspace_map(Params& params);
 
     private:
@@ -109,17 +129,8 @@ namespace fin
         IsoManager                           _iso_manager;
         lq::SpatialDatabase                  _spatial_db;
         NavMesh::PathFinder                  _pathfinder;
-        SceneObject*                         _edit_object{};
-        SceneObject*                         _selected_object{};
-        SceneRegion*                         _selected_region{};
-        int32_t                              _active_prototype_type{};
-        uint32_t                             _active_prototype{0};
-        int32_t                              _active_point{-1};
-        Vec2f                                _drag_begin;
-        Vec2f                                _drag_delta;
-        bool                                 _drag_active{};
-        bool                                 _add_point{};
-        bool                                 _move_point{};
+        DragData                             _drag{};
+        EditData                             _edit{};
         bool                                 _debug_draw_grid{};
         bool                                 _debug_draw_navmesh{};
         bool                                 _debug_draw_regions{};

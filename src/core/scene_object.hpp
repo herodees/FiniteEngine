@@ -96,8 +96,14 @@ namespace fin
         void move_to(Vec2f pos);
 
         const Region<float>& bounding_box();
+        bool                 contains(Vec2f pos);
         msg::Var&            points();
         void                 change();
+        int32_t              find_point(Vec2f pt, float radius = 1);
+        SceneRegion&         insert_point(Vec2f pt, int32_t n = -1);
+        Vec2f                get_point(int32_t n);
+        void                 set_point(Vec2f pt, int32_t n);
+        int32_t              get_size() const;
 
         void serialize(msg::Writer& ar);  // Save to scene
         void deserialize(msg::Value& ar); // Load to scene

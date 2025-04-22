@@ -56,6 +56,26 @@ void Renderer::render_line(float fromx, float fromy, float tox, float toy)
     DrawLine(fromx, fromy, tox, toy, _color);
 }
 
+void Renderer::render_line_rect(const Rectf& dest)
+{
+    DrawRectangleLinesEx({dest.x, dest.y, dest.width, dest.height}, 1, _color);
+}
+
+void Renderer::render_rect(const Rectf& dest)
+{
+    DrawRectangleV({dest.x, dest.y}, {dest.width, dest.height}, _color);
+}
+
+void Renderer::render_line_circle(Vec2f pos, float radius)
+{
+    DrawCircleLinesV({pos.x, pos.y}, radius, _color);
+}
+
+void Renderer::render_circle(Vec2f pos, float radius)
+{
+    DrawCircleV({pos.x, pos.y}, radius, _color);
+}
+
 void Renderer::render_debug_text(Vec2f to, const char *fmt, ...)
 {
     static char buf[512];
