@@ -102,6 +102,51 @@ namespace ImGui
         return modified;
     }
 
+    bool SoundInput(const char* label, fin::SoundSource::Ptr* pack)
+    {
+        ImGui::PushID(ImGui::GetID(label));
+        bool modified = false;
+
+        ImGui::BeginGroup();
+        {
+            if (pack->get())
+            {
+                if (ImGui::Button(ICON_FA_PLAY "##img", { 32, 32 }))
+                {
+                    PlaySound(*pack->get()->get_sound());
+                }
+            }
+            else
+            {
+                ImGui::Button(ICON_FA_MUSIC "##img", {32, 32});
+            }
+
+            if (pack->get())
+            {
+                s_shared.buff = pack->get()->get_path();
+            }
+            else
+            {
+                s_shared.buff.clear();
+            }
+
+            ImGui::SameLine();
+            ImGui::BeginGroup();
+            {
+                if (ImGui::OpenFileName(label, s_shared.buff, ".ogg"))
+                {
+                    *pack         = fin::SoundSource::load_shared(s_shared.buff);
+                    modified     = true;
+                }
+            }
+            ImGui::EndGroup();
+        }
+        ImGui::EndGroup();
+        ImGui::PopID();
+
+        return modified;
+    }
+
     bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit)
     {
         bool modified = false;

@@ -15,4 +15,8 @@ std::string save_file_dialog(const std::string &title,
                              std::vector<std::string> filters = {"All Files", "*"});
 
 std::vector<std::string> create_file_filter(const std::string &str);
+
+
+void run_current_process(const std::vector<std::string>& args);
+
 } // namespace fin

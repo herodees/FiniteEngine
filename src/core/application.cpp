@@ -6,6 +6,7 @@
 #if defined(PLATFORM_DESKTOP) && defined(GRAPHICS_API_OPENGL_ES3)
 #include "GLFW/glfw3.h"
 #endif
+#include <utils/dialog_utils.hpp>
 
 namespace fin
 {
@@ -139,6 +140,7 @@ namespace fin
 #endif
         SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
         InitWindow(screenWidth, screenHeight, "Finite");
+        InitAudioDevice();
 
         // load the font
 #if __ANDROID__
@@ -154,12 +156,15 @@ namespace fin
 
         _factory.set_root("./assets/");
 
+        _factory.load_factory<SpriteSceneObject>(SpriteSceneObject::type_id, "Static");
+        _factory.load_factory<SpriteSceneObject>("npc", "NPC");
+        _factory.load_factory<SoundObject>(SoundObject::type_id, "Sound");
 
-        _factory.factory<SceneObject>(SceneObject::type_id, "Static");
-        _factory.load_prototypes(SceneObject::type_id);
-
-        _factory.factory<SceneObject>("npc", "NPC");
-        _factory.load_prototypes("npc");
+        if (cmd_attribute_exists("/scene"))
+        {
+            auto path = cmd_attribute_get("/scene");
+            _map.load(path);
+        }
 
         rlImGuiSetup(true);
         on_imgui_init(true);
@@ -170,7 +175,32 @@ namespace fin
     void application::on_deinit(bool result)
     {
         rlImGuiShutdown();
+        CloseAudioDevice();
         CloseWindow();
+    }
+
+    bool application::cmd_attribute_exists(std::string_view cmd) const
+    {
+        for (std::string_view c : _argv)
+        {
+            auto n = c.find('=');
+            c      = c.substr(0, n);
+            if (c == cmd)
+                return true;
+        }
+        return false;
+    }
+
+    std::string_view application::cmd_attribute_get(std::string_view cmd) const
+    {
+        for (std::string_view c : _argv)
+        {
+            auto n = c.find('=');
+            auto cc = c.substr(0, n);
+            if (c == cmd)
+                return c.substr(n + 1);
+        }
+        return std::string_view();
     }
 
     void application::on_imgui()
@@ -317,10 +347,18 @@ namespace fin
                 }
                 if (ImGui::MenuItem("Save"))
                 {
-                    _map.save();
+                    if (_map.get_path().empty())
+                    {
+                        _map.save();
+                    }
+                    else
+                    {
+                        _map.save(_map.get_path());
+                    }
                 }
                 if (ImGui::MenuItem("Save as") || open_save_as)
                 {
+                    _map.save();
                 }
                 ImGui::EndMenu();
             }
@@ -353,6 +391,11 @@ namespace fin
                 _show_prefab = true;
                 _factory.show_menu();
                 ImGui::EndTabItem();
+            }
+
+            if (ImGui::TabItemButton(" " ICON_FA_PLAY " ", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
+            {
+                run_current_process({"/run", "/scene='scene'"});
             }
 
             ImGui::EndTabBar();

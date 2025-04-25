@@ -7,6 +7,7 @@
 namespace ImGui
 {
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack);
+    bool SoundInput(const char* label, fin::SoundSource::Ptr* pack);
     bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit = false);
     void SpriteImage(fin::Atlas::Sprite* spr, ImVec2 size);
 

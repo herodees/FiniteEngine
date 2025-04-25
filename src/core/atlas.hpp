@@ -9,6 +9,8 @@ namespace fin
     class Atlas : std::enable_shared_from_this<Atlas>
     {
     public:
+        using Ptr = std::shared_ptr<Atlas>;
+
         struct TextureRegion
         {
             const Texture* _texture;
@@ -38,8 +40,8 @@ namespace fin
 
         struct Pack
         {
-            std::shared_ptr<Atlas> atlas;
-            Sprite*                sprite{};
+            Atlas::Ptr atlas;
+            Sprite*    sprite{};
         };
 
         bool               load_from_file(std::string_view pth);
@@ -55,8 +57,8 @@ namespace fin
         Composite&         get_c(uint32_t n);
         const Texture2D&   texture() const;
 
-        static std::shared_ptr<Atlas> load_shared(std::string_view pth);
-        static Pack                   load_shared(std::string_view pth, std::string_view spr);
+        static Atlas::Ptr load_shared(std::string_view pth);
+        static Pack       load_shared(std::string_view pth, std::string_view spr);
 
     protected:
         bool                   load(msg::Value ar);

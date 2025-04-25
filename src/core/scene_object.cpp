@@ -8,54 +8,33 @@ namespace fin
 
     SceneFactory* s_factory{};
 
-    void SceneObject::serialize(msg::Writer& ar)
+    void SpriteSceneObject::serialize(msg::Writer& ar)
     {
-        ar.member(Sc::Uid, _prefab_uid);
-        ar.member("x", _position.x);
-        ar.member("y", _position.y);
-        ar.member("fl", _flag);
+        BasicSceneObject::serialize(ar);
     }
 
-    void SceneObject::deserialize(msg::Value& ar)
+    void SpriteSceneObject::deserialize(msg::Value& ar)
     {
-        _position.x = ar["x"].get(_position.x);
-        _position.y = ar["y"].get(_position.y);
-        _flag       = ar["fl"].get(_flag);
+        BasicSceneObject::deserialize(ar);
     }
 
-    void SceneObject::move_to(Vec2f pos)
+    bool SpriteSceneObject::sprite_object() const
     {
-        _position = pos;
-        _scene->_spatial_db.update_for_new_location(this);
+        return true;
     }
 
-    Atlas::Pack& SceneObject::set_sprite(std::string_view path, std::string_view spr)
+    Atlas::Pack& SpriteSceneObject::set_sprite(std::string_view path, std::string_view spr)
     {
         _img = Atlas::load_shared(path, spr);
         return _img;
     }
 
-    Atlas::Pack& SceneObject::sprite()
+    Atlas::Pack& SpriteSceneObject::sprite()
     {
         return _img;
     }
 
-    msg::Var& SceneObject::collision()
-    {
-        return _collision;
-    }
-
-    uint64_t SceneObject::prefab() const
-    {
-        return _prefab_uid;
-    }
-
-    Line<float> SceneObject::iso() const
-    {
-        return Line<float>(_iso.point1 + _position, _iso.point2 + _position);
-    }
-
-    Region<float> SceneObject::bounding_box() const
+    Region<float> SpriteSceneObject::bounding_box() const
     {
         Region<float> out(_position.x, _position.y, _position.x, _position.y);
         if (_img.sprite)
@@ -68,7 +47,7 @@ namespace fin
         return out;
     }
 
-    void SceneObject::render(Renderer& dc)
+    void SpriteSceneObject::render(Renderer& dc)
     {
         if (!_img.sprite)
             return;
@@ -82,29 +61,18 @@ namespace fin
         dc.render_texture(_img.sprite->_texture, _img.sprite->_source, dest);
     }
 
-    void SceneObject::edit_render(Renderer& dc)
+    void SpriteSceneObject::edit_render(Renderer& dc)
     {
         if (!_img.sprite)
             return;
 
-        Region<float> bbox(bounding_box());
-
         dc.set_color(RED);
-        dc.render_line({bbox.x1, bbox.y1}, {bbox.x1, bbox.y2});
-        dc.render_line({bbox.x1, bbox.y2}, {bbox.x2, bbox.y2});
-        dc.render_line({bbox.x2, bbox.y2}, {bbox.x2, bbox.y1});
-        dc.render_line({bbox.x2, bbox.y1}, {bbox.x1, bbox.y1});
+        dc.render_line_rect(bounding_box().rect());
     }
 
-    bool SceneObject::edit_update()
+    bool SpriteSceneObject::edit_update()
     {
-        if (!ImGui::CollapsingHeader("Scene object", ImGuiTreeNodeFlags_DefaultOpen))
-            return false;
-
-        bool modified = false;
-
-        modified |= ImGui::CheckboxFlags("Disabled", &_flag, SceneObjectFlag::Disabled);
-        modified |= ImGui::CheckboxFlags("Hidden", &_flag, SceneObjectFlag::Hidden);
+        bool modified = BasicSceneObject::edit_update();
 
         modified |= ImGui::SpriteInput("Sprite", &_img);
         modified |= ImGui::PointVector("Collision", &_collision, {-1, ImGui::GetFrameHeightWithSpacing() * 4});
@@ -112,21 +80,10 @@ namespace fin
         return modified;
     }
 
-    void SceneObject::save(msg::Var& ar)
+    void SpriteSceneObject::save(msg::Var& ar)
     {
-        ar.set_item(Sc::Uid, _prefab_uid);
-        ar.set_item(Sc::Class, object_type());
-        ar.set_item("fl", _flag);
-        auto iso = msg::Var::array(4);
-        iso.push_back(_iso.point1.x);
-        iso.push_back(_iso.point1.y);
-        iso.push_back(_iso.point2.x);
-        iso.push_back(_iso.point2.y);
-        ar.set_item("iso", iso);
-        if (_collision.size())
-        {
-            ar.set_item("coll", _collision.clone());
-        }
+        IsoSceneObject::save(ar);
+       
         if (_img.atlas)
         {
             ar.set_item("atl", _img.atlas->get_path());
@@ -137,69 +94,13 @@ namespace fin
         }
     }
 
-    void SceneObject::load(msg::Var& ar)
+    void SpriteSceneObject::load(msg::Var& ar)
     {
-        _prefab_uid     = ar[Sc::Uid].get(0ull);
-        _flag       = ar["fl"].get(0);
-        _collision  = ar["coll"].clone();
+        IsoSceneObject::load(ar);
+
         set_sprite(ar["atl"].str(), ar["spr"].str());
-        auto iso      = ar.get_item("iso");
-        _iso.point1.x = iso.get_item(0).get(0.f);
-        _iso.point1.y = iso.get_item(1).get(0.f);
-        _iso.point2.x = iso.get_item(2).get(0.f);
-        _iso.point2.y = iso.get_item(3).get(0.f);
     }
 
-
-
-    void SceneObject::move(Vec2f pos)
-    {
-        move_to(_position + pos);
-    }
-
-    bool SceneObject::flag_get(SceneObjectFlag f) const
-    {
-        return _flag & f;
-    }
-
-    void SceneObject::flag_reset(SceneObjectFlag f)
-    {
-        _flag &= ~f;
-    }
-
-    void SceneObject::flag_set(SceneObjectFlag f)
-    {
-        _flag |= f;
-    }
-    bool SceneObject::is_disabled() const
-    {
-        return flag_get(SceneObjectFlag::Disabled);
-    }
-
-    void SceneObject::disable(bool v)
-    {
-        v ? flag_set(SceneObjectFlag::Disabled) : flag_reset(SceneObjectFlag::Disabled);
-    }
-
-    bool SceneObject::is_hidden() const
-    {
-        return flag_get(SceneObjectFlag::Hidden);
-    }
-
-    void SceneObject::hide(bool v)
-    {
-        v ? flag_set(SceneObjectFlag::Hidden) : flag_reset(SceneObjectFlag::Hidden);
-    }
-
-    Scene* SceneObject::scene()
-    {
-        return _scene;
-    }
-
-    Vec2f SceneObject::position() const
-    {
-        return _position;
-    }
 
 
     SceneFactory::SceneFactory()
@@ -212,7 +113,7 @@ namespace fin
         return *s_factory;
     }
 
-    SceneObject* SceneFactory::create(std::string_view type) const
+    BasicSceneObject* SceneFactory::create(std::string_view type) const
     {
         auto it = _factory.find(type);
         if (it == _factory.end())
@@ -220,7 +121,7 @@ namespace fin
         return it->second.fn();
     }
 
-    SceneObject* SceneFactory::create(uint64_t uid) const
+    BasicSceneObject* SceneFactory::create(uint64_t uid) const
     {
         auto it = _prefab.find(uid);
         if (it == _prefab.end())
@@ -288,6 +189,9 @@ namespace fin
         if (!_edit || !_edit->is_selected())
             return;
 
+        if (!_edit->obj->sprite_object())
+            return;
+
         static int                 s_drag_point = 0;
         static ImVec2              s_prev_mpos;
         static std::vector<ImVec2> s_points;
@@ -296,8 +200,9 @@ namespace fin
             s_drag_point = 0;
         }
 
-        auto          spr = _edit->obj->sprite();
-        Scene::Params params;
+        SpriteSceneObject* obj = static_cast<SpriteSceneObject*>(_edit->obj.get());
+        auto               spr = obj->sprite();
+        Scene::Params      params;
 
         ImVec2 visible_size = ImGui::GetContentRegionAvail();
         params.pos          = ImGui::GetWindowPos();
@@ -340,8 +245,8 @@ namespace fin
 
             if (_edit_origin)
             {
-                ImVec2 a{params.pos.x + _edit->obj->_iso.point1.x, params.pos.y + _edit->obj->_iso.point1.y};
-                ImVec2 b{params.pos.x + _edit->obj->_iso.point2.x, params.pos.y + _edit->obj->_iso.point2.y};
+                ImVec2 a{params.pos.x + obj->_iso.point1.x, params.pos.y + obj->_iso.point1.y};
+                ImVec2 b{params.pos.x + obj->_iso.point2.x, params.pos.y + obj->_iso.point2.y};
 
                 bool hovera = params.mouse_distance2(a - params.pos) < 5 * 5;
                 bool hoverb = params.mouse_distance2(b - params.pos) < 5 * 5;
@@ -359,7 +264,7 @@ namespace fin
                 {
                     auto diff   = s_prev_mpos - params.mouse;
                     s_prev_mpos = params.mouse;
-                    auto& iso   = s_drag_point == 1 ? _edit->obj->_iso.point1 : _edit->obj->_iso.point2;
+                    auto& iso   = s_drag_point == 1 ? obj->_iso.point1 : obj->_iso.point2;
                     iso -= diff;
                 }
 
@@ -368,9 +273,9 @@ namespace fin
                 hoverb ? params.dc->AddCircleFilled(b, 5, 0xff0000ff) : params.dc->AddCircle(b, 5, 0xff0000ff);
             }
 
-            if (_edit_collision && _edit->obj->collision().is_array())
+            if (_edit_collision && obj->collision().is_array())
             {
-                auto coll = _edit->obj->collision();
+                auto coll = obj->collision();
                 s_points.clear();
                 for (auto n = 0; n < coll.size(); n += 2)
                 {
@@ -436,54 +341,54 @@ namespace fin
         if (ImGui::BeginTabBar("ScnFactTab"))
         {
             _edit = nullptr;
-            for (auto& el : _factory)
+            for (auto* cls : _classes)
             {
-                if (ImGui::BeginTabItem(el.second.name.c_str()))
+                if (ImGui::BeginTabItem(cls->name.c_str()))
                 {
-                    _edit = &el.second;
+                    _edit = cls;
 
                     if (ImGui::Button(" " ICON_FA_LAPTOP " Add "))
                     {
                         auto obj = msg::Var::object(2);
                         obj.set_item(Sc::Uid, std::generate_unique_id());
-                        obj.set_item(Sc::Class, el.first);
-                        obj.set_item(Sc::Id, ImGui::FormatStr("%s_%d", el.first.c_str(), el.second.items.size()));
-                        el.second.items.push_back(obj);
-                        el.second.select(el.second.items.size() - 1);
+                        obj.set_item(Sc::Class, cls->id);
+                        obj.set_item(Sc::Id, ImGui::FormatStr("%s_%d", cls->id.data(), cls->items.size()));
+                        cls->items.push_back(obj);
+                        cls->select(cls->items.size() - 1);
                     }
                     ImGui::SameLine();
                     if (ImGui::Button(" " ICON_FA_UPLOAD " Save "))
                     {
-                        el.second.select(el.second.selected);
-                        save_prototypes(el.first);
+                        cls->select(cls->selected);
+                        save_prototypes(cls->id);
                     }
                     ImGui::SameLine();
                     ImGui::InvisibleButton("##ib", {-34, 1});
                     ImGui::SameLine();
                     if (ImGui::Button(" " ICON_FA_BAN " "))
                     {
-                        if ((uint32_t)el.second.selected < el.second.items.size())
+                        if ((uint32_t)cls->selected < cls->items.size())
                         {
-                            auto sel = el.second.selected;
-                            el.second.items.erase(sel);
-                            el.second.select(sel);
+                            auto sel = cls->selected;
+                            cls->items.erase(sel);
+                            cls->select(sel);
                         }
                     }
 
                     if (ImGui::BeginChildFrame(-1, {-1, 100}))
                     {
                         ImGuiListClipper clipper;
-                        clipper.Begin(el.second.items.size());
+                        clipper.Begin(cls->items.size());
                         while (clipper.Step())
                         {
                             for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
                             {
                                 ImGui::PushID(n);
-                                auto val = el.second.items.get_item(n);
+                                auto val = cls->items.get_item(n);
                                 auto id = val.get_item(Sc::Id);
-                                if (ImGui::Selectable(id.c_str(), el.second.selected == n))
+                                if (ImGui::Selectable(id.c_str(), cls->selected == n))
                                 {
-                                    el.second.select(n);
+                                    cls->select(n);
                                 }
                                 ImGui::PopID();
                             }
@@ -493,7 +398,7 @@ namespace fin
                     ImGui::Text("Properties");
                     if (ImGui::BeginChildFrame(-2, {-1, -1}))
                     {
-                        show_properties(el.second);
+                        show_properties(*cls);
                     }
                     ImGui::EndChildFrame();
 
@@ -514,8 +419,9 @@ namespace fin
 
         if (ImGui::BeginTabBar("ExpFactTab"))
         {
-            for (auto& [key, info] : _factory)
+            for (auto* cls : _classes)
             {
+                auto& info = *cls;
                 if (ImGui::BeginTabItem(info.name.c_str()))
                 {
                     if (_explore != &info)
@@ -640,6 +546,7 @@ namespace fin
 
     SceneRegion::SceneRegion()
     {
+        flag_set(SceneObjectFlag::Area);
     }
 
     SceneRegion::~SceneRegion()
@@ -826,6 +733,264 @@ namespace fin
             Vec2f to(_region.get_item((n + 2) % sze).get(0.f), _region.get_item((n + 3) % sze).get(0.f));
             dc.render_line(from, to);
         }
+    }
+
+    bool ObjectBase::flag_get(SceneObjectFlag f) const
+    {
+        return _flag & f;
+    }
+
+    void ObjectBase::flag_reset(SceneObjectFlag f)
+    {
+        _flag &= ~f;
+    }
+
+    void ObjectBase::flag_set(SceneObjectFlag f)
+    {
+        _flag |= f;
+    }
+    bool ObjectBase::is_disabled() const
+    {
+        return flag_get(SceneObjectFlag::Disabled);
+    }
+
+    void ObjectBase::disable(bool v)
+    {
+        v ? flag_set(SceneObjectFlag::Disabled) : flag_reset(SceneObjectFlag::Disabled);
+    }
+
+    bool ObjectBase::is_hidden() const
+    {
+        return flag_get(SceneObjectFlag::Hidden);
+    }
+
+    void ObjectBase::hide(bool v)
+    {
+        v ? flag_set(SceneObjectFlag::Hidden) : flag_reset(SceneObjectFlag::Hidden);
+    }
+
+    bool ObjectBase::is_named() const
+    {
+        return _name;
+    }
+
+    bool ObjectBase::is_region() const
+    {
+        return flag_get(SceneObjectFlag::Area);
+    }
+
+
+    Vec2f BasicSceneObject::position() const
+    {
+        return _position;
+    }
+
+    uint64_t BasicSceneObject::prefab() const
+    {
+        return _prefab_uid;
+    }
+
+    bool BasicSceneObject::edit_update()
+    {
+        bool modified = false;
+
+        modified |= ImGui::CheckboxFlags("Disabled", &_flag, SceneObjectFlag::Disabled);
+        modified |= ImGui::CheckboxFlags("Hidden", &_flag, SceneObjectFlag::Hidden);
+
+        return modified;
+    }
+
+    void BasicSceneObject::save(msg::Var& ar)
+    {
+        ar.set_item(Sc::Uid, _prefab_uid);
+        ar.set_item(Sc::Class, object_type());
+        ar.set_item(Sc::Flag, _flag);
+    }
+
+    void BasicSceneObject::load(msg::Var& ar)
+    {
+        _prefab_uid = ar[Sc::Uid].get(0ull);
+        _flag       = ar[Sc::Flag].get(0);
+    }
+
+    void BasicSceneObject::serialize(msg::Writer& ar)
+    {
+        ar.member(Sc::Uid, _prefab_uid);
+        ar.member(Sc::Flag, _flag);
+        ar.member("x", _position.x);
+        ar.member("y", _position.y);
+    }
+
+    void BasicSceneObject::deserialize(msg::Value& ar)
+    {
+        _flag       = ar[Sc::Flag].get(_flag);
+        _position.x = ar["x"].get(_position.x);
+        _position.y = ar["y"].get(_position.y);
+    }
+
+    bool BasicSceneObject::isometric_sort() const
+    {
+        return false;
+    }
+
+    bool BasicSceneObject::sprite_object() const
+    {
+        return false;
+    }
+
+    SoundObject::~SoundObject()
+    {
+        set_sound("");
+    }
+
+    void SoundObject::update(float dt)
+    {
+        PlaySound(_alias);
+    }
+
+    void SoundObject::render(Renderer& dc)
+    {
+        if (dc.is_debug())
+        {
+            dc.set_color(WHITE);
+            dc.render_line_circle(_position, _radius);
+        }
+    }
+
+    void SoundObject::edit_render(Renderer& dc)
+    {
+        dc.set_color(RED);
+        dc.render_line_rect(bounding_box().rect());
+    }
+
+    bool SoundObject::edit_update()
+    {
+        auto ret = BasicSceneObject::edit_update();
+
+        ret |= ImGui::DragFloat("Radius", &_radius, 1.f, 0, 1000.f);
+        if (ImGui::SoundInput("Sound", &_sound))
+        {
+            set_sound(_sound);
+        }
+        return ret;
+    }
+
+    void SoundObject::save(msg::Var& ar)
+    {
+        BasicSceneObject::save(ar);
+        if (_radius)
+        {
+            ar.set_item("rad", _radius);
+        }
+        if (_sound)
+        {
+            ar.set_item("snd", _sound->get_path());
+        }
+    }
+
+    void SoundObject::load(msg::Var& ar)
+    {
+        BasicSceneObject::load(ar);
+        _radius = ar.get_item("rad").get(0.f);
+        set_sound(ar.get_item("snd").str());
+    }
+
+    void SoundObject::serialize(msg::Writer& ar)
+    {
+        BasicSceneObject::serialize(ar);
+        ar.member("rad", _radius);
+    }
+
+    void SoundObject::deserialize(msg::Value& ar)
+    {
+        BasicSceneObject::deserialize(ar);
+        _radius = ar["rad"].get(_radius);
+    }
+
+    Sound& SoundObject::set_sound(std::string_view path)
+    {
+        UnloadSoundAlias(_alias);
+        _alias              = {};
+        _sound.reset();
+        if (!path.empty())
+        {
+            _sound = SoundSource::load_shared(path);
+            _alias = LoadSoundAlias(*_sound->get_sound());
+        }
+        return _alias;
+    }
+
+    Sound& SoundObject::set_sound(SoundSource::Ptr sound)
+    {
+        UnloadSoundAlias(_alias);
+        _alias = {};
+        _sound = sound;
+        if (_sound)
+        {
+            _alias = LoadSoundAlias(*_sound->get_sound());
+        }
+        return _alias;
+    }
+
+    Sound& SoundObject::sound()
+    {
+        return _alias;
+    }
+
+    std::string_view SoundObject::object_type() const
+    {
+        return SoundObject::type_id;
+    }
+
+    Region<float> SoundObject::bounding_box() const
+    {
+        float rad = _radius;
+        if (!rad)
+        {
+            rad = 5;
+        }
+        return Region<float>(_position.x - rad, _position.y - rad, _position.x + rad, _position.y + rad);
+    }
+
+    void IsoSceneObject::save(msg::Var& ar)
+    {
+        BasicSceneObject::save(ar);
+        auto iso = msg::Var::array(4);
+        iso.push_back(_iso.point1.x);
+        iso.push_back(_iso.point1.y);
+        iso.push_back(_iso.point2.x);
+        iso.push_back(_iso.point2.y);
+        ar.set_item("iso", iso);
+        if (_collision.size())
+        {
+            ar.set_item("coll", _collision.clone());
+        }
+    }
+
+    void IsoSceneObject::load(msg::Var& ar)
+    {
+        BasicSceneObject::load(ar);
+        _collision    = ar["coll"].clone();
+        auto iso      = ar.get_item("iso");
+        _iso.point1.x = iso.get_item(0).get(0.f);
+        _iso.point1.y = iso.get_item(1).get(0.f);
+        _iso.point2.x = iso.get_item(2).get(0.f);
+        _iso.point2.y = iso.get_item(3).get(0.f);
+    }
+
+    Line<float> IsoSceneObject::iso() const
+    {
+        return Line<float>(_iso.point1 + _position, _iso.point2 + _position);
+    }
+
+    bool IsoSceneObject::isometric_sort() const
+    {
+        return true;
+    }
+
+    msg::Var& IsoSceneObject::collision()
+    {
+        return _collision;
     }
 
 } // namespace fin

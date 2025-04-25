@@ -17,6 +17,9 @@ namespace fin
         bool on_init(char* argv[], size_t argc);
         void on_deinit(bool result);
 
+        bool cmd_attribute_exists(std::string_view cmd) const;
+        std::string_view cmd_attribute_get(std::string_view cmd) const;
+
     private:
         void on_imgui_init(bool dark_theme);
         void on_imgui();

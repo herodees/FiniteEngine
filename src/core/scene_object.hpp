@@ -15,40 +15,21 @@ namespace fin
         Marked   = 1 << 0,
         Disabled = 1 << 1,
         Hidden   = 1 << 2,
+        Area     = 1 << 3,
     };
 
     namespace Sc
     {
         constexpr std::string_view Id("$id");
+        constexpr std::string_view Name("$nme");
         constexpr std::string_view Uid("$uid");
         constexpr std::string_view Class("$cls");
+        constexpr std::string_view Flag("$fl");
     } // namespace Sc
 
-    class SceneObject : public lq::SpatialDatabase::Proxy
+
+    struct ObjectBase
     {
-        friend class Scene;
-        friend class SceneFactory;
-
-    public:
-        inline static std::string_view type_id = "sco";
-
-        SceneObject()          = default;
-        virtual ~SceneObject() = default;
-
-        virtual void update(float dt){};
-        virtual void render(Renderer& dc);
-
-        virtual void edit_render(Renderer& dc);
-        virtual bool edit_update();
-
-        virtual void save(msg::Var& ar); // Save prefab
-        virtual void load(msg::Var& ar); // Load prefab
-
-        virtual void serialize(msg::Writer& ar);  // Save to scene
-        virtual void deserialize(msg::Value& ar); // Load to scene
-
-        virtual std::string_view object_type() const;
-
         bool flag_get(SceneObjectFlag f) const;
         void flag_reset(SceneObjectFlag f);
         void flag_set(SceneObjectFlag f);
@@ -59,32 +40,144 @@ namespace fin
         bool is_hidden() const;
         void hide(bool v);
 
-        Scene* scene();
+        bool is_named() const;
+        bool is_region() const;
 
-        Vec2f position() const;
-        void  move(Vec2f pos);
-        void  move_to(Vec2f pos);
-
-        Atlas::Pack& set_sprite(std::string_view path, std::string_view spr);
-        Atlas::Pack& sprite();
-
-        uint64_t      prefab() const;
-        msg::Var&     collision();
-        Line<float>   iso() const;
-        Region<float> bounding_box() const;
-
-    protected:
         uint32_t    _id{};
         uint32_t    _flag{};
-        uint64_t    _prefab_uid{};
-        Scene*      _scene{};
-        Atlas::Pack _img;
+        const char* _name{};
+    };
+
+
+    class BasicSceneObject : public ObjectBase, public lq::SpatialDatabase::Proxy
+    {
+    protected:
+        uint64_t _prefab_uid{};
+
+    public:
+        BasicSceneObject()          = default;
+        virtual ~BasicSceneObject() = default;
+
+        virtual std::string_view object_type() const = 0;
+
+        virtual void update(float dt)     = 0;
+        virtual void render(Renderer& dc) = 0;
+
+        virtual void edit_render(Renderer& dc) = 0;
+        virtual bool edit_update();
+
+        virtual void save(msg::Var& ar); // Save prefab
+        virtual void load(msg::Var& ar); // Load prefab
+
+        virtual void serialize(msg::Writer& ar);  // Save to scene
+        virtual void deserialize(msg::Value& ar); // Load to scene
+
+        virtual bool isometric_sort() const;
+        virtual bool sprite_object() const;
+
+        virtual Region<float> bounding_box() const = 0;
+
+        Vec2f    position() const;
+        uint64_t prefab() const;
+    };
+
+
+    class IsoSceneObject : public BasicSceneObject
+    {
+        friend class Scene;
+        friend class SceneFactory;
+
+    public:
+        bool isometric_sort() const override;
+
+        void save(msg::Var& ar) override; // Save prefab
+        void load(msg::Var& ar) override; // Load prefab
+
+        Line<float> iso() const;
+        msg::Var&   collision();
+
+    protected:
         Line<float> _iso;
         msg::Var    _collision;
     };
 
 
-    class SceneRegion
+    class SpriteSceneObject : public IsoSceneObject
+    {
+        friend class Scene;
+        friend class SceneFactory;
+
+    public:
+        inline static std::string_view type_id = "sco";
+
+        SpriteSceneObject()           = default;
+        ~SpriteSceneObject() override = default;
+
+        void update(float dt) override {};
+        void render(Renderer& dc) override;
+
+        void edit_render(Renderer& dc) override;
+        bool edit_update() override;
+
+        void save(msg::Var& ar) override; // Save prefab
+        void load(msg::Var& ar) override; // Load prefab
+
+        void serialize(msg::Writer& ar) override;  // Save to scene
+        void deserialize(msg::Value& ar) override; // Load to scene
+
+        bool sprite_object() const override;
+
+        std::string_view object_type() const override;
+
+        Atlas::Pack& set_sprite(std::string_view path, std::string_view spr);
+        Atlas::Pack& sprite();
+
+        Region<float> bounding_box() const override;
+
+    protected:
+        Atlas::Pack _img;
+    };
+
+
+    class SoundObject : public BasicSceneObject
+    {
+        friend class Scene;
+        friend class SceneFactory;
+
+    public:
+        inline static std::string_view type_id = "sso";
+
+        SoundObject() = default;
+        ~SoundObject() override;
+
+        void update(float dt) override;
+        void render(Renderer& dc) override;
+
+        void edit_render(Renderer& dc) override;
+        bool edit_update() override;
+
+        void save(msg::Var& ar) override; // Save prefab
+        void load(msg::Var& ar) override; // Load prefab
+
+        void serialize(msg::Writer& ar) override;  // Save to scene
+        void deserialize(msg::Value& ar) override; // Load to scene
+
+        Sound& set_sound(std::string_view path);
+        Sound& set_sound(SoundSource::Ptr sound);
+        Sound& sound();
+
+        std::string_view object_type() const override;
+
+        Region<float> bounding_box() const override;
+
+    protected:
+        SoundSource::Ptr _sound;
+        Sound            _alias{};
+        float            _radius{};
+    };
+
+
+    class SceneRegion : public ObjectBase
     {
         friend class Scene;
 
@@ -112,8 +205,6 @@ namespace fin
         void edit_render(Renderer& dc);
 
     protected:
-        uint32_t              _id{};
-        Scene*                _scene{};
         msg::Var              _region;
         mutable bool          _need_update{};
         mutable Region<float> _bounding_box;
@@ -122,7 +213,7 @@ namespace fin
 
     class SceneFactory
     {
-        using fact_t = SceneObject* (*)();
+        using fact_t = BasicSceneObject* (*)();
 
     public:
         SceneFactory();
@@ -131,14 +222,17 @@ namespace fin
 
         void set_root(const std::string& startPath);
 
-        SceneObject* create(std::string_view type) const;
-        SceneObject* create(uint64_t uid) const;
+        BasicSceneObject* create(std::string_view type) const;
+        BasicSceneObject* create(uint64_t uid) const;
 
         template <class T>
         SceneFactory& factory(std::string_view type, std::string_view label);
 
         bool load_prototypes(std::string_view type);
         bool save_prototypes(std::string_view type);
+
+        template <class T>
+        SceneFactory& load_factory(std::string_view type, std::string_view label);
 
         void show_workspace();
         void show_menu();
@@ -149,14 +243,15 @@ namespace fin
     private:
         struct ClassInfo
         {
-            void                         select(int32_t n);
-            bool                         is_selected() const;
-            fact_t                       fn;
-            std::string                  name;
-            msg::Var                     items;
-            int32_t                      selected{-1};
-            int32_t                      active{-1};
-            std::unique_ptr<SceneObject> obj{};
+            void                              select(int32_t n);
+            bool                              is_selected() const;
+            fact_t                            fn;
+            std::string_view                  id;
+            std::string                       name;
+            msg::Var                          items;
+            int32_t                           selected{-1};
+            int32_t                           active{-1};
+            std::unique_ptr<BasicSceneObject> obj{};
         };
         void        show_properties(ClassInfo& info);
         void        reset_atlas_cache();
@@ -165,10 +260,11 @@ namespace fin
         std::unordered_map<std::string, ClassInfo, std::string_hash, std::equal_to<>>              _factory;
         std::unordered_map<uint64_t, msg::Var>                                                     _prefab;
         std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _cache;
+        std::vector<ClassInfo*>                                                                    _classes;
         std::string                                                                                _base_folder;
+        std::string                                                                                _buff;
         ClassInfo*                                                                                 _edit{};
         ClassInfo*                                                                                 _explore{};
-        std::string                                                                                _buff;
         bool _scroll_to_center = true;
         bool _edit_origin      = false;
         bool _edit_collision   = false;
@@ -178,16 +274,31 @@ namespace fin
     template <class T>
     inline SceneFactory& SceneFactory::factory(std::string_view type, std::string_view label)
     {
-        ClassInfo& nfo = _factory[std::string(type)];
-        nfo.fn         = []() { return new T(); };
-        nfo.name       = label;
-        nfo.obj.reset(nfo.fn());
+        auto [it, inserted] = _factory.try_emplace(std::string(type), ClassInfo());
+        if (inserted)
+        {
+            ClassInfo& nfo = it->second;
+            nfo.id         = it->first;
+            nfo.fn         = []() -> BasicSceneObject* { return new T(); };
+            nfo.name       = label;
+            nfo.obj.reset(nfo.fn());
+            _classes.emplace_back(&nfo);
+        }
         return *this;
     }
 
-    inline std::string_view SceneObject::object_type() const
+    template <class T>
+    inline SceneFactory& SceneFactory::load_factory(std::string_view type, std::string_view label)
+    {
+        factory<T>(type, label);
+        load_prototypes(type);
+        return *this;
+    }
+
+    inline std::string_view SpriteSceneObject::object_type() const
     {
         return type_id;
     }
+
 
 } // namespace fin

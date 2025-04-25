@@ -14,6 +14,11 @@ namespace fin
     {
     }
 
+    const std::string& Scene::get_path() const
+    {
+        return _path;
+    }
+
     bool Scene::setup_background_texture(const std::filesystem::path& file)
     {
         Surface sf;
@@ -133,45 +138,56 @@ namespace fin
         return _grid_size;
     }
 
-    void Scene::object_serialize(SceneObject* obj, msg::Writer& ar)
+    void Scene::object_serialize(BasicSceneObject* obj, msg::Writer& ar)
     {
         ar.begin_object();
         obj->serialize(ar);
+        if (obj->is_named())
+        {
+            ar.member(Sc::Name, obj->_name);
+        }
         ar.end_object();
     }
 
-    SceneObject* Scene::object_deserialize(msg::Value& ar)
+    BasicSceneObject* Scene::object_deserialize(msg::Value& ar)
     {
         auto ot = ar[Sc::Uid].get(0ull);
-        if (SceneObject* obj = SceneFactory::instance().create(ot))
+        if (BasicSceneObject* obj = SceneFactory::instance().create(ot))
         {
             obj->deserialize(ar);
+            auto id = ar[Sc::Name].str();
+            if (!id.empty())
+            {
+                name_object(obj, id);
+            }
             return obj;
         }
         return nullptr;
     }
 
-    void Scene::object_insert(SceneObject* obj)
+    void Scene::object_insert(BasicSceneObject* obj)
     {
         if (!obj)
             return;
         obj->_id = _scene.size();
-        obj->_scene = this;
         _scene.push_back(obj);
         _spatial_db.update_for_new_location(obj);
     }
 
-    void Scene::object_remove(SceneObject* obj)
+    void Scene::object_remove(BasicSceneObject* obj)
     {
+        if (obj->is_named())
+        {
+            name_object(obj, {});
+        }
         _spatial_db.remove_from_bin(obj);
         const auto id   = obj->_id;
-        obj->_scene     = nullptr;
         _scene[id]      = _scene.back();
         _scene[id]->_id = id;
         _scene.pop_back();
     }
 
-    void Scene::object_select(SceneObject *obj)
+    void Scene::object_select(BasicSceneObject* obj)
     {
         if (_edit._selected_object != obj)
         {
@@ -179,19 +195,29 @@ namespace fin
         }
     }
 
-    void Scene::object_destroy(SceneObject* obj)
+    void Scene::object_destroy(BasicSceneObject* obj)
     {
-        if (obj && obj->_scene)
+        if (obj)
         {
             object_remove(obj);
         }
         delete obj;
     }
 
+    void Scene::object_moveto(BasicSceneObject* obj, Vec2f pos)
+    {
+        obj->_position = pos;
+        _spatial_db.update_for_new_location(obj);
+    }
+
     void Scene::region_serialize(SceneRegion* obj, msg::Writer& ar)
     {
         ar.begin_object();
         obj->serialize(ar);
+        if (obj->is_named())
+        {
+            ar.member(Sc::Name, obj->_name);
+        }
         ar.end_object();
     }
 
@@ -200,6 +226,11 @@ namespace fin
         if (SceneRegion* obj = new SceneRegion)
         {
             obj->deserialize(ar);
+            auto id = ar[Sc::Name].str();
+            if (!id.empty())
+            {
+                name_object(obj, id);
+            }
             return obj;
         }
         return nullptr;
@@ -210,14 +241,16 @@ namespace fin
         if (!obj)
             return;
         obj->_id    = _regions.size();
-        obj->_scene = this;
         _regions.push_back(obj);
     }
 
     void Scene::region_remove(SceneRegion* obj)
     {
+        if (obj->is_named())
+        {
+            name_object(obj, {});
+        }
         const auto id   = obj->_id;
-        obj->_scene     = nullptr;
         _regions[id]    = _regions.back();
         _regions[id]->_id = id;
         _regions.pop_back();
@@ -233,14 +266,61 @@ namespace fin
 
     void Scene::region_destroy(SceneRegion* obj)
     {
-        if (obj && obj->_scene)
+        if (obj)
         {
             region_remove(obj);
         }
         delete obj;
     }
 
-    SceneObject* Scene::object_find_at(Vec2f position, float radius)
+    void Scene::region_moveto(SceneRegion* obj, Vec2f pos)
+    {
+        if (obj->_region.size() == 0)
+            return;
+
+        const Vec2f off = pos - obj->get_point(0);
+        for (uint32_t n = 0; n < obj->_region.size(); n += 2)
+        {
+            obj->_region.set_item(n, obj->_region.get_item(n).get(0.f) + off.x);
+            obj->_region.set_item(n + 1, obj->_region.get_item(n + 1).get(0.f) + off.y);
+        }
+        obj->change();
+    }
+
+    void Scene::name_object(ObjectBase* obj, std::string_view name)
+    {
+        if (!obj)
+            return;
+
+        if (obj->is_named())
+        {
+            auto it = _named_object.find(obj->_name);
+            if (it != _named_object.end())
+            {
+                _named_object.erase(it);
+            }
+            obj->_name = nullptr;
+        }
+
+        if (!name.empty())
+        {
+            auto [it, inserted] = _named_object.try_emplace(std::string(name), obj);
+            if (inserted)
+            {
+                obj->_name = it->first.c_str();
+            }
+        }
+    }
+
+    ObjectBase* Scene::find_object_by_name(std::string_view name)
+    {
+        auto it = _named_object.find(name);
+        if (it == _named_object.end())
+            return nullptr;
+        return it->second;
+    }
+
+    SpriteSceneObject* Scene::object_find_at(Vec2f position, float radius)
     {
         struct
         {
@@ -249,7 +329,7 @@ namespace fin
         } out;
 
         auto cb = [&out, position](lq::SpatialDatabase::Proxy *obj, float dist) {
-            auto *object = static_cast<SceneObject *>(obj);
+            auto *object = static_cast<SpriteSceneObject *>(obj);
             Region<float> bbox;
             Line<float> line;
             if (object->bounding_box().contains(position))
@@ -259,7 +339,7 @@ namespace fin
         };
 
         _spatial_db.map_over_all_objects_in_locality(position.x, position.y, radius, cb);
-        return static_cast<SceneObject *>(out.obj);
+        return static_cast<SpriteSceneObject *>(out.obj);
     }
 
     SceneRegion* Scene::region_find_at(Vec2f position)
@@ -278,6 +358,8 @@ namespace fin
     {
         if (!_canvas)
             return;
+
+        dc.set_debug(_mode == Mode::Objects);
 
         // Draw on the canvas
         BeginTextureMode(*_canvas.get_texture());
@@ -311,6 +393,12 @@ namespace fin
                 obj->_ptr->render(dc);
         }
 
+        dc.set_color(WHITE);
+        for (auto* obj : _iso_manager._static)
+        {
+            if (!obj->is_hidden())
+                obj->render(dc);
+        }
 
         if (_debug_draw_object)
         {
@@ -327,6 +415,7 @@ namespace fin
 
         if (_edit._selected_object)
         {
+            dc.set_color(WHITE);
             _edit._selected_object->edit_render(dc);
         }
 
@@ -359,6 +448,7 @@ namespace fin
 
         if (_debug_draw_regions)
         {
+            dc.set_color(WHITE);
             for (auto* reg : _regions)
             {
                 reg->edit_render(dc);
@@ -404,18 +494,34 @@ namespace fin
 
         EndMode2D();
         EndTextureMode();
+
+        dc.set_debug(false);
     }
 
     void Scene::update(float dt)
     {
         _iso_manager.update(_spatial_db, _active_region, _edit._edit_object);
+
+        if (_mode == Mode::Running)
+        {
+            for (auto* obj : _iso_manager._static)
+            {
+                if (!obj->is_disabled())
+                    obj->update(dt);
+            }
+            for (auto* obj : _iso_manager._iso)
+            {
+                if (!obj->_ptr->is_disabled())
+                    obj->_ptr->update(dt);
+            }
+        }
     }
 
 
 
     void Scene::clear()
     {
-        std::for_each(_scene.begin(), _scene.end(), [](SceneObject* p) { delete p; });
+        std::for_each(_scene.begin(), _scene.end(), [](BasicSceneObject* p) { delete p; });
         _grid_size = {};
         _grid_active.clear();
         _grid_texture.clear();
@@ -430,16 +536,20 @@ namespace fin
         std::vector<NavMesh::Polygon> polygons;
         std::for_each(_scene.begin(),
                       _scene.end(),
-                      [&polygons](SceneObject* obj)
+                      [&polygons](BasicSceneObject* obj)
                       {
-                          auto coll = obj->collision();
-                          if (coll.size() >= 6)
+                          if (obj->isometric_sort())
                           {
-                              auto  pos  = obj->position();
-                              auto& poly = polygons.emplace_back();
-                              for (uint32_t n = 0; n < coll.size(); n += 2)
+                              auto coll = static_cast<IsoSceneObject*>(obj)->collision();
+                              if (coll.size() >= 6)
                               {
-                                  poly.AddPoint(pos.x + coll.get_item(n).get(0.f), pos.y + coll.get_item(n + 1).get(0.f));
+                                  auto  pos  = obj->position();
+                                  auto& poly = polygons.emplace_back();
+                                  for (uint32_t n = 0; n < coll.size(); n += 2)
+                                  {
+                                      poly.AddPoint(pos.x + coll.get_item(n).get(0.f),
+                                                    pos.y + coll.get_item(n + 1).get(0.f));
+                                  }
                               }
                           }
                       });
@@ -538,18 +648,33 @@ namespace fin
         _grid_texture.resize(_grid_surface.size());
     }
 
+    void Scene::load(std::string_view path)
+    {
+        _path = path;
+        msg::Pack pack;
+        int       size{};
+        auto*     txt = LoadFileData(_path.c_str(), &size);
+        pack.data().assign(txt, txt + size);
+        UnloadFileData(txt);
+        auto ar = pack.get();
+        deserialize(ar);
+    }
+
+    void Scene::save(std::string_view path)
+    {
+        _path = path;
+        msg::Pack pack;
+        serialize(pack);
+        auto ar = pack.data();
+        SaveFileData(_path.c_str(), pack.data().data(), pack.data().size());
+    }
+
     void Scene::open()
     {
         auto files = open_file_dialog("", "");
         if (!files.empty())
         {
-            msg::Pack pack;
-            int size{};
-            auto *txt = LoadFileData(files[0].c_str(), &size);
-            pack.data().assign(txt, txt + size);
-            UnloadFileData(txt);
-            auto ar = pack.get();
-            deserialize(ar);
+            load(files[0]);
         }
     }
 
@@ -558,10 +683,7 @@ namespace fin
         auto out = save_file_dialog("", "");
         if (!out.empty())
         {
-            msg::Pack pack;
-            serialize(pack);
-            auto ar = pack.data();
-            SaveFileData(out.c_str(), pack.data().data(), pack.data().size());
+            save(out);
         }
     }
 
@@ -601,11 +723,17 @@ namespace fin
                 {
                     for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
                     {
-                        auto *el = _scene[n];
-                        if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _edit._selected_object))
+                        ImGui::PushID(n);
+                        auto*       el   = _scene[n];
+                        const char* name = el->_name;
+                        if (!name)
+                            name = ImGui::FormatStr("Object %p", el);
+
+                        if (ImGui::Selectable(name, el == _edit._selected_object))
                         {
                             object_select(el);
                         }
+                        ImGui::PopID();
                     }
                 }
             }
@@ -616,6 +744,12 @@ namespace fin
         {
             if (_edit._selected_object)
             {
+                _edit._buffer = _edit._selected_object->is_named() ? _edit._selected_object->_name : "";
+                if (ImGui::InputText("Name", &_edit._buffer))
+                {
+                    name_object(_edit._selected_object, _edit._buffer);
+                }
+
                 _edit._selected_object->edit_update();
             }
         }
@@ -641,11 +775,17 @@ namespace fin
                 {
                     for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
                     {
+                        ImGui::PushID(n);
                         auto* el = _regions[n];
-                        if (ImGui::Selectable(ImGui::FormatStr("%p", el), el == _edit._selected_region))
+                        const char* name = el->_name;
+                        if (!name)
+                            name = ImGui::FormatStr("Region %p", el);
+
+                        if (ImGui::Selectable(name, el == _edit._selected_region))
                         {
                             region_select(el);
                         }
+                        ImGui::PopID();
                     }
                 }
             }
@@ -656,6 +796,12 @@ namespace fin
         {
             if (_edit._selected_region)
             {
+                _edit._buffer = _edit._selected_region->is_named() ? _edit._selected_region->_name : "";
+                if (ImGui::InputText("Name", &_edit._buffer))
+                {
+                    name_object(_edit._selected_region, _edit._buffer);
+                }
+
                 _edit._selected_region->edit_update();
             }
         }
@@ -818,7 +964,7 @@ namespace fin
 
         if (_drag._active && _edit._selected_object)
         {
-            _edit._selected_object->move(_drag._delta);
+            object_moveto(_edit._selected_object, _drag._delta + _edit._selected_object->position());
         }
 
 
@@ -829,7 +975,7 @@ namespace fin
                                                                            ImGuiDragDropFlags_AcceptPeekOnly |
                                                                                ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
-                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData("PREFAB")))
+                if (auto object = static_cast<BasicSceneObject*>(ImGui::GetDragData("PREFAB")))
                 {
                     _edit._edit_object      = object;
                     _edit._edit_object->_position = {params.mouse.x, params.mouse.y};
@@ -837,7 +983,7 @@ namespace fin
             }
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
-                if (auto object = static_cast<SceneObject*>(ImGui::GetDragData("PREFAB")))
+                if (auto object = static_cast<BasicSceneObject*>(ImGui::GetDragData("PREFAB")))
                 {
                     object->_position = {params.mouse.x, params.mouse.y};
                     msg::Pack doc;
@@ -938,25 +1084,35 @@ namespace fin
     }
 
 
-    void Scene::IsoManager::update(lq::SpatialDatabase &db,const Recti& region, SceneObject* edit)
+    void Scene::IsoManager::update(lq::SpatialDatabase& db, const Recti& region, BasicSceneObject* edit)
     {
         _iso_pool_size = 0;
-        auto cb = [&](lq::SpatialDatabase::Proxy *item) {
-            if (_iso_pool_size >= _iso_pool.size())
-                _iso_pool.resize(_iso_pool_size + 32);
+        _static.clear();
 
-            _iso_pool[_iso_pool_size]._ptr =
-                static_cast<SceneObject *>(item);
-            ++_iso_pool_size;
+        auto cb = [&](lq::SpatialDatabase::Proxy* item)
+        {
+            if (!static_cast<BasicSceneObject*>(item)->isometric_sort())
+            {
+                _static.push_back(static_cast<BasicSceneObject*>(item));
+            }
+            else
+            {
+                if (_iso_pool_size >= _iso_pool.size())
+                    _iso_pool.resize(_iso_pool_size + 32);
+
+                _iso_pool[_iso_pool_size]._ptr = static_cast<IsoSceneObject*>(item);
+                ++_iso_pool_size;
+            }
         };
 
-        auto add_pool_item = [&](size_t n) {
-            auto& obj = *_iso_pool[n]._ptr;
-            _iso[n] = &_iso_pool[n];
-            _iso_pool[n]._depth = 0;
+        auto add_pool_item = [&](size_t n)
+        {
+            auto& obj                  = *_iso_pool[n]._ptr;
+            _iso[n]                    = &_iso_pool[n];
+            _iso_pool[n]._depth        = 0;
             _iso_pool[n]._depth_active = false;
             _iso_pool[n]._back.clear();
-            _iso_pool[n]._bbox = obj.bounding_box();
+            _iso_pool[n]._bbox   = obj.bounding_box();
             _iso_pool[n]._origin = obj.iso();
             obj.flag_reset(SceneObjectFlag::Marked);
         };
@@ -983,9 +1139,16 @@ namespace fin
         // Add edit object to render queue
         if (edit)
         {
-            _iso_pool[_iso_pool_size]._ptr = edit;
-            _iso.emplace_back();
-            add_pool_item(_iso_pool_size);
+            if (edit->isometric_sort())
+            {
+                _iso_pool[_iso_pool_size]._ptr = static_cast<IsoSceneObject*>(edit);
+                _iso.emplace_back();
+                add_pool_item(_iso_pool_size);
+            }
+            else
+            {
+                _static.push_back(edit);
+            }
         }
 
         
