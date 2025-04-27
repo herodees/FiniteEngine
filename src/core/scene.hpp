@@ -5,9 +5,29 @@
 #include "renderer.hpp"
 #include "scene_object.hpp"
 #include "shared_resource.hpp"
+#include "utils/lquadtree.hpp"
 
 namespace fin
 {
+    class SceneLayer
+    {
+    public:
+        enum class Type
+        {
+            Undefined,
+            Sprite,
+            Region,
+        };
+        static SceneLayer* create(Type t);
+        SceneLayer(Type t = Type::Undefined) : _type(t){};
+        Type type() const
+        {
+            return _type;
+        };
+    private:
+        Type _type;
+    };
+
     class Scene
     {
         friend class SpriteSceneObject;
@@ -79,6 +99,10 @@ namespace fin
 
         bool  setup_background_texture(const std::filesystem::path& file);
         void  activate_grid(const Recti& screen);
+        void  activate_grid(const Vec2f& origin);
+
+        Vec2i get_active_grid_size() const;
+        Vec2f get_active_grid_center() const;
         Vec2i get_active_grid_min() const;
         Vec2i get_active_grid_max() const;
         Vec2i get_scene_size() const;
@@ -113,15 +137,13 @@ namespace fin
         void update(float dt);
         void clear();
         void generate_navmesh();
+        RenderTexture2D& canvas();
 
         void serialize(msg::Pack& ar);
         void deserialize(msg::Value& ar);
 
         void load(std::string_view path);
         void save(std::string_view path);
-
-        void open();
-        void save();
 
         void on_imgui_props();
         void on_imgui_props_object();
@@ -139,6 +161,7 @@ namespace fin
         std::vector<std::pair<size_t, bool>>                                            _grid_active;
         std::vector<BasicSceneObject*>                                                  _scene;
         std::vector<SceneRegion*>                                                       _regions;
+        std::vector<SceneLayer*>                                                        _layers;
         std::unordered_map<std::string, ObjectBase*, std::string_hash, std::equal_to<>> _named_object;
         IsoManager                                                                      _iso_manager;
         lq::SpatialDatabase                                                             _spatial_db;
@@ -155,6 +178,7 @@ namespace fin
         Vec2i                                                                           _grid_size;
         RenderTexture2D                                                                 _canvas;
         std::string                                                                     _path;
+
     };
 
 

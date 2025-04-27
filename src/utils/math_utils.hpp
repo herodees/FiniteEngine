@@ -248,7 +248,32 @@ namespace fin
 
         // Equality check
         bool operator==(const Rect& other) const { return x == other.x && y == other.y && width == other.width && height == other.height; }
-        bool operator!=(const Rect& other) const { return !(*this == other); }
+        bool operator!=(const Rect& other) const
+        {
+            return !(*this == other);
+        }
+
+        Rect operator+(const Vec2<T>& other) const
+        {
+            return Rect(x + other.x, y + other.y, width, height);
+        }
+        Rect operator-(const Vec2<T>& other) const
+        {
+            return Rect(x - other.x, y - other.y, width, height);
+        }
+
+        Rect& operator+=(const Vec2<T>& other)
+        {
+            x += other.x;
+            y += other.y;
+            return *this;
+        }
+        Rect& operator-=(const Vec2<T>& other)
+        {
+            x -= other.x;
+            y -= other.y;
+            return *this;
+        }
     };
 
     using Rectf = Rect<float>;

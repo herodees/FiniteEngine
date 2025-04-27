@@ -6,6 +6,50 @@ namespace fin
 {
     constexpr int32_t tile_size(512);
 
+
+    class SpriteSceneLayer : public SceneLayer
+    {
+    public:
+        struct Node
+        {
+            Atlas::Pack _sprite;
+            Rectf       _bbox;
+        };
+        SpriteSceneLayer() : SceneLayer(SceneLayer::Type::Sprite), _spatial({}){};
+
+    private:
+        std::string                                                                    _name;
+        LooseQuadTree<Node, decltype([](Node& n) -> const Rectf& { return n._bbox; })> _spatial;
+    };
+
+
+    class RegionSceneLayer : public SceneLayer
+    {
+    public:
+        struct Node
+        {
+            msg::Var _points;
+            Rectf    _bbox;
+        };
+        RegionSceneLayer() : SceneLayer(SceneLayer::Type::Region), _spatial({}){};
+
+    private:
+        std::string                                                                    _name;
+        LooseQuadTree<Node, decltype([](Node& n) -> const Rectf& { return n._bbox; })> _spatial;
+    };
+
+    SceneLayer* SceneLayer::create(Type t)
+    {
+        switch (t)
+        {
+            case Type::Sprite:
+                return new SpriteSceneLayer;
+            case Type::Region:
+                return new RegionSceneLayer;
+        }
+        return nullptr;
+    }
+
     Scene::Scene()
     {
     }
@@ -112,6 +156,23 @@ namespace fin
                 ++n;
             }
         }
+    }
+
+    void Scene::activate_grid(const Vec2f& origin)
+    {
+        auto s = _active_region.size();
+        activate_grid(Recti(origin.x - s.x * 0.5f, origin.y - s.y * 0.5f, origin.x + s.x * 0.5f, origin.y + s.y * 0.5f));
+    }
+
+
+    Vec2i Scene::get_active_grid_size() const
+    {
+        return _active_region.size();
+    }
+
+    Vec2f Scene::get_active_grid_center() const
+    {
+        return _active_region.center();
     }
 
     Vec2i Scene::get_active_grid_min() const
@@ -556,6 +617,11 @@ namespace fin
         _pathfinder.AddPolygons(polygons, 16);
     }
 
+    RenderTexture2D& Scene::canvas()
+    {
+        return _canvas;
+    }
+
     void Scene::serialize(msg::Pack& out)
     {
         auto ar = out.create();
@@ -667,24 +733,6 @@ namespace fin
         serialize(pack);
         auto ar = pack.data();
         SaveFileData(_path.c_str(), pack.data().data(), pack.data().size());
-    }
-
-    void Scene::open()
-    {
-        auto files = open_file_dialog("", "");
-        if (!files.empty())
-        {
-            load(files[0]);
-        }
-    }
-
-    void Scene::save()
-    {
-        auto out = save_file_dialog("", "");
-        if (!out.empty())
-        {
-            save(out);
-        }
     }
 
     void Scene::on_imgui_props()
@@ -1210,5 +1258,7 @@ namespace fin
             _active = false;
         }
     }
+
+
 
 } // namespace fin

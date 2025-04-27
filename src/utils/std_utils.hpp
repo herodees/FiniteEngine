@@ -109,4 +109,25 @@ inline uint64_t generate_unique_id()
     return (now << 16) | (count & 0xFFFF);
 }
 
+inline string_view trim_left(string_view sv)
+{
+    size_t i = 0;
+    while (i < sv.size() && isspace(sv[i]))
+        ++i;
+    return sv.substr(i);
+}
+
+inline string_view trim_right(string_view sv)
+{
+    size_t i = sv.size();
+    while (i > 0 && isspace(sv[i - 1]))
+        --i;
+    return sv.substr(0, i);
+}
+
+inline string_view trim(string_view sv)
+{
+    return trim_right(trim_left(sv));
+}
+
 } // namespace std

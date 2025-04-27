@@ -160,21 +160,30 @@ namespace fin
         _factory.load_factory<SpriteSceneObject>("npc", "NPC");
         _factory.load_factory<SoundObject>(SoundObject::type_id, "Sound");
 
-        if (cmd_attribute_exists("/scene"))
+        auto path = cmd_attribute_get("/scene");
+        if (!path.empty())
         {
-            auto path = cmd_attribute_get("/scene");
+            _editor   = false;
+            TraceLog(LOG_INFO, "SCENE LOAD: %s", path.data());
             _map.load(path);
         }
 
-        rlImGuiSetup(true);
-        on_imgui_init(true);
+        if (_editor)
+        {
+            rlImGuiSetup(true);
+            on_imgui_init(true);
+        }
 
         return true;
     }
 
     void application::on_deinit(bool result)
     {
-        rlImGuiShutdown();
+        if (_editor)
+        {
+            rlImGuiShutdown();
+        }
+
         CloseAudioDevice();
         CloseWindow();
     }
@@ -196,9 +205,17 @@ namespace fin
         for (std::string_view c : _argv)
         {
             auto n = c.find('=');
-            auto cc = c.substr(0, n);
-            if (c == cmd)
-                return c.substr(n + 1);
+            if (c.substr(0, n) == cmd)
+            {
+                auto out = c.substr(n + 1);
+                if (out.back() == '"' && out.front() == '"')
+                {
+                    out.remove_prefix(1);
+                    out.remove_suffix(1);
+                }
+                return out;
+            }
+
         }
         return std::string_view();
     }
@@ -308,6 +325,10 @@ namespace fin
 
             // Drawing
             //----------------------------------------------------------------------------------
+            if (!_editor)
+            {
+                _map.activate_grid({0,0, GetScreenWidth(), GetScreenHeight()});
+            }
 
             _map.update(frameTime);
 
@@ -315,15 +336,26 @@ namespace fin
 
             _map.render(_renderer);
 
-            ClearBackground(GRAY);
+            ClearBackground(BLACK);
 
-            rlImGuiBegin(frameTime);
-
-            on_imgui();
-
-            rlImGuiEnd();
+            if (_editor)
+            {
+                rlImGuiBegin(frameTime);
+                on_imgui();
+                rlImGuiEnd();
+            }
+            else
+            {
+                DrawTexturePro(_map.canvas().texture.texture,
+                               {0, 0, (float)_map.canvas().texture.texture.width, -(float)_map.canvas().texture.texture.height},
+                               {0, 0, (float)_map.canvas().texture.texture.width, (float)_map.canvas().texture.texture.height},
+                               {0, 0},
+                               0,
+                               WHITE);
+            }
 
             EndDrawing();
+
 
             SwapScreenBuffer(); // Flip the back buffer to screen (front buffer)
         }
@@ -343,13 +375,21 @@ namespace fin
 
                 if (ImGui::MenuItem("Open"))
                 {
-                    _map.open();
+                    auto files = open_file_dialog("", "");
+                    if (!files.empty())
+                    {
+                        _map.load(files[0]);
+                    }
                 }
                 if (ImGui::MenuItem("Save"))
                 {
                     if (_map.get_path().empty())
                     {
-                        _map.save();
+                        auto out = save_file_dialog("", "");
+                        if (!out.empty())
+                        {
+                            _map.save(out);
+                        }
                     }
                     else
                     {
@@ -358,7 +398,11 @@ namespace fin
                 }
                 if (ImGui::MenuItem("Save as") || open_save_as)
                 {
-                    _map.save();
+                    auto out = save_file_dialog("", "");
+                    if (!out.empty())
+                    {
+                        _map.save(out);
+                    }
                 }
                 ImGui::EndMenu();
             }
@@ -393,9 +437,12 @@ namespace fin
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::TabItemButton(" " ICON_FA_PLAY " ", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
+            if (!_map.get_path().empty())
             {
-                run_current_process({"/run", "/scene='scene'"});
+                if (ImGui::TabItemButton(" " ICON_FA_PLAY " ", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
+                {
+                    run_current_process({"/scene=\"" + _map.get_path() + "\""});
+                }
             }
 
             ImGui::EndTabBar();

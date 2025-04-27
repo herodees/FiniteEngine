@@ -40,7 +40,7 @@ namespace fin
         double            _max_time_step    = 1.0f / _max_fps;
         double            _current_time     = GetTime();
         double            _time_accumulator = 0.0;
-
-        bool _show_prefab{false};
+        bool              _show_prefab{false};
+        bool              _editor{true};
     };
 } // namespace fin
