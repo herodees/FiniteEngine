@@ -11,8 +11,9 @@ namespace fin
     {
         struct ObjectEntry
         {
-            T    object;
-            int  next = -1;
+            T   object;
+            int next : 31 = -1;
+            int empty : 1 = 1;
         };
 
         struct Node
@@ -112,24 +113,25 @@ namespace fin
             nodeFreeListHead                                                         = idx;
         }
 
-        int allocObject(const T& obj, const Rectf& bounds)
+        int allocObject(const T& obj)
         {
             if (objectFreeListHead != -1)
             {
                 int idx            = objectFreeListHead;
                 objectFreeListHead = objects[idx].next;
-                objects[idx]       = ObjectEntry{obj, bounds, -1};
+                objects[idx]       = ObjectEntry{obj, -1, 0};
                 return idx;
             }
             else
             {
-                objects.push_back(ObjectEntry{obj, bounds, -1});
+                objects.push_back(ObjectEntry{obj, -1, 0});
                 return static_cast<int>(objects.size()) - 1;
             }
         }
 
         void freeObject(int idx)
         {
+            objects[idx].empty = 1;
             objects[idx].next  = objectFreeListHead;
             objectFreeListHead = idx;
         }
@@ -220,7 +222,7 @@ namespace fin
             }
 
             // Add the object to the current node's list
-            int objIdx           = allocObject(obj, bounds);
+            int objIdx           = allocObject(obj);
             objects[objIdx].next = node.firstObject;
             node.firstObject     = objIdx;
 

@@ -7,6 +7,32 @@ namespace fin
     constexpr int32_t tile_size(512);
 
 
+
+    class IsometricSceneLayer : public SceneLayer
+    {
+    public:
+        IsometricSceneLayer() : SceneLayer(SceneLayer::Type::Isometric)
+        {
+            name() = "IsometricLayer";
+            icon() = ICON_FA_MAP_PIN;
+        };
+        void resize(Vec2f size) override
+        {
+            _grid_size.x = (size.width + (tile_size - 1)) / tile_size; // Round up division
+            _grid_size.y = (size.height + (tile_size - 1)) / tile_size;
+            _spatial_db.init({0, 0, (float)_grid_size.x * tile_size, (float)_grid_size.y * tile_size},
+                             _grid_size.x,
+                             _grid_size.y);
+        }
+
+    private:
+        Vec2i                        _grid_size;
+        lq::SpatialDatabase          _spatial_db;
+        std::vector<IsoSceneObject*> _scene;
+    };
+
+
+
     class SpriteSceneLayer : public SceneLayer
     {
     public:
@@ -15,12 +41,16 @@ namespace fin
             Atlas::Pack _sprite;
             Rectf       _bbox;
         };
-        SpriteSceneLayer() : SceneLayer(SceneLayer::Type::Sprite), _spatial({}){};
+        SpriteSceneLayer() : SceneLayer(SceneLayer::Type::Sprite), _spatial({})
+        {
+            name() = "SpriteLayer";
+            icon() = ICON_FA_IMAGE;
+        };
 
     private:
-        std::string                                                                    _name;
         LooseQuadTree<Node, decltype([](Node& n) -> const Rectf& { return n._bbox; })> _spatial;
     };
+
 
 
     class RegionSceneLayer : public SceneLayer
@@ -31,12 +61,17 @@ namespace fin
             msg::Var _points;
             Rectf    _bbox;
         };
-        RegionSceneLayer() : SceneLayer(SceneLayer::Type::Region), _spatial({}){};
+        RegionSceneLayer() : SceneLayer(SceneLayer::Type::Region), _spatial({})
+        {
+            name() = "RegionLayer";
+            icon() = ICON_FA_MAP_LOCATION_DOT;
+        };
 
     private:
-        std::string                                                                    _name;
         LooseQuadTree<Node, decltype([](Node& n) -> const Rectf& { return n._bbox; })> _spatial;
     };
+
+
 
     SceneLayer* SceneLayer::create(Type t)
     {
@@ -46,9 +81,29 @@ namespace fin
                 return new SpriteSceneLayer;
             case Type::Region:
                 return new RegionSceneLayer;
+            case Type::Isometric:
+                return new IsometricSceneLayer;
         }
         return nullptr;
     }
+
+    void SceneLayer::serialize(msg::Writer& ar)
+    {
+        ar.member("type", (int)_type);
+        ar.member("name", _name); 
+    }
+
+    void SceneLayer::deserialize(msg::Value& ar)
+    {
+        _type = Type(ar["type"].get(0));
+        _name = ar["name"].str();
+    }
+
+    void SceneLayer::resize(Vec2f size)
+    {
+    }
+
+
 
     Scene::Scene()
     {
@@ -857,6 +912,63 @@ namespace fin
 
     void Scene::on_imgui_props_map()
     {
+        if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (ImGui::Button(" " ICON_FA_LAPTOP " Add "))
+                ImGui::OpenPopup("LayerMenu");
+
+            if (ImGui::BeginPopup("LayerMenu"))
+            {
+                if (ImGui::MenuItem(ICON_FA_MAP_PIN " Isometric layer"))
+                    _layers.emplace_back(SceneLayer::create(SceneLayer::Type::Isometric));
+                if (ImGui::MenuItem(ICON_FA_IMAGE " Sprite layer"))
+                    _layers.emplace_back(SceneLayer::create(SceneLayer::Type::Sprite));
+                if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Region layer"))
+                    _layers.emplace_back(SceneLayer::create(SceneLayer::Type::Region));
+                ImGui::EndPopup();
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(" " ICON_FA_ARROW_UP " "))
+            {
+                _edit._active_layer = move_layer(_edit._active_layer, false);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(" " ICON_FA_ARROW_DOWN " "))
+            {
+                _edit._active_layer = move_layer(_edit._active_layer, true);
+            }
+            ImGui::SameLine();
+            ImGui::InvisibleButton("##ib", {-34, 1});
+            ImGui::SameLine();
+            if (ImGui::Button(" " ICON_FA_BAN " "))
+            {
+                if (size_t(_edit._active_layer) < _layers.size())
+                {
+                    delete _layers[_edit._active_layer];
+                    _layers.erase(_layers.begin()+_edit._active_layer);
+                }
+            }
+
+            if (ImGui::BeginChildFrame(-2, {-1, 100}))
+            {
+                int n = 0;
+                for (auto* ly : _layers)
+                {
+                    ImGui::PushID(n);
+                    if (ImGui::Selectable(ImGui::FormatStr("%s %s", ly->icon().data(), ly->name().c_str()),
+                                          _edit._active_layer == n))
+                        _edit._active_layer = n;
+                    ImGui::PopID();
+                    ++n;
+                }
+            }
+            ImGui::EndChildFrame();
+            if (size_t(_edit._active_layer) < _layers.size())
+            {
+                ImGui::InputText("Name", &_layers[_edit._active_layer]->name());
+            }
+        }
+
         if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::Button("Import##opbgp"))
@@ -1101,6 +1213,27 @@ namespace fin
 
     void Scene::on_imgui_workspace_map(Params& params)
     {
+    }
+
+    int32_t Scene::move_layer(int32_t layer, bool up)
+    {
+        if (up)
+        {
+            if (size_t(layer + 1) < _layers.size() && size_t(layer) < _layers.size())
+            {
+                std::swap(_layers[layer], _layers[layer + 1]);
+                return layer + 1;
+            }
+        }
+        else
+        {
+            if (size_t(layer - 1) < _layers.size() && size_t(layer) < _layers.size())
+            {
+                std::swap(_layers[layer], _layers[layer - 1]);
+                return layer - 1;
+            }
+        }
+        return layer;
     }
 
     int32_t Scene::IsoObject::depth_get()

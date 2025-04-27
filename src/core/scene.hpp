@@ -17,15 +17,31 @@ namespace fin
             Undefined,
             Sprite,
             Region,
+            Isometric,
         };
         static SceneLayer* create(Type t);
         SceneLayer(Type t = Type::Undefined) : _type(t){};
+        virtual ~SceneLayer() = default;
         Type type() const
         {
             return _type;
         };
+        std::string& name()
+        {
+            return _name;
+        }
+        std::string_view& icon()
+        {
+            return _icon;
+        }
+        virtual void serialize(msg::Writer& ar);
+        virtual void deserialize(msg::Value& ar);
+        virtual void resize(Vec2f size);
+
     private:
-        Type _type;
+        Type             _type;
+        std::string      _name;
+        std::string_view _icon;
     };
 
     class Scene
@@ -83,13 +99,14 @@ namespace fin
 
         struct EditData
         {
-            std::string  _buffer;
+            std::string       _buffer;
             BasicSceneObject* _edit_object{};
             BasicSceneObject* _selected_object{};
-            SceneRegion* _selected_region{};
-            int32_t      _active_point{-1};
-            bool         _add_point{};
-            bool         _move_point{};
+            SceneRegion*      _selected_region{};
+            int32_t           _active_point{-1};
+            int32_t           _active_layer{-1};
+            bool              _add_point{};
+            bool              _move_point{};
         };
 
         Scene();
@@ -154,6 +171,8 @@ namespace fin
         void on_imgui_workspace_object(Params& params);
         void on_imgui_workspace_region(Params& params);
         void on_imgui_workspace_map(Params& params);
+
+        int32_t move_layer(int32_t layer, bool up);
 
     private:
         std::vector<Texture2D>                                                          _grid_texture;
