@@ -173,7 +173,7 @@ namespace fin
 
     Vec2i Scene::get_scene_size() const
     {
-        return Vec2i(tile_size * _grid_size.width, tile_size * _grid_size.height);
+        return _size;
     }
 
     Vec2i Scene::get_grid_size() const
@@ -957,7 +957,7 @@ namespace fin
             }
         }
 
-        if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Background", 0))
         {
             if (ImGui::Button("Import##opbgp"))
             {
@@ -1008,14 +1008,15 @@ namespace fin
     {
         _mode = Mode::Undefined;
         _debug_draw_regions = false;
-
+        constexpr float tabw = 100.f;
+        ImGui::SetNextItemWidth(tabw);
         if (ImGui::BeginTabItem(ICON_FA_GEAR " Setup"))
         {
             _mode = Mode::Map;
             ImGui::Checkbox("Show grid", &_debug_draw_grid);
             ImGui::EndTabItem();
         }
-
+        ImGui::SetNextItemWidth(tabw);
         if (ImGui::BeginTabItem(ICON_FA_BRUSH " Edit"))
         {
             _mode = Mode::Objects;
@@ -1029,7 +1030,7 @@ namespace fin
             }
             ImGui::EndTabItem();
         }
-
+        ImGui::SetNextItemWidth(tabw);
         if (ImGui::BeginTabItem(ICON_FA_BOX_ARCHIVE " Prefabs"))
         {
             _mode = Mode::Prefab;

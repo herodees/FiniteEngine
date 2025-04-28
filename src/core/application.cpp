@@ -46,21 +46,21 @@ namespace fin
         style.WindowMenuButtonPosition = ImGuiDir_Left;
         style.ChildRounding            = 7.0f;
         style.ChildBorderSize          = 1.0f;
-        style.PopupRounding            = 0.0f;
+        style.PopupRounding            = 2.0f;
         style.PopupBorderSize          = 1.0f;
         style.FramePadding             = ImVec2(3.0f, 3.0f);
         style.FrameRounding            = 2.0f;
-        style.FrameBorderSize          = 0.0f;
+        style.FrameBorderSize          = 1.0f;
         style.ItemSpacing              = ImVec2(3.0f, 3.0f);
         style.ItemInnerSpacing         = ImVec2(3.0f, 3.0f);
         style.CellPadding              = ImVec2(3.0f, 3.0f);
         style.IndentSpacing            = 21.0f;
         style.ColumnsMinSpacing        = 3.0f;
-        style.ScrollbarSize            = 13.0f;
-        style.ScrollbarRounding        = 3.0f;
+        style.ScrollbarSize            = 16.0f;
+        style.ScrollbarRounding        = 1.0f;
         style.GrabMinSize              = 20.0f;
         style.GrabRounding             = 3.0f;
-        style.TabRounding              = 3.0f;
+        style.TabRounding              = 2.0f;
         style.TabBorderSize            = 0.0f;
         style.ColorButtonPosition      = ImGuiDir_Right;
         style.ButtonTextAlign          = ImVec2(0.5f, 0.5f);
@@ -70,19 +70,19 @@ namespace fin
         colors[ImGuiCol_Text]                  = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
         colors[ImGuiCol_TextDisabled]          = ImVec4(0.59f, 0.59f, 0.59f, 1.00f);
         colors[ImGuiCol_WindowBg]              = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
-        colors[ImGuiCol_ChildBg]               = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
+        colors[ImGuiCol_ChildBg]               = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
         colors[ImGuiCol_PopupBg]               = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
-        colors[ImGuiCol_Border]                = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
-        colors[ImGuiCol_BorderShadow]          = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
-        colors[ImGuiCol_FrameBg]               = ImVec4(0.20f, 0.20f, 0.22f, 0.60f);
+        colors[ImGuiCol_Border]                = ImVec4(0.00f, 0.00f, 0.00f, 0.22f);
+        colors[ImGuiCol_BorderShadow]          = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+        colors[ImGuiCol_FrameBg]               = ImVec4(0.00f, 0.00f, 0.00f, 0.23f);
         colors[ImGuiCol_FrameBgHovered]        = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
         colors[ImGuiCol_FrameBgActive]         = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
         colors[ImGuiCol_TitleBg]               = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
         colors[ImGuiCol_TitleBgActive]         = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
         colors[ImGuiCol_TitleBgCollapsed]      = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
         colors[ImGuiCol_MenuBarBg]             = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
-        colors[ImGuiCol_ScrollbarBg]           = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
-        colors[ImGuiCol_ScrollbarGrab]         = ImVec4(0.32f, 0.32f, 0.33f, 1.00f);
+        colors[ImGuiCol_ScrollbarBg]           = ImVec4(0.00f, 0.00f, 0.00f, 0.21f);
+        colors[ImGuiCol_ScrollbarGrab]         = ImVec4(0.32f, 0.32f, 0.33f, 0.36f);
         colors[ImGuiCol_ScrollbarGrabHovered]  = ImVec4(0.35f, 0.35f, 0.37f, 1.00f);
         colors[ImGuiCol_ScrollbarGrabActive]   = ImVec4(0.35f, 0.35f, 0.37f, 1.00f);
         colors[ImGuiCol_CheckMark]             = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
@@ -91,20 +91,20 @@ namespace fin
         colors[ImGuiCol_Button]                = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
         colors[ImGuiCol_ButtonHovered]         = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
         colors[ImGuiCol_ButtonActive]          = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
-        colors[ImGuiCol_Header]                = ImVec4(0.63f, 0.68f, 0.73f, 0.26f);
+        colors[ImGuiCol_Header]                = ImVec4(0.14f, 0.44f, 0.74f, 0.26f);
         colors[ImGuiCol_HeaderHovered]         = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
         colors[ImGuiCol_HeaderActive]          = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
-        colors[ImGuiCol_Separator]             = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
-        colors[ImGuiCol_SeparatorHovered]      = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
+        colors[ImGuiCol_Separator]             = ImVec4(0.00f, 0.00f, 0.00f, 0.22f);
+        colors[ImGuiCol_SeparatorHovered]      = ImVec4(0.00f, 0.00f, 0.00f, 0.52f);
         colors[ImGuiCol_SeparatorActive]       = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
         colors[ImGuiCol_ResizeGrip]            = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
         colors[ImGuiCol_ResizeGripHovered]     = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
         colors[ImGuiCol_ResizeGripActive]      = ImVec4(0.32f, 0.32f, 0.33f, 1.00f);
         colors[ImGuiCol_Tab]                   = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
         colors[ImGuiCol_TabHovered]            = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
-        colors[ImGuiCol_TabActive]             = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
+        colors[ImGuiCol_TabActive]             = ImVec4(0.00f, 0.41f, 0.68f, 1.00f);
         colors[ImGuiCol_TabUnfocused]          = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
-        colors[ImGuiCol_TabUnfocusedActive]    = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
+        colors[ImGuiCol_TabUnfocusedActive]    = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
         colors[ImGuiCol_DockingPreview]        = ImVec4(0.26f, 0.59f, 0.98f, 0.70f);
         colors[ImGuiCol_DockingEmptyBg]        = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
         colors[ImGuiCol_PlotLines]             = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
@@ -273,7 +273,7 @@ namespace fin
             on_imgui_properties();
             on_imgui_workspace();
 
-           //  ImGui::ShowDemoWindow();
+            // ImGui::ShowDemoWindow();
         }
 
         ImGui::End();
@@ -417,7 +417,7 @@ namespace fin
             ImGui::End();
             return;
         }
-        if (ImGui::BeginTabBar("WorkspaceTabs"))
+        if (ImGui::BeginTabBar("WorkspaceTabs", ImGuiTabBarFlags_NoTabListScrollingButtons))
         {
             _map.on_imgui_menu();
 
