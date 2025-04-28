@@ -3,12 +3,15 @@
 #include "math_utils.hpp"
 #include <string>
 #include <vector>
+#include <span>
 
 namespace fin
 {
     template <typename T, typename BoundsGetter, int MAX_OBJECTS = 4, int MAX_LEVELS = 5, float LOOSE_FACTOR = 2.0f>
     class LooseQuadTree
     {
+        using ThisType = LooseQuadTree<T, BoundsGetter, MAX_OBJECTS, MAX_LEVELS, LOOSE_FACTOR>;
+
         struct ObjectEntry
         {
             T   object;
@@ -31,6 +34,7 @@ namespace fin
 
         std::vector<Node>        nodes;
         std::vector<ObjectEntry> objects;
+        std::vector<int>         active;
         int rootIndex          = -1;
         int nodeFreeListHead   = -1;
         int objectFreeListHead = -1;
@@ -47,24 +51,36 @@ namespace fin
         LooseQuadTree& operator=(const LooseQuadTree&)  = delete;
         LooseQuadTree(LooseQuadTree&& other)            = default;
         LooseQuadTree& operator=(LooseQuadTree&& other) = default;
-        void           swap(LooseQuadTree& other)
+
+        void swap(LooseQuadTree& other)
         {
             std::swap(nodes, other.nodes);
             std::swap(objects, other.objects);
+            std::swap(active, other.active);
             std::swap(rootIndex, other.rootIndex);
             std::swap(nodeFreeListHead, other.nodeFreeListHead);
+        }
+
+        void clear()
+        {
+            auto worldBounds = nodes[rootIndex].bounds;
+            nodes.clear();
+            objects.clear();
+            nodeFreeListHead   = -1;
+            objectFreeListHead = -1;
+            rootIndex          = allocNode(worldBounds, 0);
         }
 
         void resize(const Rectf& worldBounds)
         {
             // Create a new tree with the new world bounds
-            decltype(*this) newTree(worldBounds);
+            ThisType newTree(worldBounds);
 
             // Transfer all objects from the old tree to the new tree
             for (int i = 0; i < objects.size(); ++i)
             {
-                const T&     obj       = objects[i].object;
-                const Rectf& objBounds = boundsGetter(obj); // Get the object's bounds using the BoundsGetter
+                const T& obj = objects[i].object;
+                const Rectf& objBounds = getObjectBounds(i); // Get the object's bounds using the BoundsGetter
                 newTree.insert(obj, objBounds);             // Insert the object into the new tree
             }
 
@@ -81,11 +97,53 @@ namespace fin
             remove(rootIndex, obj, bounds);
         }
 
-        void query(const Rectf& area, std::vector<T>& out) const
+        void query(const Rectf& area, std::vector<int>& out) const
         {
             query(rootIndex, area, out);
         }
 
+        void activate(const Rectf& area)
+        {
+            active.clear();
+            query(rootIndex, area, active);
+        }
+
+        std::span<const int> get_active() const
+        {
+            return active;
+        }
+
+        T& operator[](int n)
+        {
+            return objects[n].object;
+        }
+
+        const T& operator[](int n) const
+        {
+            return objects[n].object;
+        }
+
+        template <typename CB>
+        void for_each(CB cb)
+        {
+            for (size_t n = 0; n < objects.size(); ++n)
+            {
+                auto& obj = objects[n];
+                if (!obj.empty)
+                    cb(obj.object);
+            }
+        }
+
+        template <typename CB>
+        void for_each_active(CB cb)
+        {
+            for (auto n : active)
+            {
+                auto& obj = objects[n];
+                if (!obj.empty)
+                    cb(obj.object);
+            }
+        }
     private:
         int allocNode(const Rectf& bounds, int level)
         {
@@ -139,8 +197,8 @@ namespace fin
         void split(int nodeIdx)
         {
             Node& node = nodes[nodeIdx];
-            float subW = node.bounds.w / 2.0f;
-            float subH = node.bounds.h / 2.0f;
+            float subW = node.bounds.width / 2.0f;
+            float subH = node.bounds.height / 2.0f;
             float x    = node.bounds.x;
             float y    = node.bounds.y;
 
@@ -278,7 +336,7 @@ namespace fin
             return false;
         }
 
-        void query(int nodeIdx, const Rectf& area, std::vector<T>& out) const
+        void query(int nodeIdx, const Rectf& area, std::vector<int>& out) const
         {
             const Node& node = nodes[nodeIdx];
             if (!node.bounds.intersects(area))
@@ -289,7 +347,7 @@ namespace fin
             {
                 if (area.intersects(getObjectBounds(current)))
                 {
-                    out.push_back(objects[current].object);
+                    out.push_back(current);
                 }
                 current = objects[current].next;
             }

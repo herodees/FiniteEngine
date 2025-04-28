@@ -5,44 +5,10 @@
 #include "renderer.hpp"
 #include "scene_object.hpp"
 #include "shared_resource.hpp"
-#include "utils/lquadtree.hpp"
+#include "scene_layer.hpp"
 
 namespace fin
 {
-    class SceneLayer
-    {
-    public:
-        enum class Type
-        {
-            Undefined,
-            Sprite,
-            Region,
-            Isometric,
-        };
-        static SceneLayer* create(Type t);
-        SceneLayer(Type t = Type::Undefined) : _type(t){};
-        virtual ~SceneLayer() = default;
-        Type type() const
-        {
-            return _type;
-        };
-        std::string& name()
-        {
-            return _name;
-        }
-        std::string_view& icon()
-        {
-            return _icon;
-        }
-        virtual void serialize(msg::Writer& ar);
-        virtual void deserialize(msg::Value& ar);
-        virtual void resize(Vec2f size);
-
-    private:
-        Type             _type;
-        std::string      _name;
-        std::string_view _icon;
-    };
 
     class Scene
     {

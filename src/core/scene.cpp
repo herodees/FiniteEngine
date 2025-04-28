@@ -6,105 +6,6 @@ namespace fin
 {
     constexpr int32_t tile_size(512);
 
-
-
-    class IsometricSceneLayer : public SceneLayer
-    {
-    public:
-        IsometricSceneLayer() : SceneLayer(SceneLayer::Type::Isometric)
-        {
-            name() = "IsometricLayer";
-            icon() = ICON_FA_MAP_PIN;
-        };
-        void resize(Vec2f size) override
-        {
-            _grid_size.x = (size.width + (tile_size - 1)) / tile_size; // Round up division
-            _grid_size.y = (size.height + (tile_size - 1)) / tile_size;
-            _spatial_db.init({0, 0, (float)_grid_size.x * tile_size, (float)_grid_size.y * tile_size},
-                             _grid_size.x,
-                             _grid_size.y);
-        }
-
-    private:
-        Vec2i                        _grid_size;
-        lq::SpatialDatabase          _spatial_db;
-        std::vector<IsoSceneObject*> _scene;
-    };
-
-
-
-    class SpriteSceneLayer : public SceneLayer
-    {
-    public:
-        struct Node
-        {
-            Atlas::Pack _sprite;
-            Rectf       _bbox;
-        };
-        SpriteSceneLayer() : SceneLayer(SceneLayer::Type::Sprite), _spatial({})
-        {
-            name() = "SpriteLayer";
-            icon() = ICON_FA_IMAGE;
-        };
-
-    private:
-        LooseQuadTree<Node, decltype([](Node& n) -> const Rectf& { return n._bbox; })> _spatial;
-    };
-
-
-
-    class RegionSceneLayer : public SceneLayer
-    {
-    public:
-        struct Node
-        {
-            msg::Var _points;
-            Rectf    _bbox;
-        };
-        RegionSceneLayer() : SceneLayer(SceneLayer::Type::Region), _spatial({})
-        {
-            name() = "RegionLayer";
-            icon() = ICON_FA_MAP_LOCATION_DOT;
-        };
-
-    private:
-        LooseQuadTree<Node, decltype([](Node& n) -> const Rectf& { return n._bbox; })> _spatial;
-    };
-
-
-
-    SceneLayer* SceneLayer::create(Type t)
-    {
-        switch (t)
-        {
-            case Type::Sprite:
-                return new SpriteSceneLayer;
-            case Type::Region:
-                return new RegionSceneLayer;
-            case Type::Isometric:
-                return new IsometricSceneLayer;
-        }
-        return nullptr;
-    }
-
-    void SceneLayer::serialize(msg::Writer& ar)
-    {
-        ar.member("type", (int)_type);
-        ar.member("name", _name); 
-    }
-
-    void SceneLayer::deserialize(msg::Value& ar)
-    {
-        _type = Type(ar["type"].get(0));
-        _name = ar["name"].str();
-    }
-
-    void SceneLayer::resize(Vec2f size)
-    {
-    }
-
-
-
     Scene::Scene()
     {
     }
@@ -488,6 +389,12 @@ namespace fin
 
         BeginMode2D(dc._camera);
 
+        for (auto* el : _layers)
+        {
+            el->render(dc);
+        }
+
+
         dc.set_color(WHITE);
         for (int y = minpos.y; y < maxpos.y; ++y)
         {
@@ -616,6 +523,14 @@ namespace fin
 
     void Scene::update(float dt)
     {
+        for (auto* el : _layers)
+        {
+            el->update(dt);
+        }
+
+
+
+
         _iso_manager.update(_spatial_db, _active_region, _edit._edit_object);
 
         if (_mode == Mode::Running)
