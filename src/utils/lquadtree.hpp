@@ -80,21 +80,20 @@ namespace fin
             for (int i = 0; i < objects.size(); ++i)
             {
                 const T& obj = objects[i].object;
-                const Rectf& objBounds = getObjectBounds(i); // Get the object's bounds using the BoundsGetter
-                newTree.insert(obj, objBounds);             // Insert the object into the new tree
+                newTree.insert(obj);             // Insert the object into the new tree
             }
 
             swap(newTree);
         }
 
-        void insert(const T& obj, const Rectf& bounds)
+        void insert(const T& obj)
         {
-            insert(rootIndex, obj, bounds);
+            insert(rootIndex, obj, boundsGetter(obj));
         }
 
-        void remove(const T& obj, const Rectf& bounds)
+        void remove(const T& obj)
         {
-            remove(rootIndex, obj, bounds);
+            remove(rootIndex, obj, boundsGetter(obj));
         }
 
         void query(const Rectf& area, std::vector<int>& out) const
@@ -121,6 +120,11 @@ namespace fin
         const T& operator[](int n) const
         {
             return objects[n].object;
+        }
+
+        int size() const
+        {
+            return (int)objects.size();
         }
 
         template <typename CB>

@@ -70,7 +70,7 @@ namespace fin
             BasicSceneObject* _selected_object{};
             SceneRegion*      _selected_region{};
             int32_t           _active_point{-1};
-            int32_t           _active_layer{-1};
+            int32_t           _active_layer{0};
             bool              _add_point{};
             bool              _move_point{};
         };
@@ -83,6 +83,7 @@ namespace fin
         bool  setup_background_texture(const std::filesystem::path& file);
         void  activate_grid(const Recti& screen);
         void  activate_grid(const Vec2f& origin);
+        void  add_layer(SceneLayer* layer);
 
         Vec2i get_active_grid_size() const;
         Vec2f get_active_grid_center() const;

@@ -3,11 +3,13 @@
 #include "utils/lquery.hpp"
 #include "scene_object.hpp"
 #include "renderer.hpp"
+#include "scene.hpp"
+#include "editor/imgui_control.hpp"
 
 namespace fin
 {
     constexpr int32_t tile_size(512);
-
+    std::string       _buffer;
 
     class IsometricSceneLayer : public SceneLayer
     {
@@ -184,7 +186,106 @@ namespace fin
             SceneLayer::deserialize(ar);
         }
 
-    private:
+        void edit_active()
+        {
+            if (_edit)
+            {
+                _buffer = _edit->is_named() ? _edit->_name : "";
+                if (ImGui::InputText("Name", &_buffer))
+                {
+                    parent()->name_object(_edit, _buffer);
+                }
+
+                _edit->edit_update();
+            }
+        }
+
+        void edit_update(bool items) override
+        {
+            if (!items)
+                return edit_active();
+
+            if (ImGui::Button(" " ICON_FA_BAN " "))
+            {
+                if (_edit)
+                {
+                    destroy(_edit);
+                    _edit = nullptr;
+                }
+            }
+
+            if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
+            {
+                ImGuiListClipper clipper;
+                clipper.Begin(_scene.size());
+                while (clipper.Step())
+                {
+                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                    {
+                        ImGui::PushID(n);
+                        auto*       el   = _scene[n];
+                        const char* name = el->_name;
+                        if (!name)
+                            name = ImGui::FormatStr("Object %p", el);
+
+                        if (ImGui::Selectable(name, el == _edit))
+                        {
+                            select(el);
+                        }
+                        ImGui::PopID();
+                    }
+                }
+            }
+
+            ImGui::EndChildFrame();
+        }
+
+        void select(IsoSceneObject* obj)
+        {
+            if (_edit != obj)
+            {
+                _edit = obj;
+            }
+        }
+
+        void insert(IsoSceneObject* obj)
+        {
+            if (!obj)
+                return;
+            obj->_id = _scene.size();
+            _scene.push_back(obj);
+            _spatial_db.update_for_new_location(obj);
+        }
+
+        void remove(IsoSceneObject* obj)
+        {
+            if (obj->is_named())
+            {
+                parent()->name_object(obj, {});
+            }
+            _spatial_db.remove_from_bin(obj);
+            const auto id   = obj->_id;
+            _scene[id]      = _scene.back();
+            _scene[id]->_id = id;
+            _scene.pop_back();
+        }
+
+        void destroy(IsoSceneObject* obj)
+        {
+            if (obj)
+            {
+                remove(obj);
+            }
+            delete obj;
+        }
+
+        void moveto(IsoSceneObject* obj, Vec2f pos)
+        {
+            obj->_position = pos;
+            _spatial_db.update_for_new_location(obj);
+        }
+
+        private:
         Vec2i                        _grid_size;
         lq::SpatialDatabase          _spatial_db;
         std::vector<IsoSceneObject*> _scene;
@@ -269,13 +370,62 @@ namespace fin
                     nde._bbox.y      = ar["y"].get(0.f);
                     nde._bbox.width = nde._sprite.sprite->_source.width;
                     nde._bbox.height = nde._sprite.sprite->_source.height;
-                    _spatial.insert(nde, nde._bbox);
+                    _spatial.insert(nde);
                 }
             }
         }
 
+        void destroy(int32_t n)
+        {
+
+        }
+
+        void edit_active()
+        {
+
+        }
+
+        void edit_update(bool items) override
+        {
+            if (!items)
+                return edit_active();
+
+            if (ImGui::Button(" " ICON_FA_BAN " "))
+            {
+                if (_edit)
+                {
+                    destroy(_edit);
+                    _edit = -1;
+                }
+            }
+
+            if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
+            {
+                ImGuiListClipper clipper;
+
+                clipper.Begin(_spatial.size());
+                while (clipper.Step())
+                {
+                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                    {
+                        ImGui::PushID(n);
+                        auto& el = _spatial[n];
+                        if (el._sprite.sprite)
+                        {
+                            if (ImGui::Selectable(el._sprite.sprite->_name.c_str(), n == _edit))
+                            {
+                                _edit = n;
+                            }
+                        }
+                        ImGui::PopID();
+                    }
+                }
+            }
+            ImGui::EndChildFrame();
+        }
     private:
         LooseQuadTree<Node, decltype([](const Node& n) -> const Rectf& { return n._bbox; })> _spatial;
+        int32_t                                                                              _edit = -1;
     };
 
 
@@ -339,12 +489,13 @@ namespace fin
                 {
                     nde._points.push_back(el.get(0.f));
                 }
-                _spatial.insert(nde, nde._bbox);
+                _spatial.insert(nde);
             }
         }
 
     private:
         LooseQuadTree<Node, decltype([](const Node& n) -> const Rectf& { return n._bbox; })> _spatial;
+        int32_t                                                                              _edit = -1;
     };
 
 
@@ -392,6 +543,11 @@ namespace fin
         return _icon;
     }
 
+    Scene* SceneLayer::parent()
+    {
+        return _parent;
+    }
+
     void SceneLayer::serialize(msg::Writer& ar)
     {
         ar.member("type", (int)_type);
@@ -420,6 +576,10 @@ namespace fin
     {
     }
 
+    void SceneLayer::edit_update(bool items)
+    {
+    }
+
     bool SceneLayer::is_hidden() const
     {
         return _hidden;
@@ -428,11 +588,6 @@ namespace fin
     bool SceneLayer::is_active() const
     {
         return _active;
-    }
-
-    bool SceneLayer::is_edit() const
-    {
-        return _edit;
     }
 
     void SceneLayer::hide(bool b)
@@ -445,9 +600,5 @@ namespace fin
         _active = a;
     }
 
-    void SceneLayer::edit(bool a)
-    {
-        _edit = a;
-    }
 
 }

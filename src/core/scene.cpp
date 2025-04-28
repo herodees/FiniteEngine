@@ -120,6 +120,12 @@ namespace fin
         activate_grid(Recti(origin.x - s.x * 0.5f, origin.y - s.y * 0.5f, origin.x + s.x * 0.5f, origin.y + s.y * 0.5f));
     }
 
+    void Scene::add_layer(SceneLayer* layer)
+    {
+        _layers.emplace_back(layer);
+        layer->_parent = this;
+    }
+
 
     Vec2i Scene::get_active_grid_size() const
     {
@@ -723,52 +729,52 @@ namespace fin
 
     void Scene::on_imgui_props_object()
     {
-        if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen))
+        if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (ImGui::Button(" " ICON_FA_BAN " "))
+            if (ImGui::BeginChildFrame(-2, {-1, 100}, 0))
             {
-                if (_edit._selected_object)
+                int n = 0;
+                for (auto* ly : _layers)
                 {
-                    object_destroy(_edit._selected_object);
-                    _edit._selected_object = nullptr;
-                }
-            }
-            if (ImGui::BeginChildFrame(-1, { -1, 250 }, 0))
-            {
-                ImGuiListClipper clipper;
-                clipper.Begin(_scene.size());
-                while (clipper.Step())
-                {
-                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
-                    {
-                        ImGui::PushID(n);
-                        auto*       el   = _scene[n];
-                        const char* name = el->_name;
-                        if (!name)
-                            name = ImGui::FormatStr("Object %p", el);
+                    ImGui::PushID(n);
 
-                        if (ImGui::Selectable(name, el == _edit._selected_object))
-                        {
-                            object_select(el);
-                        }
-                        ImGui::PopID();
+                    ImGui::SetNextItemAllowOverlap();
+                    if (ImGui::Selectable(" ", _edit._active_layer == n))
+                        _edit._active_layer = n;
+
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(ly->is_hidden() ? ICON_FA_EYE_SLASH : ICON_FA_EYE))
+                    {
+                        ly->hide(!ly->is_hidden());
                     }
+
+                    ImGui::SameLine();
+                    ImGui::Text("%s %s", ly->icon().data(), ly->name().c_str());
+
+                    ImGui::PopID();
+                    ++n;
                 }
             }
             ImGui::EndChildFrame();
         }
 
+        if (ImGui::CollapsingHeader("Items", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (size_t(_edit._active_layer) < _layers.size())
+            {
+                ImGui::PushID("lyit");
+                _layers[_edit._active_layer]->edit_update(true);
+                ImGui::PopID();
+            }
+        }
+
         if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (_edit._selected_object)
+            if (size_t(_edit._active_layer) < _layers.size())
             {
-                _edit._buffer = _edit._selected_object->is_named() ? _edit._selected_object->_name : "";
-                if (ImGui::InputText("Name", &_edit._buffer))
-                {
-                    name_object(_edit._selected_object, _edit._buffer);
-                }
-
-                _edit._selected_object->edit_update();
+                ImGui::PushID("lypt");
+                _layers[_edit._active_layer]->edit_update(false);
+                ImGui::PopID();
             }
         }
     }
@@ -835,11 +841,11 @@ namespace fin
             if (ImGui::BeginPopup("LayerMenu"))
             {
                 if (ImGui::MenuItem(ICON_FA_MAP_PIN " Isometric layer"))
-                    _layers.emplace_back(SceneLayer::create(SceneLayer::Type::Isometric));
+                    add_layer(SceneLayer::create(SceneLayer::Type::Isometric));
                 if (ImGui::MenuItem(ICON_FA_IMAGE " Sprite layer"))
-                    _layers.emplace_back(SceneLayer::create(SceneLayer::Type::Sprite));
+                    add_layer(SceneLayer::create(SceneLayer::Type::Sprite));
                 if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Region layer"))
-                    _layers.emplace_back(SceneLayer::create(SceneLayer::Type::Region));
+                    add_layer(SceneLayer::create(SceneLayer::Type::Region));
                 ImGui::EndPopup();
             }
             ImGui::SameLine();
@@ -936,14 +942,14 @@ namespace fin
         _mode = Mode::Undefined;
         _debug_draw_regions = false;
 
-        if (ImGui::BeginTabItem(ICON_FA_MAP " Map"))
+        if (ImGui::BeginTabItem(ICON_FA_GEAR " Setup"))
         {
             _mode = Mode::Map;
             ImGui::Checkbox("Show grid", &_debug_draw_grid);
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem(ICON_FA_MAP_PIN " Objects"))
+        if (ImGui::BeginTabItem(ICON_FA_BRUSH " Edit"))
         {
             _mode = Mode::Objects;
             ImGui::Checkbox("Show bounding box##shwobj", &_debug_draw_object);
@@ -957,19 +963,6 @@ namespace fin
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem(ICON_FA_MAP_LOCATION_DOT " Regions"))
-        {
-            _mode               = Mode::Regions;
-            _debug_draw_regions = true;
-
-            if (ImGui::RadioButton("Edit", _edit_region))
-                _edit_region = true;
-            ImGui::SameLine();
-            if (ImGui::RadioButton("Add", !_edit_region))
-                _edit_region = false;
-
-            ImGui::EndTabItem();
-        }
     }
 
     void Scene::on_imgui_workspace()
