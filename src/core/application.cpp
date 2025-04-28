@@ -49,7 +49,7 @@ namespace fin
         style.PopupRounding            = 0.0f;
         style.PopupBorderSize          = 1.0f;
         style.FramePadding             = ImVec2(3.0f, 3.0f);
-        style.FrameRounding            = 3.0f;
+        style.FrameRounding            = 2.0f;
         style.FrameBorderSize          = 0.0f;
         style.ItemSpacing              = ImVec2(3.0f, 3.0f);
         style.ItemInnerSpacing         = ImVec2(3.0f, 3.0f);
@@ -74,7 +74,7 @@ namespace fin
         colors[ImGuiCol_PopupBg]               = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
         colors[ImGuiCol_Border]                = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
         colors[ImGuiCol_BorderShadow]          = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
-        colors[ImGuiCol_FrameBg]               = ImVec4(0.20f, 0.20f, 0.22f, 1.00f);
+        colors[ImGuiCol_FrameBg]               = ImVec4(0.20f, 0.20f, 0.22f, 0.60f);
         colors[ImGuiCol_FrameBgHovered]        = ImVec4(0.11f, 0.59f, 0.93f, 1.00f);
         colors[ImGuiCol_FrameBgActive]         = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
         colors[ImGuiCol_TitleBg]               = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
@@ -270,11 +270,10 @@ namespace fin
         ImGui::DockSpace(dockspace_id);
         if (!init_docking)
         {
-            on_imgui_dialogs();
             on_imgui_properties();
             on_imgui_workspace();
 
-            // ImGui::ShowDemoWindow();
+           //  ImGui::ShowDemoWindow();
         }
 
         ImGui::End();
@@ -411,12 +410,6 @@ namespace fin
         }
     }
 
-    void application::on_imgui_dialogs()
-    {
-        _factory.show_explorer();
-        //_explorer.render();
-    }
-
     void application::on_imgui_workspace()
     {
         if (!ImGui::Begin("Workspace"))
@@ -427,15 +420,6 @@ namespace fin
         if (ImGui::BeginTabBar("WorkspaceTabs"))
         {
             _map.on_imgui_menu();
-
-            _show_prefab = false;
-
-            if (ImGui::BeginTabItem(ICON_FA_BOX_ARCHIVE " Prefabs"))
-            {
-                _show_prefab = true;
-                _factory.show_menu();
-                ImGui::EndTabItem();
-            }
 
             if (!_map.get_path().empty())
             {
@@ -454,15 +438,7 @@ namespace fin
                                    {-1, -1},
                                    ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar))
         {
-            if (_show_prefab)
-            {
-                _factory.show_workspace();
-            }
-            else
-            {
-                _factory.center_view();
-                _map.on_imgui_workspace();
-            }
+            _map.on_imgui_workspace();
         }
         ImGui::EndChildFrame();
 
@@ -471,22 +447,10 @@ namespace fin
 
     void application::on_imgui_properties()
     {
-        if (!ImGui::Begin("Properties"))
-        {
-            ImGui::End();
-            return;
-        }
+        _map.on_imgui_explorer();
+        _map.on_imgui_props();
 
-        if (_show_prefab)
-        {
-            _factory.show_properties();
-        }
-        else
-        {
-            _map.on_imgui_props();
-        }
 
-        ImGui::End();
     }
 
 

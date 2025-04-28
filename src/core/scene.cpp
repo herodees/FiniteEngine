@@ -120,10 +120,30 @@ namespace fin
         activate_grid(Recti(origin.x - s.x * 0.5f, origin.y - s.y * 0.5f, origin.x + s.x * 0.5f, origin.y + s.y * 0.5f));
     }
 
-    void Scene::add_layer(SceneLayer* layer)
+    void Scene::set_size(Vec2f size)
+    {
+        if (_size != size)
+        {
+            _size = size;
+            for (auto* ly : _layers)
+            {
+                ly->resize(_size);
+            }
+        }
+    }
+
+    int32_t Scene::add_layer(SceneLayer* layer)
     {
         _layers.emplace_back(layer);
         layer->_parent = this;
+        layer->resize(_size);
+        return int32_t(_layers.size()) - 1;
+    }
+
+    void Scene::delete_layer(int32_t n)
+    {
+        delete _layers[n];
+        _layers.erase(_layers.begin() + n);
     }
 
 
@@ -558,7 +578,8 @@ namespace fin
 
     void Scene::clear()
     {
-        std::for_each(_scene.begin(), _scene.end(), [](BasicSceneObject* p) { delete p; });
+        std::for_each(_scene.begin(), _scene.end(), [](auto* p) { delete p; });
+        std::for_each(_layers.begin(), _layers.end(), [](auto* p) { delete p; });
         _grid_size = {};
         _grid_active.clear();
         _grid_texture.clear();
@@ -566,6 +587,7 @@ namespace fin
         _spatial_db.init({}, 0, 0);
         _grid_surface.clear();
         _grid_texture.clear();
+        _layers.clear();
     }
 
     void Scene::generate_navmesh()
@@ -711,20 +733,33 @@ namespace fin
         SaveFileData(_path.c_str(), pack.data().data(), pack.data().size());
     }
 
+    void Scene::on_imgui_explorer()
+    {
+        SceneFactory::instance().show_explorer();
+    }
+
     void Scene::on_imgui_props()
     {
+        if (!ImGui::Begin("Properties"))
+        {
+            ImGui::End();
+            return;
+        }
+
         switch (_mode)
         {
-        case Mode::Map:
-            on_imgui_props_map();
-            break;
-        case Mode::Objects:
-            on_imgui_props_object();
-            break;
-        case Mode::Regions:
-            on_imgui_props_region();
-            break;
+            case Mode::Map:
+                on_imgui_props_map();
+                break;
+            case Mode::Objects:
+                on_imgui_props_object();
+                break;
+            case Mode::Prefab:
+                SceneFactory::instance().show_properties();
+                break;
         }
+
+        ImGui::End();
     }
 
     void Scene::on_imgui_props_object()
@@ -763,7 +798,7 @@ namespace fin
             if (size_t(_edit._active_layer) < _layers.size())
             {
                 ImGui::PushID("lyit");
-                _layers[_edit._active_layer]->edit_update(true);
+                _layers[_edit._active_layer]->imgui_update(true);
                 ImGui::PopID();
             }
         }
@@ -773,7 +808,7 @@ namespace fin
             if (size_t(_edit._active_layer) < _layers.size())
             {
                 ImGui::PushID("lypt");
-                _layers[_edit._active_layer]->edit_update(false);
+                _layers[_edit._active_layer]->imgui_update(false);
                 ImGui::PopID();
             }
         }
@@ -826,13 +861,46 @@ namespace fin
                     name_object(_edit._selected_region, _edit._buffer);
                 }
 
-                _edit._selected_region->edit_update();
+                _edit._selected_region->imgui_update();
             }
         }
     }
 
     void Scene::on_imgui_props_map()
     {
+        static int s_val[2]{};
+
+        if (ImGui::CollapsingHeader("Size", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            if (ImGui::Button("Resize..."))
+            {
+                ImGui::OpenPopup("Resize");
+                s_val[0] = _size.x;
+                s_val[1] = _size.y;
+            }
+            if (ImGui::BeginPopupModal("Resize", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Set new scene size!");
+                ImGui::InputInt2("Size", s_val);
+
+                ImGui::Separator();
+
+                if (ImGui::Button("OK", ImVec2(120, 0)))
+                {
+                    set_size(Vec2f(s_val[0], s_val[1]));
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SetItemDefaultFocus();
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel", ImVec2(120, 0)))
+                {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::LabelText("Size (px)", "%.0f x %.0f", _size.x, _size.y);
+        }
         if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
         {
             if (ImGui::Button(" " ICON_FA_LAPTOP " Add "))
@@ -865,8 +933,7 @@ namespace fin
             {
                 if (size_t(_edit._active_layer) < _layers.size())
                 {
-                    delete _layers[_edit._active_layer];
-                    _layers.erase(_layers.begin()+_edit._active_layer);
+                    delete_layer(_edit._active_layer);
                 }
             }
 
@@ -963,10 +1030,25 @@ namespace fin
             ImGui::EndTabItem();
         }
 
+        if (ImGui::BeginTabItem(ICON_FA_BOX_ARCHIVE " Prefabs"))
+        {
+            _mode = Mode::Prefab;
+            SceneFactory::instance().show_menu();
+            ImGui::EndTabItem();
+        }
     }
 
     void Scene::on_imgui_workspace()
     {
+        if (_mode == Mode::Prefab)
+        {
+            return SceneFactory::instance().show_workspace();
+        }
+        else
+        {
+            SceneFactory::instance().center_view();
+        }
+
         auto size = get_scene_size();
         if (size.x && size.y)
         {
@@ -1003,9 +1085,6 @@ namespace fin
                 case Mode::Objects:
                     on_imgui_workspace_object(params);
                     break;
-                case Mode::Regions:
-                    on_imgui_workspace_region(params);
-                    break;
             }
         }
     }
@@ -1034,8 +1113,6 @@ namespace fin
         {
             object_moveto(_edit._selected_object, _drag._delta + _edit._selected_object->position());
         }
-
-
 
         if (ImGui::BeginDragDropTarget())
         {
@@ -1165,12 +1242,6 @@ namespace fin
         return _depth;
     }
 
-    float Scene::Params::mouse_distance2(ImVec2 pos) const
-    {
-        auto dx = mouse.x - pos.x;
-        auto dy = mouse.y - pos.y;
-        return dx * dx + dy * dy;
-    }
 
 
     void Scene::IsoManager::update(lq::SpatialDatabase& db, const Recti& region, BasicSceneObject* edit)
@@ -1279,7 +1350,7 @@ namespace fin
         }
     }
 
-    void Scene::DragData::update(float x, float y)
+    void DragData::update(float x, float y)
     {
         if (ImGui::IsItemClicked(0))
         {

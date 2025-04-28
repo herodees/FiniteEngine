@@ -70,9 +70,9 @@ namespace fin
         dc.render_line_rect(bounding_box().rect());
     }
 
-    bool SpriteSceneObject::edit_update()
+    bool SpriteSceneObject::imgui_update()
     {
-        bool modified = BasicSceneObject::edit_update();
+        bool modified = BasicSceneObject::imgui_update();
 
         modified |= ImGui::SpriteInput("Sprite", &_img);
         modified |= ImGui::PointVector("Collision", &_collision, {-1, ImGui::GetFrameHeightWithSpacing() * 4});
@@ -202,7 +202,7 @@ namespace fin
 
         SpriteSceneObject* obj = static_cast<SpriteSceneObject*>(_edit->obj.get());
         auto               spr = obj->sprite();
-        Scene::Params      params;
+        Params      params;
 
         ImVec2 visible_size = ImGui::GetContentRegionAvail();
         params.pos          = ImGui::GetWindowPos();
@@ -494,7 +494,7 @@ namespace fin
             proto.set_item(Sc::Id, _buff);
         }
 
-        info.obj->edit_update();
+        info.obj->imgui_update();
     }
 
     void SceneFactory::reset_atlas_cache()
@@ -713,7 +713,7 @@ namespace fin
         change();
     }
 
-    bool SceneRegion::edit_update()
+    bool SceneRegion::imgui_update()
     {
         auto modified = false; 
         if (ImGui::PointVector("Points", &_region, {-1, 150}))
@@ -790,7 +790,7 @@ namespace fin
         return _prefab_uid;
     }
 
-    bool BasicSceneObject::edit_update()
+    bool BasicSceneObject::imgui_update()
     {
         bool modified = false;
 
@@ -863,9 +863,9 @@ namespace fin
         dc.render_line_rect(bounding_box().rect());
     }
 
-    bool SoundObject::edit_update()
+    bool SoundObject::imgui_update()
     {
-        auto ret = BasicSceneObject::edit_update();
+        auto ret = BasicSceneObject::imgui_update();
 
         ret |= ImGui::DragFloat("Radius", &_radius, 1.f, 0, 1000.f);
         if (ImGui::SoundInput("Sound", &_sound))

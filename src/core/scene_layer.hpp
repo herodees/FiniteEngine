@@ -6,6 +6,8 @@ namespace fin
 {
     class Renderer;
     class Scene;
+    struct Params;
+    struct DragData;
 
     class SceneLayer
     {
@@ -36,8 +38,10 @@ namespace fin
 
         virtual void activate(const Rectf& region);
         virtual void update(float dt);
+        virtual void edit_update(Params& params, DragData& drag);
         virtual void render(Renderer& dc);
-        virtual void edit_update(bool items);
+
+        virtual void imgui_update(bool items);
 
         bool is_hidden() const;
         bool is_active() const;

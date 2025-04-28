@@ -64,7 +64,7 @@ namespace fin
         virtual void render(Renderer& dc) = 0;
 
         virtual void edit_render(Renderer& dc) = 0;
-        virtual bool edit_update();
+        virtual bool imgui_update();
 
         virtual void save(msg::Var& ar); // Save prefab
         virtual void load(msg::Var& ar); // Load prefab
@@ -117,7 +117,7 @@ namespace fin
         void render(Renderer& dc) override;
 
         void edit_render(Renderer& dc) override;
-        bool edit_update() override;
+        bool imgui_update() override;
 
         void save(msg::Var& ar) override; // Save prefab
         void load(msg::Var& ar) override; // Load prefab
@@ -154,7 +154,7 @@ namespace fin
         void render(Renderer& dc) override;
 
         void edit_render(Renderer& dc) override;
-        bool edit_update() override;
+        bool imgui_update() override;
 
         void save(msg::Var& ar) override; // Save prefab
         void load(msg::Var& ar) override; // Load prefab
@@ -201,7 +201,7 @@ namespace fin
         void serialize(msg::Writer& ar);  // Save to scene
         void deserialize(msg::Value& ar); // Load to scene
 
-        bool edit_update();
+        bool imgui_update();
         void edit_render(Renderer& dc);
 
     protected:

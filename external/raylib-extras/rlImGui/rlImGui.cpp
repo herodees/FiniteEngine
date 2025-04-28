@@ -458,7 +458,17 @@ void rlImGuiSetup(bool dark)
 		ImGui::StyleColorsLight();
 
 	ImGuiIO& io = ImGui::GetIO();
-	io.Fonts->AddFontDefault();
+
+#if defined(_WIN32)
+    try {
+        io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/tahoma.ttf", 15.0f);
+    }
+    catch(...){
+        io.Fonts->AddFontDefault();
+    }
+#else
+    io.Fonts->AddFontDefault();
+#endif
 
 #ifndef NO_FONT_AWESOME
 	static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
@@ -466,7 +476,7 @@ void rlImGuiSetup(bool dark)
 	icons_config.MergeMode = true;
 	icons_config.PixelSnapH = true;
 	icons_config.FontDataOwnedByAtlas = false;
-	io.Fonts->AddFontFromMemoryCompressedTTF((void*)fa_solid_900_compressed_data, fa_solid_900_compressed_size, FONT_AWESOME_ICON_SIZE, &icons_config, icons_ranges);
+	io.Fonts->AddFontFromMemoryCompressedTTF((void*)fa_solid_900_compressed_data, fa_solid_900_compressed_size, 15, &icons_config, icons_ranges);
 #endif
 
 	rlImGuiEndInitImGui();

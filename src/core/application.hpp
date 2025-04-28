@@ -24,7 +24,6 @@ namespace fin
         void on_imgui_init(bool dark_theme);
         void on_imgui();
         void on_imgui_menu();
-        void on_imgui_dialogs();
         void on_imgui_workspace();
         void on_imgui_properties();
 
@@ -40,7 +39,6 @@ namespace fin
         double            _max_time_step    = 1.0f / _max_fps;
         double            _current_time     = GetTime();
         double            _time_accumulator = 0.0;
-        bool              _show_prefab{false};
         bool              _editor{true};
     };
 } // namespace fin

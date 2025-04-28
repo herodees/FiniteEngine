@@ -9,11 +9,32 @@
 
 namespace fin
 {
+    struct Params
+    {
+        ImDrawList* dc;
+        ImVec2      mouse;
+        ImVec2      pos;
+        ImVec2      scroll;
+        float       mouse_distance2(ImVec2 pos) const
+        {
+            auto dx = mouse.x - pos.x;
+            auto dy = mouse.y - pos.y;
+            return dx * dx + dy * dy;
+        }
+    };
+
+    struct DragData
+    {
+        Vec2f _begin;
+        Vec2f _delta;
+        bool  _active{};
+
+        void update(float x, float y);
+    };
 
     class Scene
     {
         friend class SpriteSceneObject;
-        struct Params;
 
     public:
         enum Mode
@@ -22,16 +43,7 @@ namespace fin
             Running,
             Map,
             Objects,
-            Regions,
-        };
-
-        struct Params
-        {
-            ImDrawList* dc;
-            ImVec2      mouse;
-            ImVec2      pos;
-            ImVec2      scroll;
-            float       mouse_distance2(ImVec2 pos) const;
+            Prefab,
         };
 
         struct IsoObject
@@ -54,15 +66,6 @@ namespace fin
             void update(lq::SpatialDatabase& db, const Recti& region, BasicSceneObject* edit);
         };
 
-        struct DragData
-        {
-            Vec2f _begin;
-            Vec2f _delta;
-            bool  _active{};
-
-            void update(float x, float y);
-        };
-
         struct EditData
         {
             std::string       _buffer;
@@ -80,10 +83,13 @@ namespace fin
 
         const std::string& get_path() const;
 
-        bool  setup_background_texture(const std::filesystem::path& file);
-        void  activate_grid(const Recti& screen);
-        void  activate_grid(const Vec2f& origin);
-        void  add_layer(SceneLayer* layer);
+        bool setup_background_texture(const std::filesystem::path& file);
+        void activate_grid(const Recti& screen);
+        void activate_grid(const Vec2f& origin);
+
+        void    set_size(Vec2f size);
+        int32_t add_layer(SceneLayer* layer);
+        void    delete_layer(int32_t n);
 
         Vec2i get_active_grid_size() const;
         Vec2f get_active_grid_center() const;
@@ -129,6 +135,7 @@ namespace fin
         void load(std::string_view path);
         void save(std::string_view path);
 
+        void on_imgui_explorer();
         void on_imgui_props();
         void on_imgui_props_object();
         void on_imgui_props_region();
@@ -164,6 +171,7 @@ namespace fin
         Vec2i                                                                           _grid_size;
         RenderTexture2D                                                                 _canvas;
         std::string                                                                     _path;
+        Vec2f                                                                           _size;
 
     };
 

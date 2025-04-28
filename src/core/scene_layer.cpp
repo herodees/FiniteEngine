@@ -169,6 +169,9 @@ namespace fin
 
         void render(Renderer& dc) override
         {
+            if (is_hidden())
+                return;
+
             for (auto* obj : _iso)
             {
                 if (!obj->_ptr->is_hidden())
@@ -176,14 +179,19 @@ namespace fin
             }
         }
 
-        void serialize(msg::Writer& ar)
+        void serialize(msg::Writer& ar) override
         {
             SceneLayer::serialize(ar);
         }
 
-        void deserialize(msg::Value& ar)
+        void deserialize(msg::Value& ar) override
         {
             SceneLayer::deserialize(ar);
+        }
+
+        void edit_update(Params& params, DragData& drag) override
+        {
+
         }
 
         void edit_active()
@@ -196,11 +204,11 @@ namespace fin
                     parent()->name_object(_edit, _buffer);
                 }
 
-                _edit->edit_update();
+                _edit->imgui_update();
             }
         }
 
-        void edit_update(bool items) override
+        void imgui_update(bool items) override
         {
             if (!items)
                 return edit_active();
@@ -304,6 +312,10 @@ namespace fin
         {
             Atlas::Pack _sprite;
             Rectf       _bbox;
+            bool        operator==(const Node& ot) const
+            {
+                return this == &ot;
+            }
         };
 
         SpriteSceneLayer() : SceneLayer(SceneLayer::Type::Sprite), _spatial({})
@@ -311,6 +323,11 @@ namespace fin
             name() = "SpriteLayer";
             icon() = ICON_FA_IMAGE;
         };
+
+        void destroy(int32_t n)
+        {
+            _spatial.remove(_spatial[n]);
+        }
 
         void resize(Vec2f size) override
         {
@@ -328,13 +345,17 @@ namespace fin
 
         void render(Renderer& dc) override
         {
+            if (is_hidden())
+                return;
+
             for (auto n : _spatial.get_active())
             {
                 auto& nde = _spatial[n];
                 dc.render_texture(nde._sprite.sprite->_texture, nde._sprite.sprite->_source, nde._bbox);
             }
         }
-        void serialize(msg::Writer& ar)
+
+        void serialize(msg::Writer& ar) override
         {
             SceneLayer::serialize(ar);
 
@@ -354,7 +375,7 @@ namespace fin
             ar.end_array();
         }
 
-        void deserialize(msg::Value& ar)
+        void deserialize(msg::Value& ar) override
         {
             SceneLayer::deserialize(ar);
             _spatial.clear();
@@ -375,9 +396,10 @@ namespace fin
             }
         }
 
-        void destroy(int32_t n)
-        {
 
+
+        void edit_update(Params& params, DragData& drag) override
+        {
         }
 
         void edit_active()
@@ -385,7 +407,7 @@ namespace fin
 
         }
 
-        void edit_update(bool items) override
+        void imgui_update(bool items) override
         {
             if (!items)
                 return edit_active();
@@ -437,6 +459,10 @@ namespace fin
         {
             msg::Var _points;
             Rectf    _bbox;
+            bool     operator==(const Node& ot) const
+            {
+                return this == &ot;
+            }
         };
         RegionSceneLayer() : SceneLayer(SceneLayer::Type::Region), _spatial({})
         {
@@ -572,11 +598,15 @@ namespace fin
     {
     }
 
+    void SceneLayer::edit_update(Params& params, DragData& drag)
+    {
+    }
+
     void SceneLayer::render(Renderer& dc)
     {
     }
 
-    void SceneLayer::edit_update(bool items)
+    void SceneLayer::imgui_update(bool items)
     {
     }
 

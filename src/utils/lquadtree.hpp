@@ -15,8 +15,8 @@ namespace fin
         struct ObjectEntry
         {
             T   object;
-            int next : 31 = -1;
-            int empty : 1 = 1;
+            int next = -1;
+            bool empty = true;
         };
 
         struct Node
@@ -79,10 +79,11 @@ namespace fin
             // Transfer all objects from the old tree to the new tree
             for (int i = 0; i < objects.size(); ++i)
             {
+                if (objects[i].empty)
+                    continue;
                 const T& obj = objects[i].object;
                 newTree.insert(obj);             // Insert the object into the new tree
             }
-
             swap(newTree);
         }
 
