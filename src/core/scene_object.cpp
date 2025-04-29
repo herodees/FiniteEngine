@@ -2,11 +2,21 @@
 
 #include "scene.hpp"
 #include "editor/imgui_control.hpp"
+#include "utils/imguiline.hpp"
 
 namespace fin
 {
+    struct FileDir
+    {
+        std::string                    path;
+        std::vector<std::string>       dirs;
+        std::vector<std::string>       files;
+        std::shared_ptr<ImGui::Editor> editor;
+        bool                           expanded{};
+    };
 
     SceneFactory* s_factory{};
+    FileDir       s_file_dir{};
 
     void SpriteSceneObject::serialize(msg::Writer& ar)
     {
@@ -177,6 +187,8 @@ namespace fin
     void SceneFactory::set_root(const std::string& startPath)
     {
         _base_folder = startPath;
+        s_file_dir.expanded = false;
+        s_file_dir.path     = startPath;
     }
 
     void SceneFactory::center_view()
@@ -184,7 +196,7 @@ namespace fin
         _scroll_to_center = true;
     }
 
-    void SceneFactory::show_workspace()
+    void SceneFactory::imgui_workspace()
     {
         if (!_edit || !_edit->is_selected())
             return;
@@ -315,7 +327,7 @@ namespace fin
 
     }
 
-    void SceneFactory::show_menu()
+    void SceneFactory::imgui_workspace_menu()
     {
         if (ImGui::RadioButton("Select", (!_edit_collision && !_edit_origin)))
         {
@@ -336,7 +348,7 @@ namespace fin
         }
     }
 
-    void SceneFactory::show_properties()
+    void SceneFactory::imgui_properties()
     {
         if (ImGui::BeginTabBar("ScnFactTab"))
         {
@@ -409,7 +421,7 @@ namespace fin
         }
     }
 
-    void SceneFactory::show_explorer()
+    void SceneFactory::imgui_explorer()
     {
         if (!ImGui::Begin("Explorer"))
         {
@@ -419,6 +431,12 @@ namespace fin
 
         if (ImGui::BeginTabBar("ExpFactTab"))
         {
+            if (ImGui::BeginTabItem("Explorer"))
+            {
+                imgui_file_explorer();
+                ImGui::EndTabItem();
+            }
+
             for (auto* cls : _classes)
             {
                 auto& info = *cls;
@@ -480,6 +498,128 @@ namespace fin
         ImGui::EndTabBar();
 
         ImGui::End();
+    }
+
+    inline std::string_view get_file_icon(std::string_view file, uint32_t& clr)
+    {
+        clr = 0xff808080;
+        auto p = file.rfind(".");
+        if (p == std::string_view::npos)
+            return ICON_FA_FILE_PEN;
+        auto ext = file.substr(p + 1);
+        if (ext == "ogg" || ext == "wav")
+        {
+            clr = 0xff0051f2;
+            return ICON_FA_FILE_AUDIO;
+        }
+        if (ext == "png" || ext == "jpg" || ext == "gif")
+        {
+            clr = 0xff60d71e;
+            return ICON_FA_FILE_IMAGE;
+        }
+        if (ext == "atlas")
+        {
+            clr = 0xffcc6f98;
+            return ICON_FA_FILE_ZIPPER;
+        }
+        if (ext == "prefab")
+        {
+            clr = 0xfff0f0f0;
+            return ICON_FA_FILE_CODE;
+        }
+        return ICON_FA_FILE;
+    }
+
+    void SceneFactory::imgui_file_explorer()
+    {
+        if (!s_file_dir.expanded)
+        {
+            s_file_dir.expanded = true;
+            s_file_dir.dirs.clear();
+            s_file_dir.files.clear();
+            if (s_file_dir.path != _base_folder)
+            {
+                s_file_dir.dirs.push_back("..");
+            }
+
+            for (const auto& entry : std::filesystem::directory_iterator(s_file_dir.path))
+            {
+                if (entry.is_directory())
+                {
+                    s_file_dir.dirs.push_back(entry.path().filename().string());
+                }
+                else if (entry.is_regular_file())
+                {
+                    s_file_dir.files.push_back(entry.path().filename().string());
+                }
+            }
+        }
+
+
+        if (ImGui::BeginChildFrame(-1, { -1, -1 }))
+        {
+            if (s_file_dir.editor)
+            {
+                if (ImGui::LineSelect(ImGui::GetID(".."), false)
+                        .Space()
+                        .PushColor(0xff52d1ff)
+                        .Text(ICON_FA_FOLDER)
+                        .PopColor()
+                        .Space()
+                        .Text("..")
+                        .End() ||
+                    !s_file_dir.editor->imgui_show())
+                {
+                    s_file_dir.editor.reset();
+                }
+            }
+            else
+            {
+                for (auto& dir : s_file_dir.dirs)
+                {
+                    if (ImGui::LineSelect(ImGui::GetID(dir.c_str()), false)
+                            .Space()
+                            .PushColor(0xff52d1ff)
+                            .Text(ICON_FA_FOLDER)
+                            .PopColor()
+                            .Space()
+                            .Text(dir.c_str())
+                            .End())
+                    {
+                        s_file_dir.expanded = false;
+                        if (dir == "..")
+                        {
+                            s_file_dir.path.pop_back();
+                            s_file_dir.path.resize(s_file_dir.path.rfind('/') + 1);
+                        }
+                        else
+                        {
+                            s_file_dir.path += dir;
+                            s_file_dir.path += '/';
+                        }
+                    }
+                }
+
+                for (auto& file : s_file_dir.files)
+                {
+                    uint32_t clr;
+                    auto     ico = get_file_icon(file, clr);
+
+                    if (ImGui::LineSelect(ImGui::GetID(file.c_str()), false)
+                            .Space()
+                            .PushColor(clr)
+                            .Text(ico)
+                            .PopColor()
+                            .Space()
+                            .Text(file.c_str())
+                            .End())
+                    {
+                        s_file_dir.editor = ImGui::Editor::load_from_file(s_file_dir.path + file);
+                    }
+                }
+            }
+        }
+        ImGui::EndChildFrame();
     }
 
     void SceneFactory::show_properties(ClassInfo& info)

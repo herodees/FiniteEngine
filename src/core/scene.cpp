@@ -1,5 +1,6 @@
 ﻿#include "scene.hpp"
 #include "utils/dialog_utils.hpp"
+#include "utils/imguiline.hpp"
 #include "editor/imgui_control.hpp"
 
 namespace fin
@@ -51,66 +52,21 @@ namespace fin
         return true;
     }
 
-    const float& getX_V2d(const Vec2f& v) { return v.x; }
-    const float& getY_V2d(const Vec2f& v) { return v.y; }
-
-
     void Scene::activate_grid(const Recti& screen)
     {
         _active_region = screen;
 
         auto canvas_size = _canvas.get_size();
         auto new_canvas_size = _active_region.size();
+
         if (canvas_size != new_canvas_size)
         {
             _canvas.create(new_canvas_size.x, new_canvas_size.y);
         }
 
-        std::for_each(_grid_active.begin(), _grid_active.end(), [](std::pair<size_t, bool>& val) { val.second = false; });
-        auto add_index = [&](size_t n)
-            {
-                for (auto& el : _grid_active)
-                {
-                    if (el.first == n) {
-                        el.second = true;
-                        return;
-                    }
-                }
-                _grid_active.emplace_back(n, true);
-            };
-
-        // Step 1: Determine visible grid range
-        auto start = get_active_grid_min();
-        auto end = get_active_grid_max();
-
-        // Step 2: Mark which tiles should remain active
-        size_t activeIndex = 0;
-        for (int y = start.y; y < end.y; ++y)
+        for (auto* ly : _layers)
         {
-            for (int x = start.x; x < end.x; ++x)
-            {
-                size_t index = y * _grid_size.x + x;
-                add_index(index);
-            }
-        }
-
-        // Step 3: Unload textures that are no longer visible
-        for (size_t n = 0; n < _grid_active.size();)
-        {
-            if (!_grid_active[n].second)
-            {
-                _grid_texture[_grid_active[n].first].clear();
-                std::swap(_grid_active[n], _grid_active.back());
-                _grid_active.pop_back();
-            }
-            else
-            {
-                if (!_grid_texture[_grid_active[n].first])
-                {
-                    _grid_texture[_grid_active[n].first].load_from_surface(_grid_surface[_grid_active[n].first]);
-                }
-                ++n;
-            }
+            ly->activate(_active_region);
         }
     }
 
@@ -420,6 +376,10 @@ namespace fin
             el->render(dc);
         }
 
+        if (auto* lyr = active_layer())
+        {
+            lyr->render_edit(dc);
+        }
 
         dc.set_color(WHITE);
         for (int y = minpos.y; y < maxpos.y; ++y)
@@ -733,12 +693,12 @@ namespace fin
         SaveFileData(_path.c_str(), pack.data().data(), pack.data().size());
     }
 
-    void Scene::on_imgui_explorer()
+    void Scene::imgui_explorer()
     {
-        SceneFactory::instance().show_explorer();
+        SceneFactory::instance().imgui_explorer();
     }
 
-    void Scene::on_imgui_props()
+    void Scene::imgui_props()
     {
         if (!ImGui::Begin("Properties"))
         {
@@ -748,45 +708,49 @@ namespace fin
 
         switch (_mode)
         {
-            case Mode::Map:
-                on_imgui_props_map();
+            case Mode::Setup:
+                imgui_props_setup();
                 break;
             case Mode::Objects:
-                on_imgui_props_object();
+                imgui_props_object();
                 break;
             case Mode::Prefab:
-                SceneFactory::instance().show_properties();
+                SceneFactory::instance().imgui_properties();
                 break;
         }
 
         ImGui::End();
     }
 
-    void Scene::on_imgui_props_object()
+    void Scene::imgui_props_object()
     {
         if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (ImGui::BeginChildFrame(-2, {-1, 100}, 0))
+
+            if (ImGui::BeginChildFrame(ImGui::GetID("lyrssl"), {-1, 100}, 0))
             {
                 int n = 0;
                 for (auto* ly : _layers)
                 {
-                    ImGui::PushID(n);
-
-                    ImGui::SetNextItemAllowOverlap();
-                    if (ImGui::Selectable(" ", _edit._active_layer == n))
-                        _edit._active_layer = n;
-
-                    ImGui::SameLine();
-                    if (ImGui::SmallButton(ly->is_hidden() ? ICON_FA_EYE_SLASH : ICON_FA_EYE))
+                    if (ImGui::LineSelect(ImGui::GetID(ly), _edit._active_layer == n)
+                            .Space()
+                            .PushStyle(ImStyle_Button, 1)
+                            .Text(ly->is_hidden() ? ICON_FA_EYE_SLASH : ICON_FA_EYE)
+                            .PopStyle()
+                            .Space()
+                            .Text(ly->icon())
+                            .Space()
+                            .Text(ly->name())
+                            .Spring()
+                            .Text(_edit._active_layer == n ? ICON_FA_CIRCLE_DOT : "")
+                            .End())
                     {
-                        ly->hide(!ly->is_hidden());
+                        _edit._active_layer = n;
+                        if (ImGui::Line().HoverId() == 1)
+                        {
+                            ly->hide(!ly->is_hidden());
+                        }
                     }
-
-                    ImGui::SameLine();
-                    ImGui::Text("%s %s", ly->icon().data(), ly->name().c_str());
-
-                    ImGui::PopID();
                     ++n;
                 }
             }
@@ -795,78 +759,26 @@ namespace fin
 
         if (ImGui::CollapsingHeader("Items", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (size_t(_edit._active_layer) < _layers.size())
+            if (auto* lyr = active_layer())
             {
                 ImGui::PushID("lyit");
-                _layers[_edit._active_layer]->imgui_update(true);
+                lyr->imgui_update(true);
                 ImGui::PopID();
             }
         }
 
         if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (size_t(_edit._active_layer) < _layers.size())
+            if (auto* lyr = active_layer())
             {
                 ImGui::PushID("lypt");
-                _layers[_edit._active_layer]->imgui_update(false);
+                lyr->imgui_update(false);
                 ImGui::PopID();
             }
         }
     }
 
-    void Scene::on_imgui_props_region()
-    {
-        if (ImGui::CollapsingHeader("Regions", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (ImGui::Button(" " ICON_FA_BAN " "))
-            {
-                if (_edit._selected_region)
-                {
-                    region_destroy(_edit._selected_region);
-                    _edit._selected_region = nullptr;
-                }
-            }
-            if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
-            {
-                ImGuiListClipper clipper;
-                clipper.Begin(_regions.size());
-                while (clipper.Step())
-                {
-                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
-                    {
-                        ImGui::PushID(n);
-                        auto* el = _regions[n];
-                        const char* name = el->_name;
-                        if (!name)
-                            name = ImGui::FormatStr("Region %p", el);
-
-                        if (ImGui::Selectable(name, el == _edit._selected_region))
-                        {
-                            region_select(el);
-                        }
-                        ImGui::PopID();
-                    }
-                }
-            }
-            ImGui::EndChildFrame();
-        }
-
-        if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (_edit._selected_region)
-            {
-                _edit._buffer = _edit._selected_region->is_named() ? _edit._selected_region->_name : "";
-                if (ImGui::InputText("Name", &_edit._buffer))
-                {
-                    name_object(_edit._selected_region, _edit._buffer);
-                }
-
-                _edit._selected_region->imgui_update();
-            }
-        }
-    }
-
-    void Scene::on_imgui_props_map()
+    void Scene::imgui_props_setup()
     {
         static int s_val[2]{};
 
@@ -903,8 +815,40 @@ namespace fin
         }
         if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (ImGui::Button(" " ICON_FA_LAPTOP " Add "))
-                ImGui::OpenPopup("LayerMenu");
+            if (ImGui::LineItem(-5, {-1, ImGui::GetFrameHeight()})
+                    .PushStyle(ImStyle_Button, 1)
+                    .Text(ICON_FA_LAPTOP " Add ")
+                    .PopStyle()
+                    .PushStyle(ImStyle_Button, 2)
+                    .Text(ICON_FA_ARROW_UP)
+                    .PopStyle()
+                    .PushStyle(ImStyle_Button, 3)
+                    .Text(ICON_FA_ARROW_DOWN)
+                    .PopStyle()
+                    .Spring()
+                    .PushStyle(ImStyle_Button, 4)
+                    .Text(ICON_FA_BAN)
+                    .PopStyle()
+                    .End())
+            {
+                if (ImGui::Line().HoverId() == 1)
+                {
+                    ImGui::OpenPopup("LayerMenu");
+                }
+
+                if (ImGui::Line().HoverId() == 2)
+                {
+                    _edit._active_layer = move_layer(_edit._active_layer, false);
+                }
+                if (ImGui::Line().HoverId() == 3)
+                {
+                    _edit._active_layer = move_layer(_edit._active_layer, true);
+                }
+                if (ImGui::Line().HoverId() == 4 && active_layer())
+                {
+                    delete_layer(_edit._active_layer);
+                }
+            }
 
             if (ImGui::BeginPopup("LayerMenu"))
             {
@@ -916,37 +860,20 @@ namespace fin
                     add_layer(SceneLayer::create(SceneLayer::Type::Region));
                 ImGui::EndPopup();
             }
-            ImGui::SameLine();
-            if (ImGui::Button(" " ICON_FA_ARROW_UP " "))
-            {
-                _edit._active_layer = move_layer(_edit._active_layer, false);
-            }
-            ImGui::SameLine();
-            if (ImGui::Button(" " ICON_FA_ARROW_DOWN " "))
-            {
-                _edit._active_layer = move_layer(_edit._active_layer, true);
-            }
-            ImGui::SameLine();
-            ImGui::InvisibleButton("##ib", {-34, 1});
-            ImGui::SameLine();
-            if (ImGui::Button(" " ICON_FA_BAN " "))
-            {
-                if (size_t(_edit._active_layer) < _layers.size())
-                {
-                    delete_layer(_edit._active_layer);
-                }
-            }
 
             if (ImGui::BeginChildFrame(-2, {-1, 100}))
             {
                 int n = 0;
                 for (auto* ly : _layers)
                 {
-                    ImGui::PushID(n);
-                    if (ImGui::Selectable(ImGui::FormatStr("%s %s", ly->icon().data(), ly->name().c_str()),
-                                          _edit._active_layer == n))
+                    if (ImGui::LineSelect(ImGui::GetID(ly), _edit._active_layer == n)
+                            .Text(ly->icon())
+                            .Space()
+                            .Text(ly->name())
+                            .End())
+                    {
                         _edit._active_layer = n;
-                    ImGui::PopID();
+                    }
                     ++n;
                 }
             }
@@ -1004,7 +931,7 @@ namespace fin
 
     }
 
-    void Scene::on_imgui_menu()
+    void Scene::imgui_menu()
     {
         _mode = Mode::Undefined;
         _debug_draw_regions = false;
@@ -1012,7 +939,7 @@ namespace fin
         ImGui::SetNextItemWidth(tabw);
         if (ImGui::BeginTabItem(ICON_FA_GEAR " Setup"))
         {
-            _mode = Mode::Map;
+            _mode = Mode::Setup;
             ImGui::Checkbox("Show grid", &_debug_draw_grid);
             ImGui::EndTabItem();
         }
@@ -1020,6 +947,12 @@ namespace fin
         if (ImGui::BeginTabItem(ICON_FA_BRUSH " Edit"))
         {
             _mode = Mode::Objects;
+            if (auto* lyr = active_layer())
+            {
+                lyr->imgui_workspace_menu();
+            }
+
+            /*
             ImGui::Checkbox("Show bounding box##shwobj", &_debug_draw_object);
             ImGui::SameLine();
             ImGui::Checkbox("Show navmesh", &_debug_draw_navmesh);
@@ -1028,22 +961,23 @@ namespace fin
             {
                 generate_navmesh();
             }
+            */
             ImGui::EndTabItem();
         }
         ImGui::SetNextItemWidth(tabw);
         if (ImGui::BeginTabItem(ICON_FA_BOX_ARCHIVE " Prefabs"))
         {
             _mode = Mode::Prefab;
-            SceneFactory::instance().show_menu();
+            SceneFactory::instance().imgui_workspace_menu();
             ImGui::EndTabItem();
         }
     }
 
-    void Scene::on_imgui_workspace()
+    void Scene::imgui_workspace()
     {
         if (_mode == Mode::Prefab)
         {
-            return SceneFactory::instance().show_workspace();
+            return SceneFactory::instance().imgui_workspace();
         }
         else
         {
@@ -1080,18 +1014,25 @@ namespace fin
 
             switch (_mode)
             {
-                case Mode::Map:
-                    on_imgui_workspace_map(params);
+                case Mode::Setup:
+                    imgui_workspace_setup(params);
                     break;
                 case Mode::Objects:
-                    on_imgui_workspace_object(params);
+                    imgui_workspace_object(params);
                     break;
             }
         }
     }
 
-    void Scene::on_imgui_workspace_object(Params& params)
+    void Scene::imgui_workspace_object(Params& params)
     {
+        if (auto* lyr = active_layer())
+        {
+            lyr->imgui_workspace(params, _drag);
+        }
+        return;
+
+
         _edit._edit_object = nullptr;
 
         if (ImGui::IsItemClicked(0))
@@ -1144,7 +1085,7 @@ namespace fin
         }
     }
 
-    void Scene::on_imgui_workspace_region(Params& params)
+    void Scene::imgui_workspace_region(Params& params)
     {
         // Edit region points
         if (_edit_region)
@@ -1197,7 +1138,7 @@ namespace fin
         }
     }
 
-    void Scene::on_imgui_workspace_map(Params& params)
+    void Scene::imgui_workspace_setup(Params& params)
     {
     }
 
@@ -1220,6 +1161,13 @@ namespace fin
             }
         }
         return layer;
+    }
+
+    SceneLayer* Scene::active_layer()
+    {
+        if (size_t(_edit._active_layer) < _layers.size())
+            return _layers[_edit._active_layer];
+        return nullptr;
     }
 
     int32_t Scene::IsoObject::depth_get()

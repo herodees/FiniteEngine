@@ -1,15 +1,19 @@
 #include "scene_layer.hpp"
-#include "utils/lquadtree.hpp"
-#include "utils/lquery.hpp"
-#include "scene_object.hpp"
 #include "renderer.hpp"
 #include "scene.hpp"
+#include "scene_object.hpp"
+#include "utils/lquadtree.hpp"
+#include "utils/lquery.hpp"
+#include "utils/imguiline.hpp"
 #include "editor/imgui_control.hpp"
 
 namespace fin
 {
     constexpr int32_t tile_size(512);
     std::string       _buffer;
+    bool              _debug_iso_object{};
+    bool              _debug_navmesh_object{};
+    bool              _debug_grid{};
 
     class IsometricSceneLayer : public SceneLayer
     {
@@ -50,6 +54,20 @@ namespace fin
             icon() = ICON_FA_MAP_PIN;
         };
 
+        Vec2i get_active_grid_min() const
+        {
+            const int startX = std::max(0, region().x / tile_size);
+            const int startY = std::max(0, region().y / tile_size);
+            return Vec2i(startX, startY);
+        }
+
+        Vec2i get_active_grid_max() const
+        {
+            const int endX = std::min(_grid_size.x, (region().x2()) / tile_size + 1);
+            const int endY = std::min(_grid_size.y, (region().y2()) / tile_size + 1);
+            return Vec2i(endX, endY);
+        }
+
         void resize(Vec2f size) override
         {
             _grid_size.x = (size.width + (tile_size - 1)) / tile_size; // Round up division
@@ -60,7 +78,7 @@ namespace fin
 
             for (auto* s : _scene)
             {
-                s->_bin = nullptr;
+                s->_bin  = nullptr;
                 s->_prev = nullptr;
                 s->_next = nullptr;
 
@@ -68,8 +86,10 @@ namespace fin
             }
         }
 
-        void activate(const Rectf& region) override
+        void activate(const Recti& region) override
         {
+            SceneLayer::activate(region);
+
             _iso_pool_size = 0;
 
             auto cb = [&](lq::SpatialDatabase::Proxy* item)
@@ -96,10 +116,10 @@ namespace fin
 
             // Query active region
             _spatial_db.map_over_all_objects_in_locality({(float)region.x - tile_size,
-                                                 (float)region.y - tile_size,
-                                                 (float)region.width + 2 * tile_size,
-                                                 (float)region.height + 2 * tile_size},
-                                                cb);
+                                                          (float)region.y - tile_size,
+                                                          (float)region.width + 2 * tile_size,
+                                                          (float)region.height + 2 * tile_size},
+                                                         cb);
 
 
             if (_iso_pool_size >= _iso_pool.size())
@@ -179,32 +199,222 @@ namespace fin
             }
         }
 
+        void render_edit(Renderer& dc) override
+        {
+            for (auto* obj : _iso)
+            {
+                if (_select == obj->_ptr)
+                {
+                    dc.set_color({255, 255, 255, 255});
+                    obj->_ptr->edit_render(dc);
+                }
+
+                if (_debug_iso_object)
+                {
+                    dc.set_color({255, 255, 255, 255});
+                    auto line = obj->_ptr->iso();
+                    dc.render_line(line.point1, line.point2);
+                }
+
+                if (_debug_navmesh_object)
+                {
+                    dc.set_color({255, 255, 0, 255});
+                    auto& coll = obj->_ptr->collision();
+                    auto  sze  = coll.size();
+                    if (coll.is_array() && sze >= 4)
+                    {
+                        auto p = obj->_ptr->position();
+                        for (uint32_t n = 0; n < sze; n += 2)
+                        {
+                            Vec2f from(coll.get_item(n % sze).get(0.f), coll.get_item((n + 1) % sze).get(0.f));
+                            Vec2f to(coll.get_item((n + 2) % sze).get(0.f), coll.get_item((n + 3) % sze).get(0.f));
+                            dc.render_line(from + p, to + p);
+                        }
+                    }
+                }
+            }
+
+            if (_debug_grid)
+            {
+                auto minpos = get_active_grid_min();
+                auto maxpos = get_active_grid_max();
+
+                Color clr{255, 255, 0, 190};
+                dc.set_color(clr);
+                for (int y = minpos.y; y < maxpos.y; ++y)
+                {
+                    dc.render_line((float)minpos.x * tile_size,
+                                   (float)y * tile_size,
+                                   (float)maxpos.x * tile_size,
+                                   (float)y * tile_size);
+                }
+
+                for (int x = minpos.x; x < maxpos.x; ++x)
+                {
+                    dc.render_line((float)x * tile_size,
+                                   (float)minpos.y * tile_size,
+                                   (float)x * tile_size,
+                                   (float)maxpos.y * tile_size);
+                }
+            }
+        }
+
+        void object_serialize(IsoSceneObject* obj, msg::Writer& ar)
+        {
+            ar.begin_object();
+            obj->serialize(ar);
+            if (obj->is_named())
+            {
+                ar.member(Sc::Name, obj->_name);
+            }
+            ar.end_object();
+        }
+
+        IsoSceneObject* object_deserialize(msg::Value& ar)
+        {
+            auto ot = ar[Sc::Uid].get(0ull);
+            if (BasicSceneObject* obj = SceneFactory::instance().create(ot))
+            {
+                obj->deserialize(ar);
+                auto id = ar[Sc::Name].str();
+                if (!id.empty())
+                {
+                    parent()->name_object(obj, id);
+                }
+                return static_cast<IsoSceneObject*>(obj);
+            }
+            return nullptr;
+        }
+
         void serialize(msg::Writer& ar) override
         {
             SceneLayer::serialize(ar);
+            ar.key("items");
+            ar.begin_array();
+            for (auto* el : _scene)
+            {
+                object_serialize(el, ar);
+            }
+            ar.end_array();
         }
 
         void deserialize(msg::Value& ar) override
         {
             SceneLayer::deserialize(ar);
+            auto els = ar["items"];
+            for (auto el : els.elements())
+            {
+                if (auto* obj = object_deserialize(el))
+                {
+                    insert(obj);
+                }
+                else
+                {
+                    TraceLog(LOG_ERROR, "Isometric Scene Layer: Object load failed!");
+                }
+            }
         }
 
-        void edit_update(Params& params, DragData& drag) override
+        void imgui_workspace_menu() override
         {
+            if (ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
+                    .Space()
+                    .PushStyle(ImStyle_Check, 1, _debug_iso_object)
+                    .Text("ISO")
+                    .PopStyle()
+                    .Space()
+                    .PushStyle(ImStyle_Check, 2, _debug_navmesh_object)
+                    .Text("Navmesh")
+                    .PopStyle()
+                    .Space()
+                    .PushStyle(ImStyle_Check, 3, _debug_grid)
+                    .Text("Grid")
+                    .PopStyle()
+                    .Space()
+                    .End())
+            {
+                if (ImGui::Line().HoverId() == 1)
+                {
+                    _debug_iso_object = !_debug_iso_object;
+                }
+                if (ImGui::Line().HoverId() == 2)
+                {
+                    _debug_navmesh_object = !_debug_navmesh_object;
+                }
+                if (ImGui::Line().HoverId() == 3)
+                {
+                    _debug_grid = !_debug_grid;
+                }
+            }
+        }
 
+        void imgui_workspace(Params& params, DragData& drag) override
+        {
+            _edit = nullptr;
+
+            if (ImGui::IsItemClicked(0))
+            {
+                if (auto* obj = find_at(params.mouse, 1024.f))
+                {
+                    select(obj);
+                }
+                else
+                {
+                    select(nullptr);
+                }
+            }
+            if (ImGui::IsItemClicked(1))
+            {
+                select(nullptr);
+            }
+
+            if (drag._active && _select)
+            {
+                moveto(_select, drag._delta + _select->position());
+            }
+
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB",
+                                                                               ImGuiDragDropFlags_AcceptPeekOnly |
+                                                                                   ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+                {
+                    if (auto object = static_cast<IsoSceneObject*>(ImGui::GetDragData("PREFAB")))
+                    {
+                        _edit            = object;
+                        _edit->_position = {params.mouse.x, params.mouse.y};
+                    }
+                }
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB",
+                                                                               ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+                {
+                    if (auto object = static_cast<IsoSceneObject*>(ImGui::GetDragData("PREFAB")))
+                    {
+
+                        object->_position = {params.mouse.x, params.mouse.y};
+                        msg::Pack doc;
+                        auto      ar = doc.create();
+                        object_serialize(object, ar);
+                        auto arr = doc.get();
+                        insert(object_deserialize(arr));
+                    }
+                }
+
+                ImGui::EndDragDropTarget();
+            }
         }
 
         void edit_active()
         {
-            if (_edit)
+            if (_select)
             {
-                _buffer = _edit->is_named() ? _edit->_name : "";
+                _buffer = _select->is_named() ? _select->_name : "";
                 if (ImGui::InputText("Name", &_buffer))
                 {
-                    parent()->name_object(_edit, _buffer);
+                    parent()->name_object(_select, _buffer);
                 }
 
-                _edit->imgui_update();
+                _select->imgui_update();
             }
         }
 
@@ -215,10 +425,10 @@ namespace fin
 
             if (ImGui::Button(" " ICON_FA_BAN " "))
             {
-                if (_edit)
+                if (_select)
                 {
-                    destroy(_edit);
-                    _edit = nullptr;
+                    destroy(_select);
+                    _select = nullptr;
                 }
             }
 
@@ -236,7 +446,7 @@ namespace fin
                         if (!name)
                             name = ImGui::FormatStr("Object %p", el);
 
-                        if (ImGui::Selectable(name, el == _edit))
+                        if (ImGui::Selectable(name, el == _select))
                         {
                             select(el);
                         }
@@ -248,11 +458,34 @@ namespace fin
             ImGui::EndChildFrame();
         }
 
+        IsoSceneObject* find_at(Vec2f position, float radius)
+        {
+            struct
+            {
+                lq::SpatialDatabase::Proxy* obj  = nullptr;
+                float                       dist = FLT_MAX;
+            } out;
+
+            auto cb = [&out, position](lq::SpatialDatabase::Proxy* obj, float dist)
+            {
+                auto*         object = static_cast<SpriteSceneObject*>(obj);
+                Region<float> bbox;
+                Line<float>   line;
+                if (object->bounding_box().contains(position))
+                {
+                    out.obj = obj;
+                }
+            };
+
+            _spatial_db.map_over_all_objects_in_locality(position.x, position.y, radius, cb);
+            return static_cast<SpriteSceneObject*>(out.obj);
+        }
+
         void select(IsoSceneObject* obj)
         {
-            if (_edit != obj)
+            if (_select != obj)
             {
-                _edit = obj;
+                _select = obj;
             }
         }
 
@@ -293,16 +526,17 @@ namespace fin
             _spatial_db.update_for_new_location(obj);
         }
 
-        private:
+    private:
         Vec2i                        _grid_size;
+        NavMesh::PathFinder          _pathfinder;
         lq::SpatialDatabase          _spatial_db;
         std::vector<IsoSceneObject*> _scene;
         std::vector<IsoObject>       _iso_pool;
         std::vector<IsoObject*>      _iso;
         uint32_t                     _iso_pool_size{};
         IsoSceneObject*              _edit{};
+        IsoSceneObject*              _select{};
     };
-
 
 
     class SpriteSceneLayer : public SceneLayer
@@ -312,6 +546,8 @@ namespace fin
         {
             Atlas::Pack _sprite;
             Rectf       _bbox;
+            uint32_t    _index{};
+
             bool        operator==(const Node& ot) const
             {
                 return this == &ot;
@@ -334,9 +570,19 @@ namespace fin
             _spatial.resize({0, 0, size.width, size.height});
         }
 
-        void activate(const Rectf& region) override
+        void activate(const Recti& region) override
         {
-            _spatial.activate(region);
+            SceneLayer::activate(region);
+            _spatial.activate(Rectf(region.x, region.y, region.width, region.height));
+        }
+
+        void moveto(int obj, Vec2f pos)
+        {
+            auto o = _spatial[obj];
+            _spatial.remove(_spatial[obj]);
+            o._bbox.x = pos.x;
+            o._bbox.y = pos.y;
+            _spatial.insert(o);
         }
 
         void update(float dt) override
@@ -352,6 +598,11 @@ namespace fin
             {
                 auto& nde = _spatial[n];
                 dc.render_texture(nde._sprite.sprite->_texture, nde._sprite.sprite->_source, nde._bbox);
+            }
+
+            if (_edit._sprite.sprite)
+            {
+                dc.render_texture(_edit._sprite.sprite->_texture, _edit._sprite.sprite->_source, _edit._bbox);
             }
         }
 
@@ -389,22 +640,71 @@ namespace fin
                 {
                     nde._bbox.x      = ar["x"].get(0.f);
                     nde._bbox.y      = ar["y"].get(0.f);
-                    nde._bbox.width = nde._sprite.sprite->_source.width;
+                    nde._bbox.width  = nde._sprite.sprite->_source.width;
                     nde._bbox.height = nde._sprite.sprite->_source.height;
                     _spatial.insert(nde);
                 }
             }
         }
 
-
-
-        void edit_update(Params& params, DragData& drag) override
+        int find_at(Vec2f position)
         {
+            return _spatial.find_at(position.x, position.y);
         }
 
         void edit_active()
         {
+        }
 
+        void imgui_workspace(Params& params, DragData& drag) override
+        {
+            _edit._sprite = {};
+
+            if (ImGui::IsItemClicked(0))
+            {
+                _select = find_at(params.mouse);
+            }
+            if (ImGui::IsItemClicked(1))
+            {
+                _select = -1;
+            }
+
+            if (drag._active && _select >= 0)
+            {
+                moveto(_select, drag._delta + _spatial[_select]._bbox.top_left());
+            }
+
+            if (ImGui::BeginDragDropTarget())
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE",
+                                                                               ImGuiDragDropFlags_AcceptPeekOnly |
+                                                                                   ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+                {
+                    if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
+                    {
+                        _edit._sprite          = *object;
+                        _edit._bbox.width = _edit._sprite.sprite->_source.width;
+                        _edit._bbox.height = _edit._sprite.sprite->_source.height; 
+                        _edit._bbox.x    = params.mouse.x;
+                        _edit._bbox.y    = params.mouse.y;
+                    }
+                }
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE",
+                                                                               ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+                {
+                    if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
+                    {
+                        _edit._sprite      = *object;
+                        _edit._bbox.width  = _edit._sprite.sprite->_source.width;
+                        _edit._bbox.height = _edit._sprite.sprite->_source.height;
+                        _edit._bbox.x      = params.mouse.x;
+                        _edit._bbox.y      = params.mouse.y;
+                        _spatial.insert(_edit);
+                    }
+                }
+
+                ImGui::EndDragDropTarget();
+            }
         }
 
         void imgui_update(bool items) override
@@ -414,10 +714,10 @@ namespace fin
 
             if (ImGui::Button(" " ICON_FA_BAN " "))
             {
-                if (_edit)
+                if (_select)
                 {
-                    destroy(_edit);
-                    _edit = -1;
+                    destroy(_select);
+                    _select = -1;
                 }
             }
 
@@ -434,9 +734,9 @@ namespace fin
                         auto& el = _spatial[n];
                         if (el._sprite.sprite)
                         {
-                            if (ImGui::Selectable(el._sprite.sprite->_name.c_str(), n == _edit))
+                            if (ImGui::Selectable(el._sprite.sprite->_name.c_str(), n == _select))
                             {
-                                _edit = n;
+                                _select = n;
                             }
                         }
                         ImGui::PopID();
@@ -445,11 +745,12 @@ namespace fin
             }
             ImGui::EndChildFrame();
         }
+
     private:
         LooseQuadTree<Node, decltype([](const Node& n) -> const Rectf& { return n._bbox; })> _spatial;
-        int32_t                                                                              _edit = -1;
+        Node                                                                                 _edit;
+        int32_t                                                                              _select = -1;
     };
-
 
 
     class RegionSceneLayer : public SceneLayer
@@ -475,9 +776,10 @@ namespace fin
             _spatial.resize({0, 0, size.width, size.height});
         }
 
-        void activate(const Rectf& region) override
+        void activate(const Recti& region) override
         {
-            _spatial.activate(region);
+            SceneLayer::activate(region);
+            _spatial.activate(Rectf(region.x, region.y, region.width, region.height));
         }
 
         void serialize(msg::Writer& ar)
@@ -523,7 +825,6 @@ namespace fin
         LooseQuadTree<Node, decltype([](const Node& n) -> const Rectf& { return n._bbox; })> _spatial;
         int32_t                                                                              _edit = -1;
     };
-
 
 
     SceneLayer* SceneLayer::create(msg::Value& ar)
@@ -574,6 +875,11 @@ namespace fin
         return _parent;
     }
 
+    const Recti& SceneLayer::region() const
+    {
+        return _region;
+    }
+
     void SceneLayer::serialize(msg::Writer& ar)
     {
         ar.member("type", (int)_type);
@@ -590,15 +896,12 @@ namespace fin
     {
     }
 
-    void SceneLayer::activate(const Rectf& region)
+    void SceneLayer::activate(const Recti& region)
     {
+        _region = region;
     }
 
     void SceneLayer::update(float dt)
-    {
-    }
-
-    void SceneLayer::edit_update(Params& params, DragData& drag)
     {
     }
 
@@ -606,7 +909,19 @@ namespace fin
     {
     }
 
+    void SceneLayer::render_edit(Renderer& dc)
+    {
+    }
+
     void SceneLayer::imgui_update(bool items)
+    {
+    }
+
+    void SceneLayer::imgui_workspace(Params& params, DragData& drag)
+    {
+    }
+
+    void SceneLayer::imgui_workspace_menu()
     {
     }
 
@@ -631,4 +946,4 @@ namespace fin
     }
 
 
-}
+} // namespace fin

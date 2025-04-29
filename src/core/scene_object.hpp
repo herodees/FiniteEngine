@@ -234,10 +234,11 @@ namespace fin
         template <class T>
         SceneFactory& load_factory(std::string_view type, std::string_view label);
 
-        void show_workspace();
-        void show_menu();
-        void show_properties();
-        void show_explorer();
+        void imgui_workspace();
+        void imgui_workspace_menu();
+        void imgui_properties();
+        void imgui_explorer();
+        void imgui_file_explorer();
         void center_view();
 
     private:

@@ -387,4 +387,63 @@ namespace ImGui
     }
 
 
+
+
+    class AtlasEditor : public Editor
+    {
+    public:
+        bool load(std::string_view path) override
+        {
+            _data.atlas = fin::Atlas::load_shared(path);
+            return _data.atlas.get();
+        }
+
+        bool imgui_show() override
+        {
+            for (auto n = 0; n < _data.atlas->size(); ++n)
+            {
+                auto& spr = _data.atlas->get(n + 1);
+                ImGui::PushID(n);
+                if (ImGui::Selectable("##id", _data.sprite == &spr, 0, {0, 25}))
+                    _data.sprite = &spr;
+
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+                {
+                    _data.sprite = &spr;
+                    ImGui::SetDragData(&_data, "SPRITE");
+                    ImGui::SetDragDropPayload("SPRITE", &n, sizeof(int32_t));
+                    ImGui::EndDragDropSource();
+                }
+
+                ImGui::SameLine();
+                ImGui::SpriteImage(&spr, {24, 24});
+                ImGui::SameLine();
+                ImGui::Text(spr._name.c_str());
+                ImGui::PopID();
+            }
+            return true;
+        }
+
+        fin::Atlas::Pack _data;
+    };
+
+
+    std::shared_ptr<Editor> Editor::load_from_file(std::string_view path)
+    {
+        auto n = path.rfind('.');
+        if (n == std::string_view::npos)
+            return nullptr;
+        std::shared_ptr<Editor> out;
+        auto ext = path.substr(n + 1);
+
+        if (ext == "atlas")
+            out = std::make_shared<AtlasEditor>();
+
+        if (out && !out->load(path))
+            return nullptr;
+
+        return out;
+    }
+
+
 } // namespace ImGui

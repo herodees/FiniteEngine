@@ -155,7 +155,6 @@ namespace fin
 #endif
 
         _factory.set_root("./assets/");
-
         _factory.load_factory<SpriteSceneObject>(SpriteSceneObject::type_id, "Static");
         _factory.load_factory<SpriteSceneObject>("npc", "NPC");
         _factory.load_factory<SoundObject>(SoundObject::type_id, "Sound");
@@ -419,7 +418,7 @@ namespace fin
         }
         if (ImGui::BeginTabBar("WorkspaceTabs", ImGuiTabBarFlags_NoTabListScrollingButtons))
         {
-            _map.on_imgui_menu();
+            _map.imgui_menu();
 
             if (!_map.get_path().empty())
             {
@@ -438,7 +437,7 @@ namespace fin
                                    {-1, -1},
                                    ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar))
         {
-            _map.on_imgui_workspace();
+            _map.imgui_workspace();
         }
         ImGui::EndChildFrame();
 
@@ -447,8 +446,8 @@ namespace fin
 
     void application::on_imgui_properties()
     {
-        _map.on_imgui_explorer();
-        _map.on_imgui_props();
+        _map.imgui_explorer();
+        _map.imgui_props();
 
 
     }

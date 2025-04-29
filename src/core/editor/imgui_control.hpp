@@ -27,4 +27,16 @@ namespace ImGui
     bool FileMenu(const char* label, std::string& path, const char* filter);
     bool OpenFileName(const char* label, std::string& path, const char* filter);
 
+    class Editor : std::enable_shared_from_this<Editor>
+    {
+    public:
+        static std::shared_ptr<Editor> load_from_file(std::string_view path);
+
+        Editor()          = default;
+        virtual ~Editor() = default;
+
+        virtual bool load(std::string_view path) = 0;
+        virtual bool imgui_show() = 0;
+    };
+
 } // namespace ImGui

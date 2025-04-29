@@ -97,6 +97,11 @@ namespace fin
             remove(rootIndex, obj, boundsGetter(obj));
         }
 
+        int find_at(float x, float y)
+        {
+            return find_at(rootIndex, x, y);
+        }
+
         void query(const Rectf& area, std::vector<int>& out) const
         {
             query(rootIndex, area, out);
@@ -149,6 +154,12 @@ namespace fin
                     cb(obj.object);
             }
         }
+
+        template <typename CB>
+        void sort_active(CB cb)
+        {
+            std::sort(active.begin(), active.end(), cb);
+        }
     private:
         int allocNode(const Rectf& bounds, int level)
         {
@@ -197,6 +208,39 @@ namespace fin
             objects[idx].empty = 1;
             objects[idx].next  = objectFreeListHead;
             objectFreeListHead = idx;
+        }
+
+        int find_at(int nodeIdx, float x, float y)
+        {
+            const Node& node = nodes[nodeIdx];
+
+            if (!node.bounds.contains({x, y}))
+                return -1;
+
+            int current = node.firstObject;
+            while (current != -1)
+            {
+                const Rectf& objBounds = boundsGetter(objects[current].object);
+                if (objBounds.contains({x, y}))
+                    return current;
+                current = objects[current].next;
+            }
+
+            if (node.hasChildren())
+            {
+                for (int i = 0; i < 4; ++i)
+                {
+                    int childIdx = node.children[i];
+                    if (childIdx != -1)
+                    {
+                        int result = find_at(childIdx, x, y);
+                        if (result != -1)
+                            return result;
+                    }
+                }
+            }
+
+            return -1;
         }
 
         void split(int nodeIdx)

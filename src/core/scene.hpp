@@ -32,6 +32,12 @@ namespace fin
         void update(float x, float y);
     };
 
+    struct Camera
+    {
+        Vec2f position;
+        Vec2i size;
+    };
+
     class Scene
     {
         friend class SpriteSceneObject;
@@ -41,7 +47,7 @@ namespace fin
         {
             Undefined,
             Running,
-            Map,
+            Setup,
             Objects,
             Prefab,
         };
@@ -90,6 +96,8 @@ namespace fin
         void    set_size(Vec2f size);
         int32_t add_layer(SceneLayer* layer);
         void    delete_layer(int32_t n);
+        int32_t move_layer(int32_t layer, bool up);
+        SceneLayer* active_layer();
 
         Vec2i get_active_grid_size() const;
         Vec2f get_active_grid_center() const;
@@ -135,18 +143,15 @@ namespace fin
         void load(std::string_view path);
         void save(std::string_view path);
 
-        void on_imgui_explorer();
-        void on_imgui_props();
-        void on_imgui_props_object();
-        void on_imgui_props_region();
-        void on_imgui_props_map();
-        void on_imgui_menu();
-        void on_imgui_workspace();
-        void on_imgui_workspace_object(Params& params);
-        void on_imgui_workspace_region(Params& params);
-        void on_imgui_workspace_map(Params& params);
-
-        int32_t move_layer(int32_t layer, bool up);
+        void imgui_explorer();
+        void imgui_props();
+        void imgui_props_object();
+        void imgui_props_setup();
+        void imgui_menu();
+        void imgui_workspace();
+        void imgui_workspace_object(Params& params);
+        void imgui_workspace_region(Params& params);
+        void imgui_workspace_setup(Params& params);
 
     private:
         std::vector<Texture2D>                                                          _grid_texture;
@@ -166,7 +171,7 @@ namespace fin
         bool                                                                            _debug_draw_regions{};
         bool                                                                            _debug_draw_object{};
         bool                                                                            _edit_region{};
-        Mode                                                                            _mode{Mode::Map};
+        Mode                                                                            _mode{Mode::Setup};
         Recti                                                                           _active_region;
         Vec2i                                                                           _grid_size;
         RenderTexture2D                                                                 _canvas;

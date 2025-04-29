@@ -31,17 +31,20 @@ namespace fin
         std::string&      name();
         std::string_view& icon();
         Scene*            parent();
+        const Recti&      region() const;
 
         virtual void serialize(msg::Writer& ar);
         virtual void deserialize(msg::Value& ar);
         virtual void resize(Vec2f size);
 
-        virtual void activate(const Rectf& region);
+        virtual void activate(const Recti& region);
         virtual void update(float dt);
-        virtual void edit_update(Params& params, DragData& drag);
         virtual void render(Renderer& dc);
+        virtual void render_edit(Renderer& dc);
 
         virtual void imgui_update(bool items);
+        virtual void imgui_workspace(Params& params, DragData& drag);
+        virtual void imgui_workspace_menu();
 
         bool is_hidden() const;
         bool is_active() const;
@@ -56,6 +59,7 @@ namespace fin
         std::string_view _icon;
         bool             _hidden{};
         bool             _active{};
+        Recti            _region;
     };
 
 } // namespace fin
