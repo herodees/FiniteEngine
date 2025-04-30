@@ -20,38 +20,6 @@ namespace fin
         return _path;
     }
 
-    bool Scene::setup_background_texture(const std::filesystem::path& file)
-    {
-        Surface sf;
-        if (!sf.load_from_file(file))
-            return false;
-
-        int surface_width = sf.get_width();
-        int surface_height = sf.get_height();
-
-        _grid_size.x = (surface_width + (tile_size - 1)) / tile_size;  // Round up division
-        _grid_size.y = (surface_height + (tile_size - 1)) / tile_size;
-
-        _grid_active.clear();
-        _grid_texture.clear();
-        _grid_surface.clear();
-        _grid_surface.reserve(_grid_size.x * _grid_size.y);
-
-        for (int y = 0; y < surface_height; y += tile_size) {
-            for (int x = 0; x < surface_width; x += tile_size)
-            {
-                Surface tile = sf.create_sub_surface(x, y, tile_size, tile_size);
-                _grid_surface.push_back(std::move(tile));
-            }
-        }
-        _grid_texture.resize(_grid_surface.size());
-
-        _spatial_db.init({0, 0, (float)_grid_size.x * tile_size, (float)_grid_size.y * tile_size},
-                         _grid_size.x,
-                         _grid_size.y);
-        return true;
-    }
-
     void Scene::activate_grid(const Recti& screen)
     {
         _active_region = screen;
@@ -113,100 +81,9 @@ namespace fin
         return _active_region.center();
     }
 
-    Vec2i Scene::get_active_grid_min() const
-    {
-        const int startX = std::max(0, _active_region.x / tile_size);
-        const int startY = std::max(0, _active_region.y / tile_size);
-        return Vec2i(startX, startY);
-    }
-
-    Vec2i Scene::get_active_grid_max() const
-    {
-        const int endX = std::min(_grid_size.x, (_active_region.x + _active_region.width) / tile_size + 1);
-        const int endY = std::min(_grid_size.y, (_active_region.y + _active_region.height) / tile_size + 1);
-        return Vec2i(endX, endY);
-    }
-
     Vec2i Scene::get_scene_size() const
     {
         return _size;
-    }
-
-    Vec2i Scene::get_grid_size() const
-    {
-        return _grid_size;
-    }
-
-    void Scene::object_serialize(BasicSceneObject* obj, msg::Writer& ar)
-    {
-        ar.begin_object();
-        obj->serialize(ar);
-        if (obj->is_named())
-        {
-            ar.member(Sc::Name, obj->_name);
-        }
-        ar.end_object();
-    }
-
-    BasicSceneObject* Scene::object_deserialize(msg::Value& ar)
-    {
-        auto ot = ar[Sc::Uid].get(0ull);
-        if (BasicSceneObject* obj = SceneFactory::instance().create(ot))
-        {
-            obj->deserialize(ar);
-            auto id = ar[Sc::Name].str();
-            if (!id.empty())
-            {
-                name_object(obj, id);
-            }
-            return obj;
-        }
-        return nullptr;
-    }
-
-    void Scene::object_insert(BasicSceneObject* obj)
-    {
-        if (!obj)
-            return;
-        obj->_id = _scene.size();
-        _scene.push_back(obj);
-        _spatial_db.update_for_new_location(obj);
-    }
-
-    void Scene::object_remove(BasicSceneObject* obj)
-    {
-        if (obj->is_named())
-        {
-            name_object(obj, {});
-        }
-        _spatial_db.remove_from_bin(obj);
-        const auto id   = obj->_id;
-        _scene[id]      = _scene.back();
-        _scene[id]->_id = id;
-        _scene.pop_back();
-    }
-
-    void Scene::object_select(BasicSceneObject* obj)
-    {
-        if (_edit._selected_object != obj)
-        {
-            _edit._selected_object = obj;
-        }
-    }
-
-    void Scene::object_destroy(BasicSceneObject* obj)
-    {
-        if (obj)
-        {
-            object_remove(obj);
-        }
-        delete obj;
-    }
-
-    void Scene::object_moveto(BasicSceneObject* obj, Vec2f pos)
-    {
-        obj->_position = pos;
-        _spatial_db.update_for_new_location(obj);
     }
 
     void Scene::region_serialize(SceneRegion* obj, msg::Writer& ar)
@@ -319,28 +196,6 @@ namespace fin
         return it->second;
     }
 
-    SpriteSceneObject* Scene::object_find_at(Vec2f position, float radius)
-    {
-        struct
-        {
-            lq::SpatialDatabase::Proxy *obj = nullptr;
-            float dist = FLT_MAX;
-        } out;
-
-        auto cb = [&out, position](lq::SpatialDatabase::Proxy *obj, float dist) {
-            auto *object = static_cast<SpriteSceneObject *>(obj);
-            Region<float> bbox;
-            Line<float> line;
-            if (object->bounding_box().contains(position))
-            {
-                out.obj = obj;
-            }
-        };
-
-        _spatial_db.map_over_all_objects_in_locality(position.x, position.y, radius, cb);
-        return static_cast<SpriteSceneObject *>(out.obj);
-    }
-
     SceneRegion* Scene::region_find_at(Vec2f position)
     {
         for (auto* reg : _regions)
@@ -362,10 +217,7 @@ namespace fin
 
         // Draw on the canvas
         BeginTextureMode(*_canvas.get_texture());
-        ClearBackground({0, 0, 0, 255});
-
-        auto minpos = get_active_grid_min();
-        auto maxpos = get_active_grid_max();
+        ClearBackground(_background);
 
         dc.set_origin({(float)_active_region.x, (float)_active_region.y});
 
@@ -381,6 +233,7 @@ namespace fin
             lyr->render_edit(dc);
         }
 
+        /*
         dc.set_color(WHITE);
         for (int y = minpos.y; y < maxpos.y; ++y)
         {
@@ -392,66 +245,6 @@ namespace fin
                     dc.render_texture(txt.get_texture(), { 0, 0, tile_size, tile_size }, { (float)x * tile_size, (float)y * tile_size ,
                         (float)tile_size, (float)tile_size });
                 }
-            }
-        }
-
-        dc.set_color(WHITE);
-        for (auto *obj : _iso_manager._iso)
-        {
-            if (!obj->_ptr->is_hidden())
-                obj->_ptr->render(dc);
-        }
-
-        dc.set_color(WHITE);
-        for (auto* obj : _iso_manager._static)
-        {
-            if (!obj->is_hidden())
-                obj->render(dc);
-        }
-
-        if (_debug_draw_object)
-        {
-            dc.set_color({255, 0, 0, 255});
-
-            for (auto *obj : _iso_manager._iso)
-            {
-                dc.render_line(obj->_origin.point1, obj->_origin.point2);
-                dc.render_debug_text({obj->_origin.point1.x + 16, obj->_origin.point1.y + 16},
-                                     "%d",
-                                     obj->_depth);
-            }
-        }
-
-        if (_edit._selected_object)
-        {
-            dc.set_color(WHITE);
-            _edit._selected_object->edit_render(dc);
-        }
-
-        if (_debug_draw_navmesh)
-        {
-            dc.set_color({255, 255, 0, 255});
-            for (auto* obj : _iso_manager._iso)
-            {
-                auto& coll = obj->_ptr->collision();
-                auto  sze  = coll.size();
-                if (coll.is_array() && sze >= 4)
-                {
-                    auto p = obj->_ptr->position();
-                    for (uint32_t n = 0; n < sze; n += 2)
-                    {
-                        Vec2f from(coll.get_item(n % sze).get(0.f), coll.get_item((n + 1) % sze).get(0.f));
-                        Vec2f to(coll.get_item((n + 2) % sze).get(0.f), coll.get_item((n + 3) % sze).get(0.f));
-                        dc.render_line(from + p, to + p);
-                    }
-                }
-            }
-
-            dc.set_color({128, 128, 128, 255});
-            auto edges = _pathfinder.GetEdgesForDebug();
-            for (auto& el : edges)
-            {
-                dc.render_line(el.b, el.e);
             }
         }
 
@@ -500,6 +293,7 @@ namespace fin
                                (float)maxpos.y * tile_size);
             }
         }
+        */
 
         EndMode2D();
         EndTextureMode();
@@ -509,70 +303,19 @@ namespace fin
 
     void Scene::update(float dt)
     {
-        for (auto* el : _layers)
-        {
-            el->update(dt);
-        }
-
-
-
-
-        _iso_manager.update(_spatial_db, _active_region, _edit._edit_object);
-
         if (_mode == Mode::Running)
         {
-            for (auto* obj : _iso_manager._static)
+            for (auto* el : _layers)
             {
-                if (!obj->is_disabled())
-                    obj->update(dt);
-            }
-            for (auto* obj : _iso_manager._iso)
-            {
-                if (!obj->_ptr->is_disabled())
-                    obj->_ptr->update(dt);
+                el->update(dt);
             }
         }
     }
-
-
 
     void Scene::clear()
     {
-        std::for_each(_scene.begin(), _scene.end(), [](auto* p) { delete p; });
         std::for_each(_layers.begin(), _layers.end(), [](auto* p) { delete p; });
-        _grid_size = {};
-        _grid_active.clear();
-        _grid_texture.clear();
-        _scene.clear();
-        _spatial_db.init({}, 0, 0);
-        _grid_surface.clear();
-        _grid_texture.clear();
         _layers.clear();
-    }
-
-    void Scene::generate_navmesh()
-    {
-        std::vector<NavMesh::Polygon> polygons;
-        std::for_each(_scene.begin(),
-                      _scene.end(),
-                      [&polygons](BasicSceneObject* obj)
-                      {
-                          if (obj->isometric_sort())
-                          {
-                              auto coll = static_cast<IsoSceneObject*>(obj)->collision();
-                              if (coll.size() >= 6)
-                              {
-                                  auto  pos  = obj->position();
-                                  auto& poly = polygons.emplace_back();
-                                  for (uint32_t n = 0; n < coll.size(); n += 2)
-                                  {
-                                      poly.AddPoint(pos.x + coll.get_item(n).get(0.f),
-                                                    pos.y + coll.get_item(n + 1).get(0.f));
-                                  }
-                              }
-                          }
-                      });
-        _pathfinder.AddPolygons(polygons, 16);
     }
 
     RenderTexture2D& Scene::canvas()
@@ -585,46 +328,24 @@ namespace fin
         auto ar = out.create();
         ar.begin_object();
         {
-            ar.member("width", _grid_size.x);
-            ar.member("height", _grid_size.y);
+            ar.member("width", _size.x);
+            ar.member("height", _size.y);
 
             ar.key("background");
+            ar.begin_array()
+                .value((int)_background.r)
+                .value((int)_background.g)
+                .value((int)_background.b)
+                .value((int)_background.a)
+                .end_array();
+
+            ar.key("layers");
             ar.begin_array();
+            for (auto* ly : _layers)
             {
-                for (auto& txt : _grid_surface)
-                {
-                    ar.begin_object();
-                    ar.member("w", txt.get_surface()->width);
-                    ar.member("h", txt.get_surface()->height);
-                    ar.member("f", (int32_t)txt.get_surface()->format);
-
-                    int sze{};
-                    auto* dta = CompressData(txt.data(), txt.get_data_size(), &sze);
-                    ar.key("d").data_value(dta, sze);
-                    MemFree(dta);
-
-                    ar.end_object();
-                }
-            }
-            ar.end_array();
-
-            ar.key("objects");
-            ar.begin_array();
-            {
-                for (auto* obj : _scene)
-                {
-                    object_serialize(obj, ar);
-                }
-            }
-            ar.end_array();
-
-            ar.key("regions");
-            ar.begin_array();
-            {
-                for (auto* obj : _regions)
-                {
-                    region_serialize(obj, ar);
-                }
+                ar.begin_object();
+                ly->serialize(ar);
+                ar.end_object();
             }
             ar.end_array();
         }
@@ -635,41 +356,30 @@ namespace fin
     {
         clear();
 
-        _grid_size.x = ar["width"].get(0);
-        _grid_size.y = ar["height"].get(0);
-
-        _spatial_db.init({0, 0, (float)_grid_size.x * tile_size, (float)_grid_size.y * tile_size},
-                         _grid_size.x,
-                         _grid_size.y);
-
-        _grid_surface.reserve(_grid_size.x * _grid_size.y);
-
-        auto els = ar["background"].elements();
-        for (auto el : els)
+        if (ar.is_object())
         {
-            auto d = el["d"].data_str();
-            int sze{};
-            auto* dta = DecompressData((const unsigned char*)d.data(), d.size(), &sze);
-            _grid_surface.emplace_back()
-                .load_from_pixels(el["w"].get(0), el["h"].get(0),
-                                                          el["f"].get(0),
-                                                          dta);
-            MemFree(dta);
-        }
+            _size.x = ar["width"].get(0.f);
+            _size.y = ar["height"].get(0.f);
 
-        auto obs = ar["objects"].elements();
-        for (auto el : obs)
+            auto bg       = ar["background"];
+            _background.r = bg[0].get(0);
+            _background.g = bg[1].get(0);
+            _background.b = bg[2].get(0);
+            _background.a = bg[3].get(0);
+
+            auto layers = ar["layers"];
+            for (auto ly : layers.elements())
+            {
+                if (auto* l = SceneLayer::create(ly, this))
+                {
+                    add_layer(l);
+                }
+            }
+        }
+        else
         {
-            object_insert(object_deserialize(el));
+            //TODO: Trace error
         }
-
-        auto rbs = ar["regions"].elements();
-        for (auto el : rbs)
-        {
-            region_insert(region_deserialize(el));
-        }
-
-        _grid_texture.resize(_grid_surface.size());
     }
 
     void Scene::load(std::string_view path)
@@ -742,7 +452,7 @@ namespace fin
                             .Space()
                             .Text(ly->name())
                             .Spring()
-                            .Text(_edit._active_layer == n ? ICON_FA_CIRCLE_DOT : "")
+                            .Text(_edit._active_layer == n ? ICON_FA_BRUSH : "")
                             .End())
                     {
                         _edit._active_layer = n;
@@ -884,63 +594,29 @@ namespace fin
             }
         }
 
-        if (ImGui::CollapsingHeader("Background", 0))
+        if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (ImGui::Button("Import##opbgp"))
+            float clr[4] = {_background.r / 255.f, _background.g / 255.f, _background.b / 255.f, _background.a / 255.f};
+            if (ImGui::ColorEdit4("Color", clr, ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_PickerHueWheel))
             {
-                auto files = open_file_dialog("", "");
-                if (!files.empty())
-                {
-                    setup_background_texture(files[0]);
-                }
+                _background.r = clr[0] * 255;
+                _background.g = clr[1] * 255;
+                _background.b = clr[2] * 255;
+                _background.a = clr[3] * 255;
             }
-
-            ImGui::LabelText("Size", "%d x %d", _grid_size.x, _grid_size.y);
-            ImGui::LabelText("Size (px)", "%d x %d", _grid_size.x * tile_size, _grid_size.y * tile_size);
         }
-
-        auto minp = get_active_grid_min();
-        auto maxp = get_active_grid_max();
-        Region<int32_t> active{ minp.x, minp.y, maxp.x, maxp.y };
-
-        if (ImGui::CollapsingHeader("Tiles", 0))
-        {
-            if (ImGui::BeginChildFrame(-1, { -1, -1 }, ImGuiWindowFlags_HorizontalScrollbar))
-            {
-                for (auto y = 0; y < _grid_size.y; ++y)
-                {
-                    for (auto x = 0; x < _grid_size.x; ++x)
-                    {
-                        const bool act = active.contains({ x, y });
-                        if (act)
-                        {
-                            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(ImGuiCol_ButtonHovered));
-                        }
-                        ImGui::Button(ImGui::FormatStr("%dx%d", x, y), {48,48});
-                        if (act)
-                        {
-                            ImGui::PopStyleColor();
-                        }
-                        ImGui::SameLine();
-                    }
-                    ImGui::NewLine();
-                }
-            }
-            ImGui::EndChildFrame();
-        }
-
     }
 
     void Scene::imgui_menu()
     {
         _mode = Mode::Undefined;
-        _debug_draw_regions = false;
-        constexpr float tabw = 100.f;
+
+        constexpr float tabw = 90.f;
         ImGui::SetNextItemWidth(tabw);
         if (ImGui::BeginTabItem(ICON_FA_GEAR " Setup"))
         {
             _mode = Mode::Setup;
-            ImGui::Checkbox("Show grid", &_debug_draw_grid);
+
             ImGui::EndTabItem();
         }
         ImGui::SetNextItemWidth(tabw);
@@ -951,17 +627,6 @@ namespace fin
             {
                 lyr->imgui_workspace_menu();
             }
-
-            /*
-            ImGui::Checkbox("Show bounding box##shwobj", &_debug_draw_object);
-            ImGui::SameLine();
-            ImGui::Checkbox("Show navmesh", &_debug_draw_navmesh);
-            ImGui::SameLine();
-            if (ImGui::Button(" Generate "))
-            {
-                generate_navmesh();
-            }
-            */
             ImGui::EndTabItem();
         }
         ImGui::SetNextItemWidth(tabw);
@@ -1029,59 +694,6 @@ namespace fin
         if (auto* lyr = active_layer())
         {
             lyr->imgui_workspace(params, _drag);
-        }
-        return;
-
-
-        _edit._edit_object = nullptr;
-
-        if (ImGui::IsItemClicked(0))
-        {
-            if (auto* obj = object_find_at(params.mouse, 1024.f))
-            {
-                object_select(obj);
-            }
-            else
-            {
-                object_select(nullptr);
-            }
-        }
-        if (ImGui::IsItemClicked(1))
-        {
-            object_select(nullptr);
-        }
-
-        if (_drag._active && _edit._selected_object)
-        {
-            object_moveto(_edit._selected_object, _drag._delta + _edit._selected_object->position());
-        }
-
-        if (ImGui::BeginDragDropTarget())
-        {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB",
-                                                                           ImGuiDragDropFlags_AcceptPeekOnly |
-                                                                               ImGuiDragDropFlags_AcceptNoPreviewTooltip))
-            {
-                if (auto object = static_cast<BasicSceneObject*>(ImGui::GetDragData("PREFAB")))
-                {
-                    _edit._edit_object      = object;
-                    _edit._edit_object->_position = {params.mouse.x, params.mouse.y};
-                }
-            }
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PREFAB", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
-            {
-                if (auto object = static_cast<BasicSceneObject*>(ImGui::GetDragData("PREFAB")))
-                {
-                    object->_position = {params.mouse.x, params.mouse.y};
-                    msg::Pack doc;
-                    auto      ar = doc.create();
-                    object_serialize(object, ar);
-                    auto arr = doc.get();
-                    object_insert(object_deserialize(arr));
-                }
-            }
-
-            ImGui::EndDragDropTarget();
         }
     }
 
@@ -1170,134 +782,6 @@ namespace fin
         return nullptr;
     }
 
-    int32_t Scene::IsoObject::depth_get()
-    {
-        if (_depth_active)
-            return 0;
-
-        if (!_depth)
-        {
-            _depth_active = true;
-            if (_back.empty())
-                _depth = 1;
-            else
-            {
-                for (auto el : _back)
-                    _depth = std::max(el->depth_get(), _depth);
-                _depth += 1;
-            }
-            _depth_active = false;
-        }
-        return _depth;
-    }
-
-
-
-    void Scene::IsoManager::update(lq::SpatialDatabase& db, const Recti& region, BasicSceneObject* edit)
-    {
-        _iso_pool_size = 0;
-        _static.clear();
-
-        auto cb = [&](lq::SpatialDatabase::Proxy* item)
-        {
-            if (!static_cast<BasicSceneObject*>(item)->isometric_sort())
-            {
-                _static.push_back(static_cast<BasicSceneObject*>(item));
-            }
-            else
-            {
-                if (_iso_pool_size >= _iso_pool.size())
-                    _iso_pool.resize(_iso_pool_size + 32);
-
-                _iso_pool[_iso_pool_size]._ptr = static_cast<IsoSceneObject*>(item);
-                ++_iso_pool_size;
-            }
-        };
-
-        auto add_pool_item = [&](size_t n)
-        {
-            auto& obj                  = *_iso_pool[n]._ptr;
-            _iso[n]                    = &_iso_pool[n];
-            _iso_pool[n]._depth        = 0;
-            _iso_pool[n]._depth_active = false;
-            _iso_pool[n]._back.clear();
-            _iso_pool[n]._bbox   = obj.bounding_box();
-            _iso_pool[n]._origin = obj.iso();
-            obj.flag_reset(SceneObjectFlag::Marked);
-        };
-
-
-        // Query active region
-        db.map_over_all_objects_in_locality({(float)region.x - tile_size,
-                                             (float)region.y - tile_size,
-                                             (float)region.width + 2 * tile_size,
-                                             (float)region.height + 2 * tile_size},
-                                                     cb);
-
-        
-        if (_iso_pool_size >= _iso_pool.size())
-            _iso_pool.resize(_iso_pool_size + 32);
-
-        // Reset iso depth and sort data
-        _iso.resize(_iso_pool_size);
-        for (size_t n = 0; n < _iso_pool_size; ++n)
-        {
-            add_pool_item(n);
-        }
-
-        // Add edit object to render queue
-        if (edit)
-        {
-            if (edit->isometric_sort())
-            {
-                _iso_pool[_iso_pool_size]._ptr = static_cast<IsoSceneObject*>(edit);
-                _iso.emplace_back();
-                add_pool_item(_iso_pool_size);
-            }
-            else
-            {
-                _static.push_back(edit);
-            }
-        }
-
-        
-
-        // Topology sort
-        if (_iso.size() > 1)
-        {
-            // Determine depth relationships
-            for (size_t i = 0; i < _iso.size(); ++i)
-            {
-                auto *a = _iso[i];
-                for (size_t j = i + 1; j < _iso.size(); ++j)
-                {
-                    auto *b = _iso[j];
-                    // Ignore non overlaped rectangles
-                    if (a->_bbox.intersects(b->_bbox))
-                    {
-                        // Check if x2 is above iso line
-                        if (b->_origin.compare(a->_origin) >= 0)
-                        {
-                            a->_back.push_back(b);
-                        }
-                        else
-                        {
-                            b->_back.push_back(a);
-                        }
-                    }
-                }
-            }
-
-            // Recursive function to calculate depth
-            for (auto *obj : _iso)
-                obj->depth_get();
-
-            // Sort objects by depth
-            std::sort(_iso.begin(), _iso.end(), [](const IsoObject *a, const IsoObject *b) {
-                return a->_depth < b->_depth;
-            });
-        }
-    }
 
     void DragData::update(float x, float y)
     {

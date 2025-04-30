@@ -329,22 +329,37 @@ namespace fin
 
     void SceneFactory::imgui_workspace_menu()
     {
-        if (ImGui::RadioButton("Select", (!_edit_collision && !_edit_origin)))
+        if (ImGui::LineItem(ImGui::GetID("wspf"), {-1, ImGui::GetFrameHeightWithSpacing()})
+                .Space()
+                .PushStyle(ImStyle_Button, 1, (!_edit_collision && !_edit_origin))
+                .Text(ICON_FA_ARROW_POINTER " Select")
+                .PopStyle()
+                .Space()
+                .PushStyle(ImStyle_Button, 2, _edit_origin)
+                .Text(ICON_FA_CROSSHAIRS " Origin")
+                .PopStyle()
+                .Space()
+                .PushStyle(ImStyle_Button, 3, _edit_collision)
+                .Text(ICON_FA_VECTOR_SQUARE " Collision")
+                .PopStyle()
+                .Space()
+                .End())
         {
-            _edit_origin    = false;
-            _edit_collision = false;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Origin", _edit_origin))
-        {
-            _edit_origin    = true;
-            _edit_collision = false;
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("Collision", _edit_collision))
-        {
-            _edit_origin    = false;
-            _edit_collision = true;
+            if (ImGui::Line().HoverId() == 1)
+            {
+                _edit_origin    = false;
+                _edit_collision = false;
+            }
+            if (ImGui::Line().HoverId() == 2)
+            {
+                _edit_origin    = true;
+                _edit_collision = false;
+            }
+            if (ImGui::Line().HoverId() == 3)
+            {
+                _edit_origin    = false;
+                _edit_collision = true;
+            }
         }
     }
 
@@ -431,69 +446,78 @@ namespace fin
 
         if (ImGui::BeginTabBar("ExpFactTab"))
         {
-            if (ImGui::BeginTabItem("Explorer"))
+            ImGui::SetNextItemWidth(90);
+            if (ImGui::BeginTabItem("Assets"))
             {
                 imgui_file_explorer();
                 ImGui::EndTabItem();
             }
 
-            for (auto* cls : _classes)
+            ImGui::SetNextItemWidth(90);
+            if (ImGui::BeginTabItem("Prefabs"))
             {
-                auto& info = *cls;
-                if (ImGui::BeginTabItem(info.name.c_str()))
+                if (ImGui::BeginTabBar("PrefabTab"))
                 {
-                    if (_explore != &info)
+                    for (auto* cls : _classes)
                     {
-                        _explore = &info;
-                        reset_atlas_cache();
-                    }
-                   
-                    if (ImGui::BeginChildFrame(-1, { -1, -1 }))
-                    {
-                        _explore = &info;
-                        ImGuiListClipper clipper;
-                        clipper.Begin(info.items.size());
-                        while (clipper.Step())
+                        auto& info = *cls;
+                        if (ImGui::BeginTabItem(info.name.c_str()))
                         {
-                            for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                            if (_explore != &info)
                             {
-                                ImGui::PushID(n);
-                                auto val  = info.items.get_item(n);
-                                auto id   = val.get_item(Sc::Id);
-                                auto pack = load_atlas(val);
-
-                                if (ImGui::Selectable("##id", info.active == n, 0, {0, 25}))
-                                {
-                                    info.active = n;
-                                }
-
-                                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-                                {
-                                    info.select(n);
-                                    ImGui::SetDragData(info.obj.get(),"PREFAB");
-                                    ImGui::SetDragDropPayload("PREFAB", &n, sizeof(int32_t));
-                                    ImGui::EndDragDropSource();
-                                }
-
-                                if (pack.sprite)
-                                {
-                                    ImGui::SameLine();
-                                    ImGui::SpriteImage(pack.sprite, {25, 25});
-                                }
-                                ImGui::SameLine();
-                                ImGui::Text(id.c_str());
-
-                                ImGui::PopID();
+                                _explore = &info;
+                                reset_atlas_cache();
                             }
+
+                            if (ImGui::BeginChildFrame(-1, {-1, -1}))
+                            {
+                                _explore = &info;
+                                ImGuiListClipper clipper;
+                                clipper.Begin(info.items.size());
+                                while (clipper.Step())
+                                {
+                                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                                    {
+                                        ImGui::PushID(n);
+                                        auto val  = info.items.get_item(n);
+                                        auto id   = val.get_item(Sc::Id);
+                                        auto pack = load_atlas(val);
+
+                                        if (ImGui::Selectable("##id", info.active == n, 0, {0, 25}))
+                                        {
+                                            info.active = n;
+                                        }
+
+                                        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
+                                        {
+                                            info.select(n);
+                                            ImGui::SetDragData(info.obj.get(), "PREFAB");
+                                            ImGui::SetDragDropPayload("PREFAB", &n, sizeof(int32_t));
+                                            ImGui::EndDragDropSource();
+                                        }
+
+                                        if (pack.sprite)
+                                        {
+                                            ImGui::SameLine();
+                                            ImGui::SpriteImage(pack.sprite, {25, 25});
+                                        }
+                                        ImGui::SameLine();
+                                        ImGui::Text(id.c_str());
+
+                                        ImGui::PopID();
+                                    }
+                                }
+                            }
+                            ImGui::EndChildFrame();
+
+                            ImGui::EndTabItem();
                         }
-
                     }
-                    ImGui::EndChildFrame();
-
-                    ImGui::EndTabItem();
                 }
-            }
+                ImGui::EndTabBar();
 
+                ImGui::EndTabItem();
+            }
         }
         ImGui::EndTabBar();
 

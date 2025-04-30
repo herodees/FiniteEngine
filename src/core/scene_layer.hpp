@@ -21,7 +21,7 @@ namespace fin
             Isometric,
         };
 
-        static SceneLayer* create(msg::Value& ar);
+        static SceneLayer* create(msg::Value& ar, Scene* scene);
         static SceneLayer* create(Type t);
 
         SceneLayer(Type t = Type::Undefined);
@@ -36,6 +36,7 @@ namespace fin
         virtual void serialize(msg::Writer& ar);
         virtual void deserialize(msg::Value& ar);
         virtual void resize(Vec2f size);
+        virtual void clear();
 
         virtual void activate(const Recti& region);
         virtual void update(float dt);

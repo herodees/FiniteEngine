@@ -3,9 +3,9 @@
 #include "include.hpp"
 #include "path_finder.h"
 #include "renderer.hpp"
+#include "scene_layer.hpp"
 #include "scene_object.hpp"
 #include "shared_resource.hpp"
-#include "scene_layer.hpp"
 
 namespace fin
 {
@@ -52,31 +52,9 @@ namespace fin
             Prefab,
         };
 
-        struct IsoObject
-        {
-            int32_t                 _depth        : 31;
-            bool                    _depth_active : 1;
-            Line<float>             _origin;
-            Region<float>           _bbox;
-            IsoSceneObject*         _ptr;
-            std::vector<IsoObject*> _back;
-            int32_t                 depth_get();
-        };
-
-        struct IsoManager
-        {
-            uint32_t                  _iso_pool_size{};
-            std::vector<IsoObject>    _iso_pool;
-            std::vector<IsoObject*>   _iso;
-            std::vector<BasicSceneObject*> _static;
-            void update(lq::SpatialDatabase& db, const Recti& region, BasicSceneObject* edit);
-        };
-
         struct EditData
         {
             std::string       _buffer;
-            BasicSceneObject* _edit_object{};
-            BasicSceneObject* _selected_object{};
             SceneRegion*      _selected_region{};
             int32_t           _active_point{-1};
             int32_t           _active_layer{0};
@@ -89,30 +67,18 @@ namespace fin
 
         const std::string& get_path() const;
 
-        bool setup_background_texture(const std::filesystem::path& file);
         void activate_grid(const Recti& screen);
         void activate_grid(const Vec2f& origin);
 
-        void    set_size(Vec2f size);
-        int32_t add_layer(SceneLayer* layer);
-        void    delete_layer(int32_t n);
-        int32_t move_layer(int32_t layer, bool up);
+        void        set_size(Vec2f size);
+        int32_t     add_layer(SceneLayer* layer);
+        void        delete_layer(int32_t n);
+        int32_t     move_layer(int32_t layer, bool up);
         SceneLayer* active_layer();
 
         Vec2i get_active_grid_size() const;
         Vec2f get_active_grid_center() const;
-        Vec2i get_active_grid_min() const;
-        Vec2i get_active_grid_max() const;
         Vec2i get_scene_size() const;
-        Vec2i get_grid_size() const;
-
-        void              object_serialize(BasicSceneObject* obj, msg::Writer& ar);
-        BasicSceneObject* object_deserialize(msg::Value& ar);
-        void              object_insert(BasicSceneObject* obj);
-        void              object_remove(BasicSceneObject* obj);
-        void              object_select(BasicSceneObject* obj);
-        void              object_destroy(BasicSceneObject* obj);
-        void              object_moveto(BasicSceneObject* obj, Vec2f pos);
 
         void         region_serialize(SceneRegion* obj, msg::Writer& ar);
         SceneRegion* region_deserialize(msg::Value& ar);
@@ -122,19 +88,14 @@ namespace fin
         void         region_destroy(SceneRegion* obj);
         void         region_moveto(SceneRegion* obj, Vec2f pos);
 
-        void name_object(ObjectBase* obj, std::string_view name);
+        void        name_object(ObjectBase* obj, std::string_view name);
         ObjectBase* find_object_by_name(std::string_view name);
 
-        SpriteSceneObject* object_find_at(Vec2f position, float radius);
         SceneRegion* region_find_at(Vec2f position);
 
-        template <typename CB>
-        void for_each_active(CB cb);
-
-        void render(Renderer& dc);
-        void update(float dt);
-        void clear();
-        void generate_navmesh();
+        void             render(Renderer& dc);
+        void             update(float dt);
+        void             clear();
         RenderTexture2D& canvas();
 
         void serialize(msg::Pack& ar);
@@ -154,41 +115,19 @@ namespace fin
         void imgui_workspace_setup(Params& params);
 
     private:
-        std::vector<Texture2D>                                                          _grid_texture;
-        std::vector<Surface>                                                            _grid_surface;
-        std::vector<std::pair<size_t, bool>>                                            _grid_active;
-        std::vector<BasicSceneObject*>                                                  _scene;
         std::vector<SceneRegion*>                                                       _regions;
         std::vector<SceneLayer*>                                                        _layers;
         std::unordered_map<std::string, ObjectBase*, std::string_hash, std::equal_to<>> _named_object;
-        IsoManager                                                                      _iso_manager;
-        lq::SpatialDatabase                                                             _spatial_db;
-        NavMesh::PathFinder                                                             _pathfinder;
         DragData                                                                        _drag{};
         EditData                                                                        _edit{};
-        bool                                                                            _debug_draw_grid{};
-        bool                                                                            _debug_draw_navmesh{};
-        bool                                                                            _debug_draw_regions{};
-        bool                                                                            _debug_draw_object{};
         bool                                                                            _edit_region{};
         Mode                                                                            _mode{Mode::Setup};
         Recti                                                                           _active_region;
-        Vec2i                                                                           _grid_size;
         RenderTexture2D                                                                 _canvas;
         std::string                                                                     _path;
         Vec2f                                                                           _size;
-
+        Color                                                                           _background{BLACK};
     };
 
-
-    template <typename CB>
-    inline void Scene::for_each_active(CB cb)
-    {
-        for (auto* el : _iso_manager._iso)
-        {
-            if (cb(el->_ptr))
-                return;
-        }
-    }
 
 } // namespace fin
