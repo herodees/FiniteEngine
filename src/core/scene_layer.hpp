@@ -9,6 +9,9 @@ namespace fin
     struct Params;
     struct DragData;
 
+    void BeginDefaultMenu(const char* id);
+    bool EndDefaultMenu();
+
     class SceneLayer
     {
         friend class Scene;
@@ -52,6 +55,8 @@ namespace fin
 
         void hide(bool b);
         void activate(bool a);
+
+        void render_grid(Renderer& dc);
 
     private:
         Scene*           _parent{};

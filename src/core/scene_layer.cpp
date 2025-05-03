@@ -17,9 +17,9 @@ namespace fin
 
 
 
-    inline ImGui::LineConstructor& BeginDefaultMenu(const char* id)
+    void BeginDefaultMenu(const char* id)
     {
-        return ImGui::LineItem(ImGui::GetID(id), {-1, ImGui::GetFrameHeightWithSpacing()})
+        ImGui::LineItem(ImGui::GetID(id), {-1, ImGui::GetFrameHeightWithSpacing()})
             .Space()
             .PushStyle(ImStyle_Button, 1, _debug_iso_object)
             .Text(ICON_FA_MAP_LOCATION_DOT " ISO")
@@ -35,7 +35,7 @@ namespace fin
             .Space();
     }
 
-    inline bool EndDefaultMenu()
+    bool EndDefaultMenu()
     {
         if (ImGui::Line().End())
         {
@@ -295,26 +295,7 @@ namespace fin
 
             if (_debug_grid)
             {
-                auto minpos = get_active_grid_min();
-                auto maxpos = get_active_grid_max();
-
-                Color clr{255, 255, 0, 190};
-                dc.set_color(clr);
-                for (int y = minpos.y; y < maxpos.y; ++y)
-                {
-                    dc.render_line((float)minpos.x * tile_size,
-                                   (float)y * tile_size,
-                                   (float)maxpos.x * tile_size,
-                                   (float)y * tile_size);
-                }
-
-                for (int x = minpos.x; x < maxpos.x; ++x)
-                {
-                    dc.render_line((float)x * tile_size,
-                                   (float)minpos.y * tile_size,
-                                   (float)x * tile_size,
-                                   (float)maxpos.y * tile_size);
-                }
+                SceneLayer::render_grid(dc);
             }
         }
 
@@ -388,7 +369,7 @@ namespace fin
 
             if (ImGui::IsItemClicked(0))
             {
-                if (auto* obj = find_at(params.mouse, 1024.f))
+                if (auto* obj = find_active(params.mouse))
                 {
                     select(obj);
                 }
@@ -490,6 +471,18 @@ namespace fin
             }
 
             ImGui::EndChildFrame();
+        }
+
+        IsoSceneObject* find_active(Vec2f position)
+        {
+            for (auto it = _iso.rbegin(); it != _iso.rend(); ++it)
+            {
+                if ((*it)->_ptr->bounding_box().contains(position))
+                {
+                    return (*it)->_ptr;
+                }
+            }
+            return nullptr;
         }
 
         IsoSceneObject* find_at(Vec2f position, float radius)
@@ -656,6 +649,11 @@ namespace fin
                 dc.set_color({255, 255, 255, 255});
                 dc.render_line_rect(nde._bbox);
             }
+
+            if (_debug_grid)
+            {
+                SceneLayer::render_grid(dc);
+            }
         }
 
         void serialize(msg::Writer& ar) override
@@ -704,6 +702,20 @@ namespace fin
             return _spatial.find_at(position.x, position.y);
         }
 
+        int find_active(Vec2f position)
+        {
+            auto els = _spatial.get_active();
+
+            for (auto it = els.rbegin(); it != els.rend(); ++it)
+            {
+                if (_spatial[*it]._bbox.contains(position))
+                {
+                    return *it;
+                }
+            }
+            return -1;
+        }
+
         void edit_active()
         {
         }
@@ -722,7 +734,7 @@ namespace fin
 
             if (ImGui::IsItemClicked(0))
             {
-                _select = find_at(params.mouse);
+                _select = find_active(params.mouse);
             }
             if (ImGui::IsItemClicked(1))
             {
@@ -824,12 +836,63 @@ namespace fin
         {
             msg::Var _points;
             Rectf    _bbox;
+            bool     _need_update{};
             bool     operator==(const Node& ot) const
             {
                 return this == &ot;
             }
+
+            uint32_t size() const
+            {
+                return _points.size() / 2;
+            }
+
+            Vec2f get_point(uint32_t n)
+            {
+                return {_points[n * 2].get(0.f), _points[n * 2 + 1].get(0.f)};
+            }
+
+            void set_point(uint32_t n, Vec2f val)
+            {
+                _need_update = true;
+                _points.set_item(n * 2, val.x);
+                _points.set_item(n * 2 + 1, val.y);
+            }
+
+            Node& insert(Vec2f pt, int32_t n)
+            {
+                _need_update = true;
+                if (uint32_t(n * 2) >= _points.size())
+                {
+                    _points.push_back(pt.x);
+                    _points.push_back(pt.y);
+                }
+                else
+                {
+                    n = n * 2;
+                    _points.insert(n, pt.x);
+                    _points.insert(n + 1, pt.y);
+                }
+                return *this;
+            }
+
+            int32_t find(Vec2f pt, float radius)
+            {
+                auto sze = _points.size();
+                for (uint32_t n = 0; n < sze; n += 2)
+                {
+                    Vec2f pos(_points.get_item(n).get(0.f), _points.get_item(n + 1).get(0.f));
+                    if (pos.distance_squared(pt) <= (radius * radius))
+                    {
+                        return n / 2;
+                    }
+                }
+                return -1;
+            }
+
             void update()
             {
+                _need_update = false;
                 _bbox = {};
                 if (_points.size() >= 2)
                 {
@@ -944,7 +1007,40 @@ namespace fin
 
         void render_edit(Renderer& dc) override
         {
+            dc.set_color(WHITE);
 
+            for (auto n : _spatial.get_active())
+            {
+                auto& nde = _spatial[n];
+
+                auto sze = nde.size();
+                for (auto idx = 0; idx < sze; ++idx)
+                {
+                    dc.render_line(nde.get_point(idx), nde.get_point((idx + 1) % sze));
+                }
+
+            }
+
+
+            if (auto* reg = selected_region())
+            {
+                dc.set_color({255, 255, 0, 255});
+                dc.render_line_rect(reg->_bbox);
+
+                for (auto n = 0; n < reg->size(); ++n)
+                {
+                    auto pt = reg->get_point(n);
+                    if (_active_point == n)
+                        dc.render_circle(pt, 3);
+                    else
+                        dc.render_line_circle(pt, 3);
+                }
+            }
+
+            if (_debug_grid)
+            {
+                SceneLayer::render_grid(dc);
+            }
         }
 
         void update(float dt) override
@@ -960,10 +1056,79 @@ namespace fin
             }
         }
 
+        void imgui_workspace(Params& params, DragData& drag) override
+        {
+            // Edit region points
+            if (_edit_region)
+            {
+                if (auto* reg = selected_region())
+                {
+                    if (ImGui::IsItemClicked(0))
+                    {
+                        _active_point = reg->find(params.mouse, 5);
+                    }
+                    if (ImGui::IsItemClicked(1))
+                    {
+                        _selected = -1;
+                    }
+                }
+                else if (ImGui::IsItemClicked(0))
+                {
+                    _selected = find_at(params.mouse);
+                }
+
+                if (drag._active && _active_point != -1 && selected_region())
+                {
+                    auto obj = *selected_region();
+                    auto pt  = obj.get_point(_active_point) + drag._delta;
+                    obj.set_point(_active_point, pt);
+                    obj.update();
+                    _spatial.insert(obj);
+                }
+            }
+            // Create region
+            else
+            {
+                if (ImGui::IsItemClicked(0))
+                {
+                    if (auto *reg = selected_region())
+                    {
+                        reg->insert(params.mouse, _active_point + 1);
+                        _active_point = _active_point + 1;
+                    }
+                    else
+                    {
+                        Node obj;
+                        obj.insert(params.mouse, 0);
+                        obj.update();
+                        _selected = _spatial.insert(obj);
+                        _active_point = 0;
+                    }
+                }
+                if (ImGui::IsItemClicked(1))
+                {
+                    _active_point = -1;
+                    _selected     = -1;
+                }
+            }
+        }
     private:
+        Node* selected_region()
+        {
+            if (size_t(_selected) < size_t(_spatial.size()))
+            {
+                return &_spatial[_selected];
+            }
+            return nullptr;
+        }
+
         LooseQuadTree<Node, decltype([](const Node& n) -> const Rectf& { return n._bbox; })> _spatial;
         int32_t                                                                              _edit = -1;
+        int32_t                                                                              _selected = -1;
+        int32_t                                                                              _active_point = -1;
+        bool                                                                                 _edit_region{};
     };
+
 
 
     SceneLayer* SceneLayer::create(msg::Value& ar, Scene* scene)
@@ -1087,6 +1252,31 @@ namespace fin
     void SceneLayer::activate(bool a)
     {
         _active = a;
+    }
+
+    void SceneLayer::render_grid(Renderer& dc)
+    {
+        const int startX = std::max(0, region().x / tile_size);
+        const int startY = std::max(0, region().y / tile_size);
+
+        const int endX = (region().x2()) / tile_size + 1;
+        const int endY = (region().y2()) / tile_size + 1;
+
+        auto minpos = Vec2i{startX, startY};
+        auto maxpos = Vec2i{endX, endY};
+
+        Color clr{255, 255, 0, 190};
+        dc.set_color(clr);
+
+        for (int y = minpos.y; y < maxpos.y; ++y)
+        {
+            dc.render_line((float)minpos.x * tile_size, (float)y * tile_size, (float)maxpos.x * tile_size, (float)y * tile_size);
+        }
+
+        for (int x = minpos.x; x < maxpos.x; ++x)
+        {
+            dc.render_line((float)x * tile_size, (float)minpos.y * tile_size, (float)x * tile_size, (float)maxpos.y * tile_size);
+        }
     }
 
 

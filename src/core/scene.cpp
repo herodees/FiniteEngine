@@ -616,7 +616,8 @@ namespace fin
         if (ImGui::BeginTabItem(ICON_FA_GEAR " Setup"))
         {
             _mode = Mode::Setup;
-
+            BeginDefaultMenu("wsmnu");
+            EndDefaultMenu();
             ImGui::EndTabItem();
         }
         ImGui::SetNextItemWidth(tabw);

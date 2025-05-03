@@ -87,9 +87,9 @@ namespace fin
             swap(newTree);
         }
 
-        void insert(const T& obj)
+        int insert(const T& obj)
         {
-            insert(rootIndex, obj, boundsGetter(obj));
+            return insert(rootIndex, obj, boundsGetter(obj));
         }
 
         void remove(const T& obj)
@@ -313,7 +313,7 @@ namespace fin
             return -1; // If no suitable child is found, return -1 (could happen if object doesn't fit)
         }
 
-        void insert(int nodeIdx, const T& obj, const Rectf& bounds)
+        int insert(int nodeIdx, const T& obj, const Rectf& bounds)
         {
             Node& node = nodes[nodeIdx];
 
@@ -323,8 +323,7 @@ namespace fin
                 int idx = getChildIndex(nodeIdx, bounds);
                 if (idx != -1)
                 {
-                    insert(node.children[idx], obj, bounds); // Recursive insert into the child
-                    return;
+                    return insert(node.children[idx], obj, bounds); // Recursive insert into the child;
                 }
             }
 
@@ -340,6 +339,8 @@ namespace fin
                 if (!node.hasChildren()) // Split the node only if it hasn't been split already
                     split(nodeIdx);
             }
+
+            return objIdx;
         }
 
         bool remove(int nodeIdx, const T& obj, const Rectf& bounds)
