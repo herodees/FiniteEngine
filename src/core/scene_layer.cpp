@@ -1050,9 +1050,25 @@ namespace fin
         void imgui_workspace_menu() override
         {
             BeginDefaultMenu("wsmnu");
+            ImGui::Line()
+                .PushStyle(ImStyle_Button, 10, _edit_region)
+                .Text(ICON_FA_ARROW_POINTER " Edit")
+                .PopStyle()
+                .Space()
+                .PushStyle(ImStyle_Button, 20, !_edit_region)
+                .Text(ICON_FA_BRUSH " Create")
+                .PopStyle();
+
             if (EndDefaultMenu())
             {
-
+                if (ImGui::Line().HoverId() == 10)
+                {
+                    _edit_region = true;
+                }
+                if (ImGui::Line().HoverId() == 20)
+                {
+                    _edit_region = false;
+                }
             }
         }
 
@@ -1077,13 +1093,17 @@ namespace fin
                     _selected = find_at(params.mouse);
                 }
 
-                if (drag._active && _active_point != -1 && selected_region())
+                if (drag._active && _active_point != -1)
                 {
-                    auto obj = *selected_region();
-                    auto pt  = obj.get_point(_active_point) + drag._delta;
-                    obj.set_point(_active_point, pt);
-                    obj.update();
-                    _spatial.insert(obj);
+                    if (auto* reg = selected_region())
+                    {
+                        auto obj = *reg;
+                        _spatial.remove(*selected_region());
+                        auto pt = obj.get_point(_active_point) + drag._delta;
+                        obj.set_point(_active_point, pt);
+                        obj.update();
+                        _spatial.insert(obj);
+                    }
                 }
             }
             // Create region
@@ -1093,7 +1113,11 @@ namespace fin
                 {
                     if (auto *reg = selected_region())
                     {
-                        reg->insert(params.mouse, _active_point + 1);
+                        auto obj = *reg;
+                        _spatial.remove(*reg);
+                        obj.insert(params.mouse, _active_point + 1);
+                        obj.update();
+                        _spatial.insert(obj);
                         _active_point = _active_point + 1;
                     }
                     else
