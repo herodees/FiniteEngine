@@ -33,6 +33,7 @@ namespace fin
         Type              type() const;
         std::string&      name();
         std::string_view& icon();
+        uint32_t          color() const;
         Scene*            parent();
         const Recti&      region() const;
 
@@ -47,6 +48,7 @@ namespace fin
         virtual void render_edit(Renderer& dc);
 
         virtual void imgui_update(bool items);
+        virtual void imgui_setup();
         virtual void imgui_workspace(Params& params, DragData& drag);
         virtual void imgui_workspace_menu();
 
@@ -58,14 +60,15 @@ namespace fin
 
         void render_grid(Renderer& dc);
 
-    private:
+    protected:
         Scene*           _parent{};
         Type             _type;
         std::string      _name;
         std::string_view _icon;
+        uint32_t         _color{0xffffffff};
+        Recti            _region;
         bool             _hidden{};
         bool             _active{};
-        Recti            _region;
     };
 
 } // namespace fin

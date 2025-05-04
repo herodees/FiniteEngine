@@ -65,6 +65,7 @@ namespace fin
         {
             name() = "IsometricLayer";
             icon() = ICON_FA_MAP_PIN;
+            _color = 0xffa0a0ff;
         };
 
         ~IsometricSceneLayer() override
@@ -596,6 +597,7 @@ namespace fin
         {
             name() = "SpriteLayer";
             icon() = ICON_FA_IMAGE;
+            _color = 0xffffa0b0;
         };
 
         void destroy(int32_t n)
@@ -797,6 +799,12 @@ namespace fin
             }
         }
 
+        void imgui_setup() override
+        {
+            SceneLayer::imgui_setup();
+            ImGui::Checkbox("Sort by Y", &_sort_y);
+        }
+
         void imgui_update(bool items) override
         {
             if (!items)
@@ -806,10 +814,6 @@ namespace fin
                 .Space()
                 .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
                 .Text(" " ICON_FA_EYE " ")
-                .PopStyle()
-                .Space()
-                .PushStyle(ImStyle_Button, 20, _sort_y)
-                .Text(" " ICON_FA_LIST_OL " ")
                 .PopStyle()
                 .Spring()
                 .PushStyle(ImStyle_Button, 1, false)
@@ -827,10 +831,6 @@ namespace fin
                 if (ImGui::Line().HoverId() == 10)
                 {
                     g_settings.list_visible_items = !g_settings.list_visible_items;
-                }
-                if (ImGui::Line().HoverId() == 20)
-                {
-                    _sort_y = !_sort_y;
                 }
             }
 
@@ -985,6 +985,7 @@ namespace fin
         {
             name() = "RegionLayer";
             icon() = ICON_FA_MAP_LOCATION_DOT;
+            _color = 0xff50ffc0;
         };
 
         void resize(Vec2f size) override
@@ -1342,6 +1343,11 @@ namespace fin
         return _icon;
     }
 
+    uint32_t SceneLayer::color() const
+    {
+        return _color;
+    }
+
     Scene* SceneLayer::parent()
     {
         return _parent;
@@ -1391,6 +1397,11 @@ namespace fin
 
     void SceneLayer::imgui_update(bool items)
     {
+    }
+
+    void SceneLayer::imgui_setup()
+    {
+        ImGui::InputText("Name", &_name);
     }
 
     void SceneLayer::imgui_workspace(Params& params, DragData& drag)

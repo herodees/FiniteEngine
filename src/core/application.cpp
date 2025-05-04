@@ -20,7 +20,7 @@ namespace fin
     {
     }
 
-    void application::on_imgui_init(bool dark_theme)
+    void application::imgui_init(bool dark_theme)
     {
         ImGuiIO& io = ImGui::GetIO();
         (void)io;
@@ -172,7 +172,7 @@ namespace fin
         if (_editor)
         {
             rlImGuiSetup(true);
-            on_imgui_init(true);
+            imgui_init(true);
         }
 
         return true;
@@ -221,7 +221,7 @@ namespace fin
         return std::string_view();
     }
 
-    void application::on_imgui()
+    void application::imgui()
     {
         static bool init_docking = true;
 
@@ -241,7 +241,7 @@ namespace fin
 
         if (ImGui::BeginMenuBar())
         {
-            on_imgui_menu();
+            imgui_menu();
             ImGui::EndMenuBar();
         }
 
@@ -271,8 +271,8 @@ namespace fin
         ImGui::DockSpace(dockspace_id);
         if (!init_docking)
         {
-            on_imgui_properties();
-            on_imgui_workspace();
+            _map.imgui_props();
+            imgui_workspace();
 
            //  ImGui::ShowDemoWindow();
         }
@@ -341,7 +341,7 @@ namespace fin
             if (_editor)
             {
                 rlImGuiBegin(frameTime);
-                on_imgui();
+                imgui();
                 rlImGuiEnd();
             }
             else
@@ -363,7 +363,7 @@ namespace fin
         return true;
     }
 
-    void application::on_imgui_menu()
+    void application::imgui_menu()
     {
         if (ImGui::BeginMainMenuBar())
         {
@@ -428,7 +428,7 @@ namespace fin
         }
     }
 
-    void application::on_imgui_workspace()
+    void application::imgui_workspace()
     {
         if (!ImGui::Begin("Workspace"))
         {
@@ -462,14 +462,5 @@ namespace fin
 
         ImGui::End();
     }
-
-    void application::on_imgui_properties()
-    {
-        _map.imgui_explorer();
-        _map.imgui_props();
-
-
-    }
-
 
 } // namespace fin

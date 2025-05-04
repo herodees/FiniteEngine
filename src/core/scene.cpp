@@ -20,26 +20,14 @@ namespace fin
 
     void Scene::activate_grid(const Recti& screen)
     {
-        _active_region = screen;
+        _camera.size     = screen.size();
 
         auto canvas_size = _canvas.get_size();
-        auto new_canvas_size = _active_region.size();
-
+        auto new_canvas_size = _camera.size;
         if (canvas_size != new_canvas_size)
         {
             _canvas.create(new_canvas_size.x, new_canvas_size.y);
         }
-
-        for (auto* ly : _layers)
-        {
-            ly->activate(_active_region);
-        }
-    }
-
-    void Scene::activate_grid(const Vec2f& origin)
-    {
-        auto s = _active_region.size();
-        activate_grid(Recti(origin.x - s.x * 0.5f, origin.y - s.y * 0.5f, origin.x + s.x * 0.5f, origin.y + s.y * 0.5f));
     }
 
     void Scene::set_size(Vec2f size)
@@ -69,19 +57,29 @@ namespace fin
     }
 
 
-    Vec2i Scene::get_active_grid_size() const
+    Vec2i Scene::get_active_size() const
     {
-        return _active_region.size();
-    }
-
-    Vec2f Scene::get_active_grid_center() const
-    {
-        return _active_region.center();
+        return _camera.size;
     }
 
     Vec2i Scene::get_scene_size() const
     {
         return _size;
+    }
+
+    void Scene::set_camera_position(Vec2f pos, float time)
+    {
+        _goto = pos;
+        _goto_time = time;
+        if (time == 0)
+        {
+            _camera.position = _goto;
+        }
+    }
+
+    const Camera& Scene::get_camera() const
+    {
+        return _camera;
     }
 
     void Scene::name_object(ObjectBase* obj, std::string_view name)
@@ -117,18 +115,6 @@ namespace fin
         return it->second;
     }
 
-    SceneRegion* Scene::region_find_at(Vec2f position)
-    {
-        for (auto* reg : _regions)
-        {
-            if (reg->contains(position))
-            {
-                return reg;
-            }
-        }
-        return nullptr;
-    }
-
     void Scene::render(Renderer& dc)
     {
         if (!_canvas)
@@ -140,7 +126,7 @@ namespace fin
         BeginTextureMode(*_canvas.get_texture());
         ClearBackground(_background);
 
-        dc.set_origin({(float)_active_region.x, (float)_active_region.y});
+        dc.set_origin({(float)_camera.position.x, (float)_camera.position.y});
 
         BeginMode2D(dc._camera);
 
@@ -154,68 +140,6 @@ namespace fin
             lyr->render_edit(dc);
         }
 
-        /*
-        dc.set_color(WHITE);
-        for (int y = minpos.y; y < maxpos.y; ++y)
-        {
-            for (int x = minpos.x; x < maxpos.x; ++x)
-            {
-                auto& txt = _grid_texture[y * _grid_size.width + x];
-                if (txt)
-                {
-                    dc.render_texture(txt.get_texture(), { 0, 0, tile_size, tile_size }, { (float)x * tile_size, (float)y * tile_size ,
-                        (float)tile_size, (float)tile_size });
-                }
-            }
-        }
-
-        if (_debug_draw_regions)
-        {
-            dc.set_color(WHITE);
-            for (auto* reg : _regions)
-            {
-                reg->edit_render(dc);
-            }
-
-            if (_edit._selected_region)
-            {
-                dc.set_color({255, 255, 0, 255});
-                auto bbox = _edit._selected_region->bounding_box();
-                dc.render_line_rect(bbox.rect());
-
-                for (auto n = 0; n < _edit._selected_region->get_size(); ++n)
-                {
-                    auto pt = _edit._selected_region->get_point(n);
-                    if (_edit._active_point == n)
-                        dc.render_circle(pt, 3);
-                    else
-                        dc.render_line_circle(pt, 3);
-                }
-            }
-        }
-
-        if (_debug_draw_grid)
-        {
-            Color clr{255, 255, 0, 255};
-            dc.set_color(clr);
-            for (int y = minpos.y; y < maxpos.y; ++y)
-            {
-                dc.render_line((float)minpos.x * tile_size,
-                               (float)y * tile_size,
-                               (float)maxpos.x * tile_size,
-                               (float)y * tile_size);
-            }
-
-            for (int x = minpos.x; x < maxpos.x; ++x)
-            {
-                dc.render_line((float)x * tile_size,
-                               (float)minpos.y * tile_size,
-                               (float)x * tile_size,
-                               (float)maxpos.y * tile_size);
-            }
-        }
-        */
-
         EndMode2D();
         EndTextureMode();
 
@@ -224,6 +148,8 @@ namespace fin
 
     void Scene::update(float dt)
     {
+        update_camera_position(dt);
+
         if (_mode == Mode::Running)
         {
             for (auto* el : _layers)
@@ -324,13 +250,10 @@ namespace fin
         SaveFileData(_path.c_str(), pack.data().data(), pack.data().size());
     }
 
-    void Scene::imgui_explorer()
-    {
-        SceneFactory::instance().imgui_explorer();
-    }
-
     void Scene::imgui_props()
     {
+        SceneFactory::instance().imgui_explorer();
+
         if (!ImGui::Begin("Properties"))
         {
             ImGui::End();
@@ -363,20 +286,22 @@ namespace fin
                 int n = 0;
                 for (auto* ly : _layers)
                 {
-                    if (ImGui::LineSelect(ImGui::GetID(ly), _edit._active_layer == n)
+                    if (ImGui::LineSelect(ImGui::GetID(ly), _active_layer == n)
                             .Space()
                             .PushStyle(ImStyle_Button, 1)
                             .Text(ly->is_hidden() ? ICON_FA_EYE_SLASH : ICON_FA_EYE)
                             .PopStyle()
                             .Space()
+                            .PushColor(ly->color())
                             .Text(ly->icon())
                             .Space()
                             .Text(ly->name())
                             .Spring()
-                            .Text(_edit._active_layer == n ? ICON_FA_BRUSH : "")
+                            .PopColor()
+                            .Text(_active_layer == n ? ICON_FA_BRUSH : "")
                             .End())
                     {
-                        _edit._active_layer = n;
+                        _active_layer = n;
                         if (ImGui::Line().HoverId() == 1)
                         {
                             ly->hide(!ly->is_hidden());
@@ -469,15 +394,15 @@ namespace fin
 
                 if (ImGui::Line().HoverId() == 2)
                 {
-                    _edit._active_layer = move_layer(_edit._active_layer, false);
+                    _active_layer = move_layer(_active_layer, false);
                 }
                 if (ImGui::Line().HoverId() == 3)
                 {
-                    _edit._active_layer = move_layer(_edit._active_layer, true);
+                    _active_layer = move_layer(_active_layer, true);
                 }
                 if (ImGui::Line().HoverId() == 4 && active_layer())
                 {
-                    delete_layer(_edit._active_layer);
+                    delete_layer(_active_layer);
                 }
             }
 
@@ -497,21 +422,22 @@ namespace fin
                 int n = 0;
                 for (auto* ly : _layers)
                 {
-                    if (ImGui::LineSelect(ImGui::GetID(ly), _edit._active_layer == n)
+                    if (ImGui::LineSelect(ImGui::GetID(ly), _active_layer == n)
+                            .PushColor(ly->color())
                             .Text(ly->icon())
                             .Space()
                             .Text(ly->name())
                             .End())
                     {
-                        _edit._active_layer = n;
+                        _active_layer = n;
                     }
                     ++n;
                 }
             }
             ImGui::EndChildFrame();
-            if (size_t(_edit._active_layer) < _layers.size())
+            if (size_t(_active_layer) < _layers.size())
             {
-                ImGui::InputText("Name", &_layers[_edit._active_layer]->name());
+                _layers[_active_layer]->imgui_setup();
             }
         }
 
@@ -525,6 +451,26 @@ namespace fin
                 _background.b = clr[2] * 255;
                 _background.a = clr[3] * 255;
             }
+        }
+    }
+
+    void Scene::update_camera_position(float dt)
+    {
+        if (_goto_time > 0)
+        {
+            _camera.position += (_goto - _camera.position) * _goto_time;
+
+            if (std::abs(_camera.position.x - _goto.x) < 0.1 && std::abs(_camera.position.y - _goto.y) < 0.1)
+            {
+                _goto_time = 0;
+                _camera.position = _goto;
+            }
+        }
+
+        Recti screen(_camera.position.x, _camera.position.y, _camera.size.y, _camera.size.y);
+        for (auto* ly : _layers)
+        {
+            ly->activate(screen);
         }
     }
 
@@ -576,27 +522,32 @@ namespace fin
         {
             Params params;
             ImVec2 visible_size = ImGui::GetContentRegionAvail();
-            params.pos = ImGui::GetWindowPos();
+            params.pos          = ImGui::GetWindowPos();
 
 
-            auto cur = ImGui::GetCursorPos();
-            params.dc = ImGui::GetWindowDrawList();
-            auto mpos = ImGui::GetMousePos();
+            auto cur     = ImGui::GetCursorPos();
+            params.dc    = ImGui::GetWindowDrawList();
+            auto mpos    = ImGui::GetMousePos();
             params.mouse = {mpos.x - params.pos.x - cur.x + ImGui::GetScrollX(),
                             mpos.y - params.pos.y - cur.y + ImGui::GetScrollY()};
 
-            params.dc->AddImage((ImTextureID)&_canvas.get_texture()->texture, { cur.x + params.pos.x, cur.y + params.pos.y },
-                { cur.x + params.pos.x + _canvas.get_width(), cur.y + params.pos.y + _canvas.get_height() }, {0, 1}, {1, 0});
+            params.dc->AddImage((ImTextureID)&_canvas.get_texture()->texture,
+                                {cur.x + params.pos.x, cur.y + params.pos.y},
+                                {cur.x + params.pos.x + _canvas.get_width(), cur.y + params.pos.y + _canvas.get_height()},
+                                {0, 1},
+                                {1, 0});
 
-            params.scroll = { ImGui::GetScrollX(), ImGui::GetScrollY() };
+            params.scroll = {ImGui::GetScrollX(), ImGui::GetScrollY()};
             params.pos.x -= ImGui::GetScrollX();
             params.pos.y -= ImGui::GetScrollY();
 
             ImGui::InvisibleButton("Canvas", ImVec2(size.x, size.y));
 
-            activate_grid(
-                Recti(ImGui::GetScrollX(), ImGui::GetScrollY(), visible_size.x, visible_size.y));
-
+            activate_grid(Recti(0, 0, visible_size.x, visible_size.y));
+            if (get_camera().position.x != ImGui::GetScrollX() || get_camera().position.y != ImGui::GetScrollY())
+            {
+                set_camera_position({ImGui::GetScrollX(), ImGui::GetScrollY()}, 0.1f);
+            }
             _drag.update(params.mouse.x, params.mouse.y);
 
             if (_mode == Mode::Objects)
@@ -633,8 +584,18 @@ namespace fin
 
     SceneLayer* Scene::active_layer()
     {
-        if (size_t(_edit._active_layer) < _layers.size())
-            return _layers[_edit._active_layer];
+        if (size_t(_active_layer) < _layers.size())
+            return _layers[_active_layer];
+        return nullptr;
+    }
+
+    SceneLayer* Scene::find_layer(std::string_view name) const
+    {
+        for (auto* ly : _layers)
+        {
+            if (ly->name() == name)
+                return ly;
+        }
         return nullptr;
     }
 

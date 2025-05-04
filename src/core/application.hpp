@@ -32,11 +32,10 @@ namespace fin
         std::string_view cmd_attribute_get(std::string_view cmd) const;
 
     private:
-        void on_imgui_init(bool dark_theme);
-        void on_imgui();
-        void on_imgui_menu();
-        void on_imgui_workspace();
-        void on_imgui_properties();
+        void imgui_init(bool dark_theme);
+        void imgui();
+        void imgui_menu();
+        void imgui_workspace();
 
         std::span<char*>  _argv;
         Renderer          _renderer;

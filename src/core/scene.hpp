@@ -52,38 +52,26 @@ namespace fin
             Prefab,
         };
 
-        struct EditData
-        {
-            std::string       _buffer;
-            SceneRegion*      _selected_region{};
-            int32_t           _active_point{-1};
-            int32_t           _active_layer{0};
-            bool              _add_point{};
-            bool              _move_point{};
-        };
-
         Scene();
         ~Scene();
 
         const std::string& get_path() const;
-
-        void activate_grid(const Recti& screen);
-        void activate_grid(const Vec2f& origin);
 
         void        set_size(Vec2f size);
         int32_t     add_layer(SceneLayer* layer);
         void        delete_layer(int32_t n);
         int32_t     move_layer(int32_t layer, bool up);
         SceneLayer* active_layer();
+        SceneLayer* find_layer(std::string_view name) const;
 
-        Vec2i get_active_grid_size() const;
-        Vec2f get_active_grid_center() const;
-        Vec2i get_scene_size() const;
+        void          activate_grid(const Recti& screen);
+        Vec2i         get_active_size() const;
+        Vec2i         get_scene_size() const;
+        void          set_camera_position(Vec2f pos, float time = 0.f);  
+        const Camera& get_camera() const;
 
         void        name_object(ObjectBase* obj, std::string_view name);
         ObjectBase* find_object_by_name(std::string_view name);
-
-        SceneRegion* region_find_at(Vec2f position);
 
         void             render(Renderer& dc);
         void             update(float dt);
@@ -96,22 +84,24 @@ namespace fin
         void load(std::string_view path);
         void save(std::string_view path);
 
-        void imgui_explorer();
         void imgui_props();
-        void imgui_props_object();
-        void imgui_props_setup();
         void imgui_menu();
         void imgui_workspace();
 
     private:
-        std::vector<SceneRegion*>                                                       _regions;
+        void imgui_props_object();
+        void imgui_props_setup();
+        void update_camera_position(float dt);
+
         std::vector<SceneLayer*>                                                        _layers;
         std::unordered_map<std::string, ObjectBase*, std::string_hash, std::equal_to<>> _named_object;
         DragData                                                                        _drag{};
-        EditData                                                                        _edit{};
+        int32_t                                                                         _active_layer{0};
         bool                                                                            _edit_region{};
         Mode                                                                            _mode{Mode::Setup};
-        Recti                                                                           _active_region;
+        Vec2f                                                                           _goto;
+        float                                                                           _goto_time{};
+        Camera                                                                          _camera;
         RenderTexture2D                                                                 _canvas;
         std::string                                                                     _path;
         Vec2f                                                                           _size;
