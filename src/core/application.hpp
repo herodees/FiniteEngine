@@ -7,6 +7,17 @@
 
 namespace fin
 {
+    struct Settings
+    {
+        std::string buffer;
+        bool        visible_grid{};
+        bool        visible_isometric{};
+        bool        visible_collision{};
+        bool        list_visible_items{};
+    };
+
+    extern Settings g_settings;
+
     class application : public std::enable_shared_from_this<application>
     {
     public:

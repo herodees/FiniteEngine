@@ -5,8 +5,6 @@
 
 namespace fin
 {
-    constexpr int32_t tile_size(512);
-
     Scene::Scene()
     {
     }
@@ -84,83 +82,6 @@ namespace fin
     Vec2i Scene::get_scene_size() const
     {
         return _size;
-    }
-
-    void Scene::region_serialize(SceneRegion* obj, msg::Writer& ar)
-    {
-        ar.begin_object();
-        obj->serialize(ar);
-        if (obj->is_named())
-        {
-            ar.member(Sc::Name, obj->_name);
-        }
-        ar.end_object();
-    }
-
-    SceneRegion* Scene::region_deserialize(msg::Value& ar)
-    {
-        if (SceneRegion* obj = new SceneRegion)
-        {
-            obj->deserialize(ar);
-            auto id = ar[Sc::Name].str();
-            if (!id.empty())
-            {
-                name_object(obj, id);
-            }
-            return obj;
-        }
-        return nullptr;
-    }
-
-    void Scene::region_insert(SceneRegion* obj)
-    {
-        if (!obj)
-            return;
-        obj->_id    = _regions.size();
-        _regions.push_back(obj);
-    }
-
-    void Scene::region_remove(SceneRegion* obj)
-    {
-        if (obj->is_named())
-        {
-            name_object(obj, {});
-        }
-        const auto id   = obj->_id;
-        _regions[id]    = _regions.back();
-        _regions[id]->_id = id;
-        _regions.pop_back();
-    }
-
-    void Scene::region_select(SceneRegion* obj)
-    {
-        if (_edit._selected_region != obj)
-        {
-            _edit._selected_region = obj;
-        }
-    }
-
-    void Scene::region_destroy(SceneRegion* obj)
-    {
-        if (obj)
-        {
-            region_remove(obj);
-        }
-        delete obj;
-    }
-
-    void Scene::region_moveto(SceneRegion* obj, Vec2f pos)
-    {
-        if (obj->_region.size() == 0)
-            return;
-
-        const Vec2f off = pos - obj->get_point(0);
-        for (uint32_t n = 0; n < obj->_region.size(); n += 2)
-        {
-            obj->_region.set_item(n, obj->_region.get_item(n).get(0.f) + off.x);
-            obj->_region.set_item(n + 1, obj->_region.get_item(n + 1).get(0.f) + off.y);
-        }
-        obj->change();
     }
 
     void Scene::name_object(ObjectBase* obj, std::string_view name)
@@ -678,82 +599,16 @@ namespace fin
 
             _drag.update(params.mouse.x, params.mouse.y);
 
-            switch (_mode)
+            if (_mode == Mode::Objects)
             {
-                case Mode::Setup:
-                    imgui_workspace_setup(params);
-                    break;
-                case Mode::Objects:
-                    imgui_workspace_object(params);
-                    break;
+                if (auto* lyr = active_layer())
+                {
+                    lyr->imgui_workspace(params, _drag);
+                }
             }
         }
     }
 
-    void Scene::imgui_workspace_object(Params& params)
-    {
-        if (auto* lyr = active_layer())
-        {
-            lyr->imgui_workspace(params, _drag);
-        }
-    }
-
-    void Scene::imgui_workspace_region(Params& params)
-    {
-        // Edit region points
-        if (_edit_region)
-        {
-            if (_edit._selected_region)
-            {
-                if (ImGui::IsItemClicked(0))
-                {
-                    _edit._active_point = _edit._selected_region->find_point(params.mouse, 5);
-                }
-                if (ImGui::IsItemClicked(1))
-                {
-                    region_select(nullptr);
-                }
-            }
-            else if (ImGui::IsItemClicked(0))
-            {
-                _edit._selected_region = region_find_at(params.mouse);
-            }
-
-            if (_drag._active && _edit._active_point != -1 && _edit._selected_region)
-            {
-                auto pt = _edit._selected_region->get_point(_edit._active_point) + _drag._delta;
-                _edit._selected_region->set_point(pt, _edit._active_point);
-            }
-        }
-        // Create region
-        else
-        {
-            if (ImGui::IsItemClicked(0))
-            {
-                if (_edit._selected_region)
-                {
-                    _edit._selected_region->insert_point(params.mouse, _edit._active_point + 1);
-                    _edit._active_point = _edit._active_point + 1;
-                }
-                else
-                {
-                    region_select(new SceneRegion);
-                    region_insert(_edit._selected_region);
-                    _edit._active_point = 0;
-                    _edit._selected_region->insert_point(params.mouse);
-                }
-            }
-            if (ImGui::IsItemClicked(1))
-            {
-                _edit._active_point = -1;
-                region_select(nullptr);
-            }
-        }
-    }
-
-    void Scene::imgui_workspace_setup(Params& params)
-    {
-    }
 
     int32_t Scene::move_layer(int32_t layer, bool up)
     {

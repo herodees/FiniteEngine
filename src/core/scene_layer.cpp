@@ -1,6 +1,7 @@
 #include "scene_layer.hpp"
 #include "renderer.hpp"
 #include "scene.hpp"
+#include "application.hpp"
 #include "scene_object.hpp"
 #include "utils/lquadtree.hpp"
 #include "utils/lquery.hpp"
@@ -10,28 +11,11 @@
 namespace fin
 {
     constexpr int32_t tile_size(512);
-    std::string       _buffer;
-    bool              _debug_iso_object{};
-    bool              _debug_navmesh_object{};
-    bool              _debug_grid{};
-
-
 
     void BeginDefaultMenu(const char* id)
     {
         ImGui::LineItem(ImGui::GetID(id), {-1, ImGui::GetFrameHeightWithSpacing()})
-            .Space()
-            .PushStyle(ImStyle_Button, 1, _debug_iso_object)
-            .Text(ICON_FA_MAP_LOCATION_DOT " ISO")
-            .PopStyle()
-            .Space()
-            .PushStyle(ImStyle_Button, 2, _debug_navmesh_object)
-            .Text(ICON_FA_MAP " Navmesh")
-            .PopStyle()
-            .Space()
-            .PushStyle(ImStyle_Button, 3, _debug_grid)
-            .Text(ICON_FA_BORDER_NONE " Grid")
-            .PopStyle()
+
             .Space();
     }
 
@@ -39,18 +23,6 @@ namespace fin
     {
         if (ImGui::Line().End())
         {
-            if (ImGui::Line().HoverId() == 1)
-            {
-                _debug_iso_object = !_debug_iso_object;
-            }
-            if (ImGui::Line().HoverId() == 2)
-            {
-                _debug_navmesh_object = !_debug_navmesh_object;
-            }
-            if (ImGui::Line().HoverId() == 3)
-            {
-                _debug_grid = !_debug_grid;
-            }
             return true;
         }
         return false;
@@ -268,14 +240,14 @@ namespace fin
                     obj->_ptr->edit_render(dc);
                 }
 
-                if (_debug_iso_object)
+                if (g_settings.visible_isometric)
                 {
                     dc.set_color({255, 255, 255, 255});
                     auto line = obj->_ptr->iso();
                     dc.render_line(line.point1, line.point2);
                 }
 
-                if (_debug_navmesh_object)
+                if (g_settings.visible_collision)
                 {
                     dc.set_color({255, 255, 0, 255});
                     auto& coll = obj->_ptr->collision();
@@ -293,7 +265,7 @@ namespace fin
                 }
             }
 
-            if (_debug_grid)
+            if (g_settings.visible_grid)
             {
                 SceneLayer::render_grid(dc);
             }
@@ -423,10 +395,10 @@ namespace fin
         {
             if (_select)
             {
-                _buffer = _select->is_named() ? _select->_name : "";
-                if (ImGui::InputText("Name", &_buffer))
+                g_settings.buffer = _select->is_named() ? _select->_name : "";
+                if (ImGui::InputText("Name", &g_settings.buffer))
                 {
-                    parent()->name_object(_select, _buffer);
+                    parent()->name_object(_select, g_settings.buffer);
                 }
 
                 _select->imgui_update();
@@ -438,34 +410,69 @@ namespace fin
             if (!items)
                 return edit_active();
 
-            if (ImGui::Button(" " ICON_FA_BAN " "))
+            ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
+                .Space()
+                .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
+                .Text(" " ICON_FA_EYE " ")
+                .PopStyle()
+                .Spring()
+                .PushStyle(ImStyle_Button, 1, false)
+                .Text(" " ICON_FA_BAN " ")
+                .PopStyle()
+                .End();
+
+
+            if (ImGui::Line().Return())
             {
-                if (_select)
+                if (_select && ImGui::Line().HoverId() == 1)
                 {
                     destroy(_select);
                     _select = nullptr;
+                }
+                if (ImGui::Line().HoverId() == 10)
+                {
+                    g_settings.list_visible_items = !g_settings.list_visible_items;
                 }
             }
 
             if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
             {
-                ImGuiListClipper clipper;
-                clipper.Begin(_scene.size());
-                while (clipper.Step())
+                if (g_settings.list_visible_items)
                 {
-                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                    for (auto& el : _iso)
                     {
-                        ImGui::PushID(n);
-                        auto*       el   = _scene[n];
-                        const char* name = el->_name;
+                        ImGui::PushID(el->_ptr);
+                        const char* name = el->_ptr->_name;
                         if (!name)
-                            name = ImGui::FormatStr("Object %p", el);
+                            name = ImGui::FormatStr("Object %p", el->_ptr);
 
-                        if (ImGui::Selectable(name, el == _select))
+                        if (ImGui::Selectable(name, el->_ptr == _select))
                         {
-                            select(el);
+                            select(el->_ptr);
                         }
                         ImGui::PopID();
+                    }
+                }
+                else
+                {
+                    ImGuiListClipper clipper;
+                    clipper.Begin(_scene.size());
+                    while (clipper.Step())
+                    {
+                        for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                        {
+                            ImGui::PushID(n);
+                            auto*       el   = _scene[n];
+                            const char* name = el->_name;
+                            if (!name)
+                                name = ImGui::FormatStr("Object %p", el);
+
+                            if (ImGui::Selectable(name, el == _select))
+                            {
+                                select(el);
+                            }
+                            ImGui::PopID();
+                        }
                     }
                 }
             }
@@ -605,7 +612,10 @@ namespace fin
         {
             SceneLayer::activate(region);
             _spatial.activate(Rectf(region.x, region.y, region.width, region.height));
-            _spatial.sort_active([&](int a, int b) { return _spatial[a]._bbox.y < _spatial[b]._bbox.y; });
+            if (_sort_y)
+                _spatial.sort_active([&](int a, int b) { return _spatial[a]._bbox.y < _spatial[b]._bbox.y; });
+            else
+                _spatial.sort_active([&](int a, int b) { return _spatial[a]._index < _spatial[b]._index; });
         }
 
         void moveto(int obj, Vec2f pos)
@@ -650,7 +660,7 @@ namespace fin
                 dc.render_line_rect(nde._bbox);
             }
 
-            if (_debug_grid)
+            if (g_settings.visible_grid)
             {
                 SceneLayer::render_grid(dc);
             }
@@ -660,9 +670,12 @@ namespace fin
         {
             SceneLayer::serialize(ar);
 
+            ar.member("max_index", _max_index);
+            ar.member("sort_y", _sort_y);
             auto save = [&ar](Node& node)
             {
                 ar.begin_object();
+                ar.member("i", node._index);
                 ar.member("a", node._sprite.atlas->get_path());
                 ar.member("s", node._sprite.sprite->_name);
                 ar.member("x", node._bbox.x);
@@ -680,7 +693,8 @@ namespace fin
         {
             SceneLayer::deserialize(ar);
             _spatial.clear();
-
+            _max_index = ar["max_index"].get(0u);
+            _sort_y = ar["sort_y"].get(false);
             auto els = ar["items"];
             for (auto& el : els.elements())
             {
@@ -688,6 +702,7 @@ namespace fin
                 nde._sprite = Atlas::load_shared(el["a"].str(), el["s"].str());
                 if (nde._sprite.sprite)
                 {
+                    nde._index       = el["i"].get(0u);
                     nde._bbox.x      = el["x"].get(0.f);
                     nde._bbox.y      = el["y"].get(0.f);
                     nde._bbox.width  = nde._sprite.sprite->_source.width;
@@ -754,11 +769,12 @@ namespace fin
                 {
                     if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
                     {
-                        _edit._sprite          = *object;
-                        _edit._bbox.width = _edit._sprite.sprite->_source.width;
-                        _edit._bbox.height = _edit._sprite.sprite->_source.height; 
-                        _edit._bbox.x    = params.mouse.x;
-                        _edit._bbox.y    = params.mouse.y;
+                        _edit._sprite      = *object;
+                        _edit._bbox.width  = _edit._sprite.sprite->_source.width;
+                        _edit._bbox.height = _edit._sprite.sprite->_source.height;
+                        _edit._bbox.x      = params.mouse.x;
+                        _edit._bbox.y      = params.mouse.y;
+                        _edit._index       = _max_index;
                     }
                 }
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE",
@@ -771,6 +787,8 @@ namespace fin
                         _edit._bbox.height = _edit._sprite.sprite->_source.height;
                         _edit._bbox.x      = params.mouse.x;
                         _edit._bbox.y      = params.mouse.y;
+                        _edit._index       = _max_index;
+                        ++_max_index;
                         _spatial.insert(_edit);
                     }
                 }
@@ -784,23 +802,43 @@ namespace fin
             if (!items)
                 return edit_active();
 
-            if (ImGui::Button(" " ICON_FA_BAN " "))
+            ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
+                .Space()
+                .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
+                .Text(" " ICON_FA_EYE " ")
+                .PopStyle()
+                .Space()
+                .PushStyle(ImStyle_Button, 20, _sort_y)
+                .Text(" " ICON_FA_LIST_OL " ")
+                .PopStyle()
+                .Spring()
+                .PushStyle(ImStyle_Button, 1, false)
+                .Text(" " ICON_FA_BAN " ")
+                .PopStyle()
+                .End();
+
+            if (ImGui::Line().Return())
             {
-                if (_select)
+                if (_select == -1 && ImGui::Line().HoverId() == 1)
                 {
                     destroy(_select);
                     _select = -1;
+                }
+                if (ImGui::Line().HoverId() == 10)
+                {
+                    g_settings.list_visible_items = !g_settings.list_visible_items;
+                }
+                if (ImGui::Line().HoverId() == 20)
+                {
+                    _sort_y = !_sort_y;
                 }
             }
 
             if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
             {
-                ImGuiListClipper clipper;
-
-                clipper.Begin(_spatial.size());
-                while (clipper.Step())
+                if (g_settings.list_visible_items)
                 {
-                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                    for (auto n : _spatial.get_active())
                     {
                         ImGui::PushID(n);
                         auto& el = _spatial[n];
@@ -814,6 +852,27 @@ namespace fin
                         ImGui::PopID();
                     }
                 }
+                else
+                {
+                    ImGuiListClipper clipper;
+                    clipper.Begin(_spatial.size());
+                    while (clipper.Step())
+                    {
+                        for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                        {
+                            ImGui::PushID(n);
+                            auto& el = _spatial[n];
+                            if (el._sprite.sprite)
+                            {
+                                if (ImGui::Selectable(el._sprite.sprite->_name.c_str(), n == _select))
+                                {
+                                    _select = n;
+                                }
+                            }
+                            ImGui::PopID();
+                        }
+                    }
+                }
             }
             ImGui::EndChildFrame();
         }
@@ -822,6 +881,8 @@ namespace fin
         LooseQuadTree<Node, decltype([](const Node& n) -> const Rectf& { return n._bbox; })> _spatial;
         Node                                                                                 _edit;
         int32_t                                                                              _select = -1;
+        uint32_t                                                                             _max_index = 0;
+        bool                                                                                 _sort_y = false;
     };
 
 
@@ -1037,7 +1098,7 @@ namespace fin
                 }
             }
 
-            if (_debug_grid)
+            if (g_settings.visible_grid)
             {
                 SceneLayer::render_grid(dc);
             }
@@ -1135,6 +1196,88 @@ namespace fin
                     _selected     = -1;
                 }
             }
+        }
+
+        void edit_active()
+        {
+            if (auto* reg = selected_region())
+            {
+            }
+        }
+
+        void imgui_update(bool items) override
+        {
+            if (!items)
+                return edit_active();
+
+            ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
+                .Space()
+                .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
+                .Text(" " ICON_FA_EYE " ")
+                .PopStyle()
+                .Spring()
+                .PushStyle(ImStyle_Button, 1, false)
+                .Text(" " ICON_FA_BAN " ")
+                .PopStyle()
+                .End();
+
+            if (ImGui::Line().Return())
+            {
+                if (ImGui::Line().HoverId() == 1)
+                {
+                    if (auto* reg = selected_region())
+                    {
+                        _spatial.remove(*reg);
+                    }
+                }
+                if (ImGui::Line().HoverId() == 10)
+                {
+                    g_settings.list_visible_items = !g_settings.list_visible_items;
+                }
+            }
+
+            if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
+            {
+                if (g_settings.list_visible_items)
+                {
+                    for (auto n : _spatial.get_active())
+                    {
+                        ImGui::PushID(n);
+                        auto& el = _spatial[n];
+                        if (el._points.size())
+                        {
+                            if (ImGui::Selectable(ImGui::FormatStr("Region [%d]", el._points.size() / 2), n == _selected))
+                            {
+                                _selected = n;
+                            }
+                        }
+                        ImGui::PopID();
+                    }
+                }
+                else
+                {
+                    ImGuiListClipper clipper;
+                    clipper.Begin(_spatial.size());
+                    while (clipper.Step())
+                    {
+                        for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                        {
+                            ImGui::PushID(n);
+                            auto& el = _spatial[n];
+                            if (el._points.size())
+                            {
+                                if (ImGui::Selectable(ImGui::FormatStr("Region [%d]", el._points.size() / 2), n == _selected))
+                                {
+                                    _selected = n;
+                                }
+                            }
+                            ImGui::PopID();
+                        }
+                    }
+                }
+            }
+
+            ImGui::EndChildFrame();
         }
     private:
         Node* selected_region()

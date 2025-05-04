@@ -80,14 +80,6 @@ namespace fin
         Vec2f get_active_grid_center() const;
         Vec2i get_scene_size() const;
 
-        void         region_serialize(SceneRegion* obj, msg::Writer& ar);
-        SceneRegion* region_deserialize(msg::Value& ar);
-        void         region_insert(SceneRegion* obj);
-        void         region_remove(SceneRegion* obj);
-        void         region_select(SceneRegion* obj);
-        void         region_destroy(SceneRegion* obj);
-        void         region_moveto(SceneRegion* obj, Vec2f pos);
-
         void        name_object(ObjectBase* obj, std::string_view name);
         ObjectBase* find_object_by_name(std::string_view name);
 
@@ -110,9 +102,6 @@ namespace fin
         void imgui_props_setup();
         void imgui_menu();
         void imgui_workspace();
-        void imgui_workspace_object(Params& params);
-        void imgui_workspace_region(Params& params);
-        void imgui_workspace_setup(Params& params);
 
     private:
         std::vector<SceneRegion*>                                                       _regions;

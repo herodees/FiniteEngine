@@ -10,6 +10,8 @@
 
 namespace fin
 {
+    Settings g_settings;
+
     application::application()
     {
     }
@@ -272,7 +274,7 @@ namespace fin
             on_imgui_properties();
             on_imgui_workspace();
 
-            // ImGui::ShowDemoWindow();
+           //  ImGui::ShowDemoWindow();
         }
 
         ImGui::End();
@@ -402,6 +404,23 @@ namespace fin
                         _map.save(out);
                     }
                 }
+                ImGui::EndMenu();
+            }
+            if (ImGui::BeginMenu("View"))
+            {
+                if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Visible grid", NULL, g_settings.visible_grid))
+                {
+                    g_settings.visible_grid = !g_settings.visible_grid;
+                }
+                if (ImGui::MenuItem(ICON_FA_MAP " Visible isometric guide", NULL, g_settings.visible_isometric))
+                {
+                    g_settings.visible_isometric = !g_settings.visible_isometric;
+                }
+                if (ImGui::MenuItem(ICON_FA_BORDER_NONE " Visible collision", NULL, g_settings.visible_collision))
+                {
+                    g_settings.visible_collision = !g_settings.visible_collision;
+                }
+
                 ImGui::EndMenu();
             }
 
