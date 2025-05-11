@@ -3,6 +3,7 @@
 #include "scene.hpp"
 #include "editor/imgui_control.hpp"
 #include "utils/imguiline.hpp"
+#include "application.hpp"
 
 namespace fin
 {
@@ -71,13 +72,14 @@ namespace fin
         dc.render_texture(_img.sprite->_texture, _img.sprite->_source, dest);
     }
 
-    void SpriteSceneObject::edit_render(Renderer& dc)
+    void SpriteSceneObject::edit_render(Renderer& dc, bool selected)
     {
+        IsoSceneObject::edit_render(dc, selected);
+
         if (!_img.sprite)
             return;
 
-        dc.set_color(RED);
-        dc.render_line_rect(bounding_box().rect());
+       
     }
 
     bool SpriteSceneObject::imgui_update()
@@ -227,6 +229,7 @@ namespace fin
         params.pos.y -= ImGui::GetScrollY();
 
         ImGui::InvisibleButton("Canvas", ImVec2(2000, 2000));
+        auto itemid = ImGui::GetItemID();
         params.pos.x += 1000;
         params.pos.y += 1000;
 
@@ -324,7 +327,7 @@ namespace fin
         params.dc->AddLine(params.pos - ImVec2(0, 1000), params.pos + ImVec2(0, 1000), 0x7f00ff00);
         params.dc->AddLine(params.pos - ImVec2(1000, 0), params.pos + ImVec2(1000, 0), 0x7f0000ff);
 
-
+        ImGui::ScrollWhenDragging({-1, -1}, ImGuiMouseButton_Right, itemid);
     }
 
     void SceneFactory::imgui_workspace_menu()
@@ -992,14 +995,13 @@ namespace fin
         _position.y = ar["y"].get(_position.y);
     }
 
-    bool BasicSceneObject::isometric_sort() const
+    bool BasicSceneObject::sprite_object() const
     {
         return false;
     }
 
-    bool BasicSceneObject::sprite_object() const
+    SoundObject::SoundObject()
     {
-        return false;
     }
 
     SoundObject::~SoundObject()
@@ -1014,17 +1016,18 @@ namespace fin
 
     void SoundObject::render(Renderer& dc)
     {
-        if (dc.is_debug())
-        {
-            dc.set_color(WHITE);
-            dc.render_line_circle(_position, _radius);
-        }
     }
 
-    void SoundObject::edit_render(Renderer& dc)
+    void SoundObject::edit_render(Renderer& dc, bool selected)
     {
-        dc.set_color(RED);
-        dc.render_line_rect(bounding_box().rect());
+        dc.set_color(WHITE);
+        dc.render_line_circle(_position, _radius);
+        
+        if (selected)
+        {
+            dc.set_color(RED);
+            dc.render_line_rect(bounding_box().rect());
+        }
     }
 
     bool SoundObject::imgui_update()
@@ -1142,14 +1145,42 @@ namespace fin
         _iso.point2.y = iso.get_item(3).get(0.f);
     }
 
+    void IsoSceneObject::edit_render(Renderer& dc, bool selected)
+    {
+        if (selected)
+        {
+            dc.set_color(RED);
+            dc.render_line_rect(bounding_box().rect());
+        }
+
+        if (g_settings.visible_isometric)
+        {
+            dc.set_color({255, 255, 255, 255});
+            auto line = iso();
+            dc.render_line(line.point1, line.point2);
+        }
+
+        if (g_settings.visible_collision)
+        {
+            dc.set_color({255, 255, 0, 255});
+            auto& coll = collision();
+            auto  sze  = coll.size();
+            if (coll.is_array() && sze >= 4)
+            {
+                auto p = position();
+                for (uint32_t n = 0; n < sze; n += 2)
+                {
+                    Vec2f from(coll.get_item(n % sze).get(0.f), coll.get_item((n + 1) % sze).get(0.f));
+                    Vec2f to(coll.get_item((n + 2) % sze).get(0.f), coll.get_item((n + 3) % sze).get(0.f));
+                    dc.render_line(from + p, to + p);
+                }
+            }
+        }
+    }
+
     Line<float> IsoSceneObject::iso() const
     {
         return Line<float>(_iso.point1 + _position, _iso.point2 + _position);
-    }
-
-    bool IsoSceneObject::isometric_sort() const
-    {
-        return true;
     }
 
     msg::Var& IsoSceneObject::collision()

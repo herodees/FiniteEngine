@@ -5,6 +5,7 @@
 #include "renderer.hpp"
 #include "scene_layer.hpp"
 #include "scene_object.hpp"
+#include "scene_npc.hpp"
 #include "shared_resource.hpp"
 
 namespace fin

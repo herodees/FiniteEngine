@@ -14,15 +14,33 @@ namespace fin
 
     void BeginDefaultMenu(const char* id)
     {
-        ImGui::LineItem(ImGui::GetID(id), {-1, ImGui::GetFrameHeightWithSpacing()})
-
-            .Space();
+        ImGui::LineItem(ImGui::GetID(id), {-1, ImGui::GetFrameHeightWithSpacing()}).Space();
     }
 
     bool EndDefaultMenu()
     {
+        ImGui::Line()
+            .Spring()
+            .PushStyle(ImStyle_Button, -100, g_settings.visible_grid)
+            .Text(ICON_FA_BORDER_ALL )
+            .PopStyle()
+            .Space()
+            .PushStyle(ImStyle_Button, -101, g_settings.visible_isometric)
+            .Text(ICON_FA_MAP_LOCATION_DOT )
+            .PopStyle()
+            .Space()
+            .PushStyle(ImStyle_Button, -102, g_settings.visible_collision)
+            .Text(ICON_FA_VECTOR_SQUARE)
+            .PopStyle();
+
         if (ImGui::Line().End())
         {
+            if (ImGui::Line().HoverId() == -100)
+                g_settings.visible_grid = !g_settings.visible_grid;
+            if (ImGui::Line().HoverId() == -101)
+                g_settings.visible_isometric = !g_settings.visible_isometric;
+            if (ImGui::Line().HoverId() == -102)
+                g_settings.visible_collision = !g_settings.visible_collision;
             return true;
         }
         return false;
@@ -73,18 +91,23 @@ namespace fin
             clear();
         }
 
-        Vec2i get_active_grid_min() const
+        void update_navmesh()
         {
-            const int startX = std::max(0, region().x / tile_size);
-            const int startY = std::max(0, region().y / tile_size);
-            return Vec2i(startX, startY);
-        }
+            std::vector<NavMesh::Polygon> polygons;
 
-        Vec2i get_active_grid_max() const
-        {
-            const int endX = std::min(_grid_size.x, (region().x2()) / tile_size + 1);
-            const int endY = std::min(_grid_size.y, (region().y2()) / tile_size + 1);
-            return Vec2i(endX, endY);
+            for (auto el : _iso)
+            {
+                auto& col = el->_ptr->collision();
+                if (col.size())
+                {
+                    auto& poly = polygons.emplace_back();
+                    for (uint32_t n = 0; n < col.size(); n += 2)
+                    {
+                        poly.AddPoint(col.get_item(n).get(0.f), col.get_item(n + 1).get(0.f));
+                    }
+                }
+            }
+            _pathfinder.AddPolygons(polygons, _inflate);
         }
 
         void clear() override
@@ -235,35 +258,7 @@ namespace fin
         {
             for (auto* obj : _iso)
             {
-                if (_select == obj->_ptr)
-                {
-                    dc.set_color({255, 255, 255, 255});
-                    obj->_ptr->edit_render(dc);
-                }
-
-                if (g_settings.visible_isometric)
-                {
-                    dc.set_color({255, 255, 255, 255});
-                    auto line = obj->_ptr->iso();
-                    dc.render_line(line.point1, line.point2);
-                }
-
-                if (g_settings.visible_collision)
-                {
-                    dc.set_color({255, 255, 0, 255});
-                    auto& coll = obj->_ptr->collision();
-                    auto  sze  = coll.size();
-                    if (coll.is_array() && sze >= 4)
-                    {
-                        auto p = obj->_ptr->position();
-                        for (uint32_t n = 0; n < sze; n += 2)
-                        {
-                            Vec2f from(coll.get_item(n % sze).get(0.f), coll.get_item((n + 1) % sze).get(0.f));
-                            Vec2f to(coll.get_item((n + 2) % sze).get(0.f), coll.get_item((n + 3) % sze).get(0.f));
-                            dc.render_line(from + p, to + p);
-                        }
-                    }
-                }
+                obj->_ptr->edit_render(dc, _select == obj->_ptr);
             }
 
             if (g_settings.visible_grid)
@@ -302,6 +297,7 @@ namespace fin
         void serialize(msg::Writer& ar) override
         {
             SceneLayer::serialize(ar);
+            ar.member("inflate", _inflate);
             ar.key("items");
             ar.begin_array();
             for (auto* el : _scene)
@@ -314,6 +310,7 @@ namespace fin
         void deserialize(msg::Value& ar) override
         {
             SceneLayer::deserialize(ar);
+            _inflate = ar["inflate"].get(0);
             auto els = ar["items"];
             for (auto el : els.elements())
             {
@@ -326,6 +323,7 @@ namespace fin
                     TraceLog(LOG_ERROR, "Isometric Scene Layer: Object load failed!");
                 }
             }
+            update_navmesh();
         }
 
         void imgui_workspace_menu() override
@@ -411,10 +409,12 @@ namespace fin
             if (!items)
                 return edit_active();
 
+            ImGui::InputInt("Inflate", &_inflate);
+
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
                 .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
-                .Text(" " ICON_FA_EYE " ")
+                .Text(g_settings.list_visible_items ? " " ICON_FA_EYE " " : " " ICON_FA_EYE_SLASH " ")
                 .PopStyle()
                 .Spring()
                 .PushStyle(ImStyle_Button, 1, false)
@@ -569,6 +569,7 @@ namespace fin
         std::vector<IsoObject>       _iso_pool;
         std::vector<IsoObject*>      _iso;
         uint32_t                     _iso_pool_size{};
+        int32_t                      _inflate{};
         IsoSceneObject*              _edit{};
         IsoSceneObject*              _select{};
     };
@@ -813,7 +814,7 @@ namespace fin
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
                 .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
-                .Text(" " ICON_FA_EYE " ")
+                .Text(g_settings.list_visible_items ? " " ICON_FA_EYE " " : " " ICON_FA_EYE_SLASH " ")
                 .PopStyle()
                 .Spring()
                 .PushStyle(ImStyle_Button, 1, false)
@@ -1214,7 +1215,7 @@ namespace fin
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
                 .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
-                .Text(" " ICON_FA_EYE " ")
+                .Text(g_settings.list_visible_items ? " " ICON_FA_EYE " " : " " ICON_FA_EYE_SLASH " ")
                 .PopStyle()
                 .Spring()
                 .PushStyle(ImStyle_Button, 1, false)
@@ -1434,11 +1435,11 @@ namespace fin
 
     void SceneLayer::render_grid(Renderer& dc)
     {
-        const int startX = std::max(0, region().x / tile_size);
-        const int startY = std::max(0, region().y / tile_size);
+        const int startX = std::max(0, _region.x / tile_size);
+        const int startY = std::max(0, _region.y / tile_size);
 
-        const int endX = (region().x2()) / tile_size + 1;
-        const int endY = (region().y2()) / tile_size + 1;
+        const int endX = (_region.x2() / tile_size) + 2;
+        const int endY = (_region.y2() / tile_size) + 2;
 
         auto minpos = Vec2i{startX, startY};
         auto maxpos = Vec2i{endX, endY};

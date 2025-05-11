@@ -158,7 +158,7 @@ namespace fin
 
         _factory.set_root("./assets/");
         _factory.load_factory<SpriteSceneObject>(SpriteSceneObject::type_id, "Static");
-        _factory.load_factory<SpriteSceneObject>("npc", "NPC");
+        _factory.load_factory<NpcSceneObject>(NpcSceneObject::type_id, "NPC");
         _factory.load_factory<SoundObject>(SoundObject::type_id, "Sound");
 
         auto path = cmd_attribute_get("/scene");
@@ -408,15 +408,15 @@ namespace fin
             }
             if (ImGui::BeginMenu("View"))
             {
-                if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Visible grid", NULL, g_settings.visible_grid))
+                if (ImGui::MenuItem(ICON_FA_BORDER_ALL " Visible grid", NULL, g_settings.visible_grid))
                 {
                     g_settings.visible_grid = !g_settings.visible_grid;
                 }
-                if (ImGui::MenuItem(ICON_FA_MAP " Visible isometric guide", NULL, g_settings.visible_isometric))
+                if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Visible isometric guide", NULL, g_settings.visible_isometric))
                 {
                     g_settings.visible_isometric = !g_settings.visible_isometric;
                 }
-                if (ImGui::MenuItem(ICON_FA_BORDER_NONE " Visible collision", NULL, g_settings.visible_collision))
+                if (ImGui::MenuItem(ICON_FA_VECTOR_SQUARE " Visible collision", NULL, g_settings.visible_collision))
                 {
                     g_settings.visible_collision = !g_settings.visible_collision;
                 }

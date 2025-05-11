@@ -63,7 +63,7 @@ namespace fin
         virtual void update(float dt)     = 0;
         virtual void render(Renderer& dc) = 0;
 
-        virtual void edit_render(Renderer& dc) = 0;
+        virtual void edit_render(Renderer& dc, bool selected) = 0;
         virtual bool imgui_update();
 
         virtual void save(msg::Var& ar); // Save prefab
@@ -72,7 +72,6 @@ namespace fin
         virtual void serialize(msg::Writer& ar);  // Save to scene
         virtual void deserialize(msg::Value& ar); // Load to scene
 
-        virtual bool isometric_sort() const;
         virtual bool sprite_object() const;
 
         virtual Region<float> bounding_box() const = 0;
@@ -88,10 +87,10 @@ namespace fin
         friend class SceneFactory;
 
     public:
-        bool isometric_sort() const override;
-
         void save(msg::Var& ar) override; // Save prefab
         void load(msg::Var& ar) override; // Load prefab
+
+        void edit_render(Renderer& dc, bool selected) override;
 
         Line<float> iso() const;
         msg::Var&   collision();
@@ -116,7 +115,7 @@ namespace fin
         void update(float dt) override {};
         void render(Renderer& dc) override;
 
-        void edit_render(Renderer& dc) override;
+        void edit_render(Renderer& dc, bool selected) override;
         bool imgui_update() override;
 
         void save(msg::Var& ar) override; // Save prefab
@@ -139,7 +138,7 @@ namespace fin
     };
 
 
-    class SoundObject : public BasicSceneObject
+    class SoundObject : public IsoSceneObject
     {
         friend class Scene;
         friend class SceneFactory;
@@ -147,13 +146,13 @@ namespace fin
     public:
         inline static std::string_view type_id = "sso";
 
-        SoundObject() = default;
+        SoundObject();
         ~SoundObject() override;
 
         void update(float dt) override;
         void render(Renderer& dc) override;
 
-        void edit_render(Renderer& dc) override;
+        void edit_render(Renderer& dc, bool selected) override;
         bool imgui_update() override;
 
         void save(msg::Var& ar) override; // Save prefab

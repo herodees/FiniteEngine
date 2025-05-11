@@ -6,6 +6,8 @@
 
 namespace ImGui
 {
+    void ScrollWhenDragging(const ImVec2& aDeltaMult, ImGuiMouseButton aMouseButton, ImGuiID testid);
+
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack);
     bool SoundInput(const char* label, fin::SoundSource::Ptr* pack);
     bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit = false);

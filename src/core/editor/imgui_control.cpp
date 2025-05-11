@@ -4,6 +4,7 @@
 #include "utils/dialog_utils.hpp"
 
 #include <raylib.h>
+#include <imgui_internal.h>
 
 
 namespace ImGui
@@ -15,6 +16,65 @@ namespace ImGui
         std::string buff;
         fin::msg::Var selected_var;
     } s_shared;
+
+
+
+    void ScrollWhenDragging(const ImVec2& aDeltaMult, ImGuiMouseButton aMouseButton, ImGuiID testid)
+    {
+        ImGuiContext& g = *ImGui::GetCurrentContext();
+
+        if (g.MovingWindow != nullptr)
+        {
+            return;
+        }
+
+        ImGuiWindow* window = g.CurrentWindow;
+        if (!window->ScrollbarX && !window->ScrollbarY) // Nothing to scroll
+        {
+            return;
+        }
+
+        ImGuiIO& im_io = ImGui::GetIO();
+
+        bool hovered = false;
+        bool held    = false;
+
+        const ImGuiWindow* window_to_highlight = g.NavWindowingTarget ? g.NavWindowingTarget : g.NavWindow;
+        bool               window_highlight    = (window_to_highlight &&
+                                 (window->RootWindowForTitleBarHighlight == window_to_highlight->RootWindowForTitleBarHighlight ||
+                                  (window->DockNode && window->DockNode == window_to_highlight->DockNode)));
+
+        ImGuiButtonFlags button_flags = (aMouseButton == 0)   ? ImGuiButtonFlags_MouseButtonLeft
+                                        : (aMouseButton == 1) ? ImGuiButtonFlags_MouseButtonRight
+                                                              : ImGuiButtonFlags_MouseButtonMiddle;
+        if (g.HoveredId == testid            // If nothing hovered so far in the frame (not same as IsAnyItemHovered()!)
+            && im_io.MouseDown[aMouseButton] // Mouse pressed
+            && window_highlight              // Window active
+        )
+        {
+            ImGui::ButtonBehavior(window->InnerClipRect, window->GetID("##scrolldraggingoverlay"), &hovered, &held, button_flags);
+
+            if ((window->InnerClipRect.Contains(im_io.MousePos)))
+            {
+                held = true;
+            }
+            else if (window->InnerClipRect.Contains(
+                         im_io.MouseClickedPos[aMouseButton])) // If mouse has moved outside window, check if click was inside
+            {
+                held = true;
+            }
+            else
+            {
+                held = false;
+            }
+        }
+
+        if (held && aDeltaMult.x != 0.0f)
+            ImGui::SetScrollX(window, window->Scroll.x + aDeltaMult.x * im_io.MouseDelta.x);
+        if (held && aDeltaMult.y != 0.0f)
+            ImGui::SetScrollY(window, window->Scroll.y + aDeltaMult.y * im_io.MouseDelta.y);
+    }
+
 
 
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack)

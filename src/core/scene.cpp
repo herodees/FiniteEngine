@@ -340,7 +340,7 @@ namespace fin
 
         if (ImGui::CollapsingHeader("Size", ImGuiTreeNodeFlags_DefaultOpen))
         {
-            if (ImGui::Button("Resize..."))
+            if (ImGui::Button(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT " Resize..."))
             {
                 ImGui::OpenPopup("Resize");
                 s_val[0] = _size.x;
@@ -366,8 +366,8 @@ namespace fin
                 }
                 ImGui::EndPopup();
             }
-
-            ImGui::LabelText("Size (px)", "%.0f x %.0f", _size.x, _size.y);
+            ImGui::SameLine();
+            ImGui::Text("Size: %.0fpx x %.0fpx", _size.x, _size.y);
         }
         if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
         {
@@ -541,25 +541,28 @@ namespace fin
             params.pos.x -= ImGui::GetScrollX();
             params.pos.y -= ImGui::GetScrollY();
 
+
             ImGui::InvisibleButton("Canvas", ImVec2(size.x, size.y));
+            auto itemid = ImGui::GetItemID();
 
             activate_grid(Recti(0, 0, visible_size.x, visible_size.y));
-            if (get_camera().position.x != ImGui::GetScrollX() || get_camera().position.y != ImGui::GetScrollY())
+            if (get_camera().position.x != params.scroll.x || get_camera().position.y != params.scroll.y)
             {
-                set_camera_position({ImGui::GetScrollX(), ImGui::GetScrollY()}, 0.1f);
+                set_camera_position({params.scroll.x, params.scroll.y}, 0.1f);
             }
             _drag.update(params.mouse.x, params.mouse.y);
 
-            if (_mode == Mode::Objects)
+         //   if (_mode == Mode::Objects)
             {
                 if (auto* lyr = active_layer())
                 {
                     lyr->imgui_workspace(params, _drag);
                 }
             }
+
+            ImGui::ScrollWhenDragging({-1, -1}, ImGuiMouseButton_Right, itemid);
         }
     }
-
 
     int32_t Scene::move_layer(int32_t layer, bool up)
     {
@@ -602,14 +605,14 @@ namespace fin
 
     void DragData::update(float x, float y)
     {
-        if (ImGui::IsItemClicked(0))
+        if (ImGui::IsItemClicked(0) || ImGui::IsItemClicked(1))
         {
             _active = true;
             _begin  = {x, y};
             _delta  = {};
         }
 
-        if (_active && ImGui::IsMouseDown(0))
+        if (_active && (ImGui::IsMouseDown(0) || ImGui::IsMouseDown(1)))
         {
             _delta.x = x - _begin.x;
             _delta.y = y - _begin.y;
