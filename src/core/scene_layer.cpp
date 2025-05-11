@@ -91,6 +91,15 @@ namespace fin
             clear();
         }
 
+        bool find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path) override
+        {
+            auto from = obj->position();
+            _pathfinder.AddExternalPoints({NavMesh::Point(from.x, from.y), NavMesh::Point(target.x, target.y)});
+            auto out = _pathfinder.GetPath(NavMesh::Point(from.x, from.y), NavMesh::Point(target.x, target.y));
+            path.swap(reinterpret_cast<std::vector<Vec2i>&>(out));
+            return out.empty();
+        }
+
         void update_navmesh()
         {
             std::vector<NavMesh::Polygon> polygons;
@@ -281,7 +290,7 @@ namespace fin
         IsoSceneObject* object_deserialize(msg::Value& ar)
         {
             auto ot = ar[Sc::Uid].get(0ull);
-            if (BasicSceneObject* obj = SceneFactory::instance().create(ot))
+            if (IsoSceneObject* obj = SceneFactory::instance().create(ot))
             {
                 obj->deserialize(ar);
                 auto id = ar[Sc::Name].str();
@@ -529,6 +538,7 @@ namespace fin
             if (!obj)
                 return;
             obj->_id = _scene.size();
+            obj->_layer = this;
             _scene.push_back(obj);
             _spatial_db.update_for_new_location(obj);
         }
@@ -540,6 +550,7 @@ namespace fin
                 parent()->name_object(obj, {});
             }
             _spatial_db.remove_from_bin(obj);
+            obj->_layer     = nullptr;
             const auto id   = obj->_id;
             _scene[id]      = _scene.back();
             _scene[id]->_id = id;
@@ -1394,6 +1405,11 @@ namespace fin
 
     void SceneLayer::render_edit(Renderer& dc)
     {
+    }
+
+    bool SceneLayer::find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path)
+    {
+        return false;
     }
 
     void SceneLayer::imgui_update(bool items)

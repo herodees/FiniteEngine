@@ -6,6 +6,7 @@ namespace fin
 {
     class Renderer;
     class Scene;
+    class IsoSceneObject;
     struct Params;
     struct DragData;
 
@@ -46,6 +47,8 @@ namespace fin
         virtual void update(float dt);
         virtual void render(Renderer& dc);
         virtual void render_edit(Renderer& dc);
+
+        virtual bool find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path);
 
         virtual void imgui_update(bool items);
         virtual void imgui_setup();

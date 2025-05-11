@@ -9,6 +9,7 @@ namespace fin
 {
     class Renderer;
     class Scene;
+    class SceneLayer;
 
     enum SceneObjectFlag
     {
@@ -49,21 +50,28 @@ namespace fin
     };
 
 
-    class BasicSceneObject : public ObjectBase, public lq::SpatialDatabase::Proxy
+    class IsoSceneObject : public ObjectBase, public lq::SpatialDatabase::Proxy
     {
     protected:
-        uint64_t _prefab_uid{};
+        friend class Scene;
+        friend class SceneFactory;
+        friend class IsometricSceneLayer;
+
+        uint64_t    _prefab_uid{};
+        SceneLayer* _layer{};
+        Line<float> _iso;
+        msg::Var    _collision;
 
     public:
-        BasicSceneObject()          = default;
-        virtual ~BasicSceneObject() = default;
+        IsoSceneObject()          = default;
+        virtual ~IsoSceneObject() = default;
 
         virtual std::string_view object_type() const = 0;
 
         virtual void update(float dt)     = 0;
         virtual void render(Renderer& dc) = 0;
 
-        virtual void edit_render(Renderer& dc, bool selected) = 0;
+        virtual void edit_render(Renderer& dc, bool selected);
         virtual bool imgui_update();
 
         virtual void save(msg::Var& ar); // Save prefab
@@ -76,28 +84,13 @@ namespace fin
 
         virtual Region<float> bounding_box() const = 0;
 
-        Vec2f    position() const;
-        uint64_t prefab() const;
-    };
+        std::vector<Vec2i> find_path(Vec2i target) const;
 
-
-    class IsoSceneObject : public BasicSceneObject
-    {
-        friend class Scene;
-        friend class SceneFactory;
-
-    public:
-        void save(msg::Var& ar) override; // Save prefab
-        void load(msg::Var& ar) override; // Load prefab
-
-        void edit_render(Renderer& dc, bool selected) override;
-
+        Vec2f       position() const;
+        uint64_t    prefab() const;
         Line<float> iso() const;
         msg::Var&   collision();
-
-    protected:
-        Line<float> _iso;
-        msg::Var    _collision;
+        SceneLayer* layer();
     };
 
 
@@ -176,43 +169,9 @@ namespace fin
     };
 
 
-    class SceneRegion : public ObjectBase
-    {
-        friend class Scene;
-
-    public:
-        SceneRegion();
-        ~SceneRegion();
-
-        void move(Vec2f pos);
-        void move_to(Vec2f pos);
-
-        const Region<float>& bounding_box();
-        bool                 contains(Vec2f pos);
-        msg::Var&            points();
-        void                 change();
-        int32_t              find_point(Vec2f pt, float radius = 1);
-        SceneRegion&         insert_point(Vec2f pt, int32_t n = -1);
-        Vec2f                get_point(int32_t n);
-        void                 set_point(Vec2f pt, int32_t n);
-        int32_t              get_size() const;
-
-        void serialize(msg::Writer& ar);  // Save to scene
-        void deserialize(msg::Value& ar); // Load to scene
-
-        bool imgui_update();
-        void edit_render(Renderer& dc);
-
-    protected:
-        msg::Var              _region;
-        mutable bool          _need_update{};
-        mutable Region<float> _bounding_box;
-    };
-
-
     class SceneFactory
     {
-        using fact_t = BasicSceneObject* (*)();
+        using fact_t = IsoSceneObject* (*)();
 
     public:
         SceneFactory();
@@ -221,8 +180,8 @@ namespace fin
 
         void set_root(const std::string& startPath);
 
-        BasicSceneObject* create(std::string_view type) const;
-        BasicSceneObject* create(uint64_t uid) const;
+        IsoSceneObject* create(std::string_view type) const;
+        IsoSceneObject* create(uint64_t uid) const;
 
         template <class T>
         SceneFactory& factory(std::string_view type, std::string_view label);
@@ -251,7 +210,7 @@ namespace fin
             msg::Var                          items;
             int32_t                           selected{-1};
             int32_t                           active{-1};
-            std::unique_ptr<BasicSceneObject> obj{};
+            std::unique_ptr<IsoSceneObject> obj{};
         };
         void        show_properties(ClassInfo& info);
         void        reset_atlas_cache();
@@ -279,7 +238,7 @@ namespace fin
         {
             ClassInfo& nfo = it->second;
             nfo.id         = it->first;
-            nfo.fn         = []() -> BasicSceneObject* { return new T(); };
+            nfo.fn         = []() -> IsoSceneObject* { return new T(); };
             nfo.name       = label;
             nfo.obj.reset(nfo.fn());
             _classes.emplace_back(&nfo);

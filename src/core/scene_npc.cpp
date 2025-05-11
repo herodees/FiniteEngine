@@ -7,6 +7,13 @@ namespace fin
         return NpcSceneObject::type_id;
     }
 
+    void NpcSceneObject::update(float dt)
+    {
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
+        {
+        }
+    }
+
     void NpcSceneObject::render(Renderer& dc)
     {
         SpriteSceneObject::render(dc);

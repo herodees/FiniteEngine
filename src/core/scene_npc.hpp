@@ -12,7 +12,7 @@ namespace fin
         NpcSceneObject()              = default;
         ~NpcSceneObject() override = default;
 
-        void update(float dt) override{};
+        void update(float dt) override;
         void render(Renderer& dc) override;
 
         void edit_render(Renderer& dc, bool selected) override;

@@ -21,12 +21,12 @@ namespace fin
 
     void SpriteSceneObject::serialize(msg::Writer& ar)
     {
-        BasicSceneObject::serialize(ar);
+        IsoSceneObject::serialize(ar);
     }
 
     void SpriteSceneObject::deserialize(msg::Value& ar)
     {
-        BasicSceneObject::deserialize(ar);
+        IsoSceneObject::deserialize(ar);
     }
 
     bool SpriteSceneObject::sprite_object() const
@@ -84,7 +84,7 @@ namespace fin
 
     bool SpriteSceneObject::imgui_update()
     {
-        bool modified = BasicSceneObject::imgui_update();
+        bool modified = IsoSceneObject::imgui_update();
 
         modified |= ImGui::SpriteInput("Sprite", &_img);
         modified |= ImGui::PointVector("Collision", &_collision, {-1, ImGui::GetFrameHeightWithSpacing() * 4});
@@ -125,7 +125,7 @@ namespace fin
         return *s_factory;
     }
 
-    BasicSceneObject* SceneFactory::create(std::string_view type) const
+    IsoSceneObject* SceneFactory::create(std::string_view type) const
     {
         auto it = _factory.find(type);
         if (it == _factory.end())
@@ -133,7 +133,7 @@ namespace fin
         return it->second.fn();
     }
 
-    BasicSceneObject* SceneFactory::create(uint64_t uid) const
+    IsoSceneObject* SceneFactory::create(uint64_t uid) const
     {
         auto it = _prefab.find(uid);
         if (it == _prefab.end())
@@ -711,197 +711,6 @@ namespace fin
         return (uint32_t)selected < items.size();
     }
 
-    SceneRegion::SceneRegion()
-    {
-        flag_set(SceneObjectFlag::Area);
-    }
-
-    SceneRegion::~SceneRegion()
-    {
-    }
-
-    void SceneRegion::move(Vec2f pos)
-    {
-        for (uint32_t n = 0; n < _region.size(); n+=2)
-        {
-            _region.set_item(n, _region.get_item(n).get(0.f) + pos.x);
-            _region.set_item(n + 1, _region.get_item(n + 1).get(0.f) + pos.y);
-        }
-        change();
-    }
-
-    void SceneRegion::move_to(Vec2f pos)
-    {
-        if (_region.size() <= 2)
-            return;
-        pointf_t origin;
-        origin.x = _region.get_item(0).get(0.f);
-        origin.y = _region.get_item(1).get(0.f);
-        for (uint32_t n = 0; n < _region.size(); n += 2)
-        {
-            _region.set_item(n, _region.get_item(n).get(0.f) - origin.x + pos.x);
-            _region.set_item(n + 1, _region.get_item(n + 1).get(0.f) - origin.y + pos.y);
-        }
-        change();
-    }
-
-    const Region<float>& SceneRegion::bounding_box()
-    {
-        if (_need_update)
-        {
-            _bounding_box = {};
-            if (_region.size())
-            {
-                _bounding_box = {FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX};
-                for (uint32_t n = 0; n < _region.size(); n += 2)
-                {
-                    const auto x = _region.get_item(n).get(0.f);
-                    const auto y = _region.get_item(n + 1).get(0.f);
-
-                    if (_bounding_box.x1 > x)
-                        _bounding_box.x1 = x;
-                    if (_bounding_box.x2 < x)
-                        _bounding_box.x2 = x;
-
-                    if (_bounding_box.y1 > y)
-                        _bounding_box.y1 = y;
-                    if (_bounding_box.y2 < y)
-                        _bounding_box.y2 = y;
-                }
-            }
-            _need_update = false;
-        }
-        return _bounding_box;
-    }
-
-    bool SceneRegion::contains(Vec2f point)
-    {
-        if (!bounding_box().contains(point))
-            return false;
-
-        bool    inside = false;
-        int32_t n      = get_size();
-        for (size_t i = 0, j = n - 1; i < n; j = i++)
-        {
-            const auto v1 = get_point(i);
-            const auto v2 = get_point(j);
-            if (((v1.y > point.y) != (v2.y > point.y)) &&
-                (point.x < (v2.x - v1.x) * (point.y - v1.y) / (v2.y - v1.y) + v1.x))
-            {
-                inside = !inside;
-            }
-        }
-        return inside;
-    }
-
-    msg::Var& SceneRegion::points()
-    {
-        return _region;
-    }
-
-    void SceneRegion::change()
-    {
-        _need_update = true;
-    }
-
-    int32_t SceneRegion::find_point(Vec2f pt, float radius)
-    {
-        auto sze = _region.size();
-        for (uint32_t n = 0; n < sze; n += 2)
-        {
-            Vec2f pos(_region.get_item(n).get(0.f), _region.get_item(n + 1).get(0.f));
-            if (pos.distance_squared(pt) <= (radius * radius))
-            {
-                return n / 2;
-            }
-        }
-        return -1;
-    }
-
-    SceneRegion& SceneRegion::insert_point(Vec2f pt, int32_t n)
-    {
-        _need_update = true;
-        if (uint32_t(n * 2) >= _region.size())
-        {
-            _region.push_back(pt.x);
-            _region.push_back(pt.y);
-        }
-        else
-        {
-            n = n * 2;
-            _region.insert(n, pt.x);
-            _region.insert(n + 1, pt.y);
-        }
-        return *this;
-    }
-
-    Vec2f SceneRegion::get_point(int32_t n)
-    {
-        n = n * 2;
-        return (uint32_t(n) < _region.size()) ? Vec2f{_region.get_item(n).get(0.f), _region.get_item(n + 1).get(0.f)}
-                                              : Vec2f{0, 0};
-    }
-
-    void SceneRegion::set_point(Vec2f pt, int32_t n)
-    {
-        n = n * 2;
-        if (uint32_t(n) < _region.size())
-        {
-            _need_update = true;
-            _region.set_item(n, pt.x);
-            _region.set_item(n + 1, pt.y);
-        }
-    }
-
-    int32_t SceneRegion::get_size() const
-    {
-        return _region.size() / 2;
-    }
-
-    void SceneRegion::serialize(msg::Writer& ar)
-    {
-        ar.key("reg");
-        ar.begin_array();
-        for (auto el : _region.elements())
-        {
-            ar.value(el.get(0.f));
-        }
-        ar.end_array();
-
-    }
-
-    void SceneRegion::deserialize(msg::Value& ar)
-    {
-        _region.clear();
-        for (auto el : ar["reg"].elements())
-        {
-            _region.push_back(el.get(0.f));
-        }
-        change();
-    }
-
-    bool SceneRegion::imgui_update()
-    {
-        auto modified = false; 
-        if (ImGui::PointVector("Points", &_region, {-1, 150}))
-        {
-            change();
-            auto modified = true;
-        }
-        return modified;
-    }
-
-    void SceneRegion::edit_render(Renderer& dc)
-    {
-        auto sze = _region.size();
-        for (uint32_t n = 0; n < sze; n += 2)
-        {
-            Vec2f from(_region.get_item(n % sze).get(0.f), _region.get_item((n + 1) % sze).get(0.f));
-            Vec2f to(_region.get_item((n + 2) % sze).get(0.f), _region.get_item((n + 3) % sze).get(0.f));
-            dc.render_line(from, to);
-        }
-    }
-
     bool ObjectBase::flag_get(SceneObjectFlag f) const
     {
         return _flag & f;
@@ -947,17 +756,25 @@ namespace fin
     }
 
 
-    Vec2f BasicSceneObject::position() const
+    std::vector<Vec2i> IsoSceneObject::find_path(Vec2i target) const
+    {
+        std::vector<Vec2i> out;
+        _layer->find_path(this, target, out);
+
+        return std::move(out);
+    }
+
+    Vec2f IsoSceneObject::position() const
     {
         return _position;
     }
 
-    uint64_t BasicSceneObject::prefab() const
+    uint64_t IsoSceneObject::prefab() const
     {
         return _prefab_uid;
     }
 
-    bool BasicSceneObject::imgui_update()
+    bool IsoSceneObject::imgui_update()
     {
         bool modified = false;
 
@@ -967,20 +784,7 @@ namespace fin
         return modified;
     }
 
-    void BasicSceneObject::save(msg::Var& ar)
-    {
-        ar.set_item(Sc::Uid, _prefab_uid);
-        ar.set_item(Sc::Class, object_type());
-        ar.set_item(Sc::Flag, _flag);
-    }
-
-    void BasicSceneObject::load(msg::Var& ar)
-    {
-        _prefab_uid = ar[Sc::Uid].get(0ull);
-        _flag       = ar[Sc::Flag].get(0);
-    }
-
-    void BasicSceneObject::serialize(msg::Writer& ar)
+    void IsoSceneObject::serialize(msg::Writer& ar)
     {
         ar.member(Sc::Uid, _prefab_uid);
         ar.member(Sc::Flag, _flag);
@@ -988,14 +792,14 @@ namespace fin
         ar.member("y", _position.y);
     }
 
-    void BasicSceneObject::deserialize(msg::Value& ar)
+    void IsoSceneObject::deserialize(msg::Value& ar)
     {
         _flag       = ar[Sc::Flag].get(_flag);
         _position.x = ar["x"].get(_position.x);
         _position.y = ar["y"].get(_position.y);
     }
 
-    bool BasicSceneObject::sprite_object() const
+    bool IsoSceneObject::sprite_object() const
     {
         return false;
     }
@@ -1032,7 +836,7 @@ namespace fin
 
     bool SoundObject::imgui_update()
     {
-        auto ret = BasicSceneObject::imgui_update();
+        auto ret = IsoSceneObject::imgui_update();
 
         ret |= ImGui::DragFloat("Radius", &_radius, 1.f, 0, 1000.f);
         if (ImGui::SoundInput("Sound", &_sound))
@@ -1044,7 +848,7 @@ namespace fin
 
     void SoundObject::save(msg::Var& ar)
     {
-        BasicSceneObject::save(ar);
+        IsoSceneObject::save(ar);
         if (_radius)
         {
             ar.set_item("rad", _radius);
@@ -1057,20 +861,20 @@ namespace fin
 
     void SoundObject::load(msg::Var& ar)
     {
-        BasicSceneObject::load(ar);
+        IsoSceneObject::load(ar);
         _radius = ar.get_item("rad").get(0.f);
         set_sound(ar.get_item("snd").str());
     }
 
     void SoundObject::serialize(msg::Writer& ar)
     {
-        BasicSceneObject::serialize(ar);
+        IsoSceneObject::serialize(ar);
         ar.member("rad", _radius);
     }
 
     void SoundObject::deserialize(msg::Value& ar)
     {
-        BasicSceneObject::deserialize(ar);
+        IsoSceneObject::deserialize(ar);
         _radius = ar["rad"].get(_radius);
     }
 
@@ -1121,7 +925,10 @@ namespace fin
 
     void IsoSceneObject::save(msg::Var& ar)
     {
-        BasicSceneObject::save(ar);
+        ar.set_item(Sc::Uid, _prefab_uid);
+        ar.set_item(Sc::Class, object_type());
+        ar.set_item(Sc::Flag, _flag);
+
         auto iso = msg::Var::array(4);
         iso.push_back(_iso.point1.x);
         iso.push_back(_iso.point1.y);
@@ -1136,7 +943,9 @@ namespace fin
 
     void IsoSceneObject::load(msg::Var& ar)
     {
-        BasicSceneObject::load(ar);
+        _prefab_uid   = ar[Sc::Uid].get(0ull);
+        _flag         = ar[Sc::Flag].get(0);
+
         _collision    = ar["coll"].clone();
         auto iso      = ar.get_item("iso");
         _iso.point1.x = iso.get_item(0).get(0.f);
@@ -1186,6 +995,11 @@ namespace fin
     msg::Var& IsoSceneObject::collision()
     {
         return _collision;
+    }
+
+    SceneLayer* IsoSceneObject::layer()
+    {
+        return _layer;
     }
 
 } // namespace fin
