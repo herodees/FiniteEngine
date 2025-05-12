@@ -76,6 +76,10 @@ namespace NavMesh {
 		// if seen from |a|.
 		bool IsTangent(int i, const Point& a) const;
 
+        Point GetClosestPointOutside(const Point& p) const;
+
+        Point GetOutwardNormal(const Point & p) const;
+
 	private:
 		friend class PathFinder;
 

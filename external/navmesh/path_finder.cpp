@@ -87,8 +87,97 @@ namespace NavMesh {
 			}
 		}
 	}
+    void PathFinder::AddExternalPoints(std::span<Point> points_)
+    {
 
-	void PathFinder::AddExternalPoints(const std::vector<Point>& points_)
+	    // Remove old external points from the graph
+	    for (const auto& p : ext_points_) {
+		    auto it = vertex_ids_.find(p);
+		    if (it == vertex_ids_.end()) continue;
+		    int id = it->second;
+		    free_vertices_.push_back(id);
+		    for (const auto& e : edges_[id]) {
+			    int u = e.first;
+			    if (u == id) continue;
+			    auto& u_edges = edges_[u];
+			    for (size_t i = 0; i < u_edges.size(); ++i) {
+				    if (u_edges[i].first == id) {
+					    u_edges[i] = u_edges.back();
+					    u_edges.pop_back();
+					    break;
+				    }
+			    }
+		    }
+		    edges_[id].clear();
+		    vertex_ids_.erase(it);
+	    }
+
+	    ext_points_.assign(points_.begin(), points_.end());
+
+	    std::vector<std::pair<int, int>> tangents(polygons_.size());
+
+        for(auto& pt : ext_points_)
+        {
+		    bool inside = false;
+		    for (const auto& poly : polygons_)
+            {
+			    if (poly.IsInside(pt))
+                {
+				    inside = true;
+                    pt = poly.GetClosestPointOutside(pt);
+			    }
+		    }
+	    }
+
+	    // Now add edges
+	    for (size_t i = 0; i < ext_points_.size(); ++i)
+        {
+		    const Point& cur_point = ext_points_[i];
+
+		    for (size_t j = 0; j < polygons_.size(); ++j)
+            {
+			    tangents[j] = polygons_[j].GetTangentIds(cur_point);
+		    }
+
+		    // External-to-external edges
+		    for (size_t j = i + 1; j < ext_points_.size(); ++j)
+            {
+			    if (CanAddSegment(Segment(cur_point, ext_points_[j]), tangents))
+                {
+				    AddEdge(GetVertex(cur_point), GetVertex(ext_points_[j]));
+			    }
+		    }
+
+		    // External-to-polygon tangent points
+		    for (size_t j = 0; j < polygons_.size(); ++j)
+            {
+			    const auto& ids = tangents[j];
+
+			    if (ids.first == -1 || ids.second == -1 || ids.first == ids.second)
+                    continue;
+
+			    const Point& p1 = polygons_[j].points_[ids.first];
+                const Point& p2 = polygons_[j].points_[ids.second];
+
+			    if (!polygon_point_is_inside_[j][ids.first] && CanAddSegment(Segment(cur_point, p1), tangents))
+                {
+				    AddEdge(GetVertex(cur_point), GetVertex(p1));
+			    }
+
+			    if (!polygon_point_is_inside_[j][ids.second] && CanAddSegment(Segment(cur_point, p2), tangents))
+                {
+				    AddEdge(GetVertex(cur_point), GetVertex(p2));
+			    }
+		    }
+	    }
+    }
+
+    const std::vector<Point>& PathFinder::GetExternalPoints() const
+    {
+        return ext_points_;
+    }
+
+	void PathFinder::AddExternalPoints2(const std::vector<Point>& points_)
 	{
 		// Remove old points
 		for (const auto& p : ext_points_) {
@@ -127,6 +216,7 @@ namespace NavMesh {
 			}
 		}
 
+
 		for (int i = 0; i < points_.size(); ++i) {
 			const auto& cur_point = points_[i];
 			// Points inside of obstacle are bad.
@@ -162,69 +252,86 @@ namespace NavMesh {
 	}
 
 	std::vector<Point> PathFinder::GetPath(const Point& start_coord, const Point& dest_coord)
-	{
-		int start = GetVertex(start_coord);
-		int dest = GetVertex(dest_coord);
+    {
+	    int start = GetVertex(start_coord);
+	    int dest = GetVertex(dest_coord);
 
-		if (start == dest) return { start_coord };
+	    if (start == dest) return { start_coord };
 
-		// Run A*.
-		std::vector<int> prev(v_.size(), -1);
-		std::vector<double> dist(v_.size(), -1.0);
-		std::vector<double> est(v_.size(), -1.0);
-		std::vector<bool> done(v_.size(), false);
-		std::priority_queue<std::pair<double, int>> queue;
+	    const size_t n = v_.size();
+	    const double INF = std::numeric_limits<double>::infinity();
 
-		if (polygons_.size() > 0) {
-			start = start;
-		}
+	    std::vector<double> dist(n, INF);
+	    std::vector<double> est(n, INF);
+	    std::vector<int> prev(n, -1);
+	    std::vector<bool> visited(n, false);
 
-		dist[start] = 0;
-		est[start] = (v_[dest] - v_[start]).Len();
-		queue.push(std::make_pair(-est[start], start));
-		while (!queue.empty()) {
-			int bst = queue.top().second;
-			queue.pop();
-			if (done[bst]) continue;
-			done[bst] = true;
-			if (bst == dest) break;
-			for (const auto& e : edges_[bst]) {
-				if (dist[e.first] < 0 || dist[e.first] > dist[bst] + e.second) {
-					dist[e.first] = dist[bst] + e.second;
-					est[e.first] = dist[e.first] + (v_[dest] - v_[e.first]).Len();
-					// Put negative distance esimate since the queue is for maximum and we 
-					// need minimum.
-					queue.push(std::make_pair(-est[e.first], e.first));
-					prev[e.first] = bst;
-				}
-			}
-		}
+	    using QueueItem = std::pair<double, int>;
+	    std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<>> queue;
 
-		if (prev[dest] == -1)
-			return {};
+	    dist[start] = 0.0;
+	    est[start] = (v_[dest] - v_[start]).Len();
+	    queue.emplace(est[start], start);
 
-		std::vector<Point> res;
-		int u = dest;
-		while (u != start && u != -1) {
-			res.push_back(v_[u]);
-			u = prev[u];
-		}
-		res.push_back(v_[start]);
-		std::reverse(res.begin(), res.end());
-		return res;
-	}
+	    while (!queue.empty()) {
+		    auto [cur_est, u] = queue.top();
+		    queue.pop();
+		    if (visited[u]) continue;
+		    visited[u] = true;
+		    if (u == dest) break;
 
-	std::vector<Segment> PathFinder::GetEdgesForDebug() const
+		    for (const auto& [v, weight] : edges_[u]) {
+			    double new_dist = dist[u] + weight;
+			    if (new_dist < dist[v]) {
+				    dist[v] = new_dist;
+				    est[v] = new_dist + (v_[dest] - v_[v]).Len();
+				    queue.emplace(est[v], v);
+				    prev[v] = u;
+			    }
+		    }
+	    }
+
+	    if (prev[dest] == -1) return {}; // No path found
+
+	    std::vector<Point> path;
+	    for (int u = dest; u != -1; u = prev[u])
+		    path.push_back(v_[u]);
+
+	    std::reverse(path.begin(), path.end());
+	    return path;
+    }
+
+
+	std::vector<Segment> PathFinder::GetEdgesForDebug(bool external) const
 	{
 		std::vector<Segment> res;
-		for (int i = 0; i < (int)edges_.size(); ++i) {
-			for (const auto& e : edges_[i]) {
-				int j = e.first;
-				if (j > i) {
+        if (external)
+        {
+            for (auto& pt : ext_points_)
+            {
+                auto it = vertex_ids_.find(pt);
+			    for (const auto& e : edges_[it->second])
+                {
+                    int i = edges_[it->second][0].first;
+				    int j = e.first;
 					res.push_back(Segment(v_[i], v_[j]));
-				}
-			}
-		}
+			    }
+            }
+        }
+        else
+        {
+            for (int i = 0; i < (int)edges_.size(); ++i)
+            {
+			    for (const auto& e : edges_[i])
+                {
+				    int j = e.first;
+				    if (j > i) {
+					    res.push_back(Segment(v_[i], v_[j]));
+				    }
+			    }
+		    }
+        }
+
 		return res;
 	}
 

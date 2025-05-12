@@ -941,6 +941,7 @@ namespace fin
         iso.push_back(_iso.point2.x);
         iso.push_back(_iso.point2.y);
         ar.set_item("iso", iso);
+
         if (_collision.size())
         {
             ar.set_item("coll", _collision.clone());

@@ -644,14 +644,110 @@ namespace NavMesh {
 
 	std::pair<int, int> Polygon::GetTangentIds(const Point& a) const
 	{
-		if (points_.size() < kMinPointsForLogTangentsAlgo) {
+		if (points_.size() < kMinPointsForLogTangentsAlgo)
+        {
 			return  GetTangentIdsNaive(a);
 		}
-		else {
+		else
+        {
 			return  GetTangentIdsLogarithmic(a);
 		}
 	}
 
+    Point ProjectPointToSegment(const Point& p, const Point& a, const Point& b)
+    {
+	    int dx = b.x - a.x;
+	    int dy = b.y - a.y;
+
+	    if (dx == 0 && dy == 0)
+		    return a; // Degenerate segment, a == b
+
+	    int apx = p.x - a.x;
+	    int apy = p.y - a.y;
+
+	    int dot = apx * dx + apy * dy;
+	    int len_sq = dx * dx + dy * dy;
+
+	    if (dot <= 0)
+		    return a;
+
+	    if (dot >= len_sq)
+		    return b;
+
+	    // Do integer division to approximate projection
+	    // proj = a + (b - a) * dot / len_sq
+	    int ratio = dot / len_sq;
+
+	    Point proj;
+	    proj.x = a.x + (dx * ratio);
+	    proj.y = a.y + (dy * ratio);
+
+	    // Fine-tune with the remainder for better accuracy (optionally)
+	    // (This is the integer equivalent of linear interpolation clamped to segment)
+	    // This gives grid-snapped projection
+	    return proj;
+    }
+
+    Point Polygon::GetClosestPointOutside(const Point& p) const
+    {
+        int min_dist_sq = std::numeric_limits<int>::max();
+	    Point closest;
+
+	    for (size_t i = 0; i < points_.size(); ++i)
+        {
+		    const Point& a = points_[i];
+		    const Point& b = points_[(i + 1) % points_.size()];
+		    Point projected = ProjectPointToSegment(p, a, b);
+		    int dx = p.x - projected.x;
+		    int dy = p.y - projected.y;
+		    int dist_sq = dx * dx + dy * dy;
+		    if (dist_sq < min_dist_sq) {
+			    min_dist_sq = dist_sq;
+			    closest = projected;
+		    }
+	    }
+
+	    return closest;
+    }
+
+    Point Polygon::GetOutwardNormal(const Point& p) const
+    {
+	    for (size_t i = 0; i < points_.size(); ++i) {
+		    const Point& a = points_[i];
+		    const Point& b = points_[(i + 1) % points_.size()];
+
+		    // Is p on segment a-b?
+		    int dx = b.x - a.x;
+		    int dy = b.y - a.y;
+
+		    int apx = p.x - a.x;
+		    int apy = p.y - a.y;
+
+		    // Check colinearity and bounds
+		    int cross = dx * apy - dy * apx;
+		    if (cross != 0) continue;
+
+		    // Check projection lies within segment
+		    int dot = apx * dx + apy * dy;
+		    if (dot < 0 || dot > dx * dx + dy * dy) continue;
+
+		    // Get edge vector: (dx, dy), rotate 90° CCW to get outward normal
+		    Point normal = { -dy, dx };
+
+		    // Flip it if it's not actually pointing outward
+		    // We do this by checking if adding it to p would push us further outside
+		    Point test = { p.x + normal.x, p.y + normal.y };
+		    if (!IsInside(test)) {
+			    return normal;
+		    } else {
+			    // Flip direction
+			    return { dy, -dx };
+		    }
+	    }
+
+	    // Fallback: default outward if no matching edge found (shouldn't happen)
+	    return { 1, 0 };
+    }
 
 	bool Polygon::IsTangent(int i, const Point& a) const
 	{

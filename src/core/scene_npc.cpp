@@ -11,8 +11,6 @@ namespace fin
 
     NpcSceneObject::NpcSceneObject()
     {
-        _iso.point1.x = -1;
-        _iso.point2.x = 1;
     }
 
     void NpcSceneObject::update(float dt)

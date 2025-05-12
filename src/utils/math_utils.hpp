@@ -493,6 +493,22 @@ namespace fin
 
         int compare(const Line<T>& ot) const
         {
+            const auto pta = is_point();
+            const auto ptb = ot.is_point();
+
+            if (pta && ptb)
+            {
+                return compare_centers(ot);
+            }
+            else if (pta)
+            {
+                return -ot.compare(point1);
+            }
+            else if (ptb)
+            {
+                return compare(ot.point1);
+            }
+
             auto twoVSone = INT_MIN;
             auto oneVStwo = INT_MIN;
 

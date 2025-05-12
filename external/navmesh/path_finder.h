@@ -8,6 +8,7 @@
 #include "point.h"
 #include "polygon.h"
 #include "segment.h"
+#include <span>
 
 
 namespace NavMesh {
@@ -25,14 +26,15 @@ namespace NavMesh {
 		// Call any time after AddPolygons().
 		// It removes previously added external points and adds
 		// |points| to the graph.
-	  void AddExternalPoints(const std::vector<Point>& points_);
-
+	    void AddExternalPoints(std::span<Point> points_);
+        void AddExternalPoints2(const std::vector<Point>& points_);
+        const std::vector<Point>& GetExternalPoints() const;
 		// Get shortest path between two points.
 		// points must be first added via AddExternalPoints().
 		std::vector<Point> GetPath(const Point& start_coord, const Point& dest_coord);
 
 		// For debugging. Returns all the edges in the graph.
-		std::vector<Segment> GetEdgesForDebug() const;
+		std::vector<Segment> GetEdgesForDebug(bool external) const;
 	private:
 		int GetVertex(const Point& c);
 		void AddEdge(int be, int en);

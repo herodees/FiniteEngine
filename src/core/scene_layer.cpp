@@ -94,8 +94,12 @@ namespace fin
         bool find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path) override
         {
             auto from = obj->position();
-            _pathfinder.AddExternalPoints({NavMesh::Point(from.x, from.y), NavMesh::Point(target.x, target.y)});
-            auto out = _pathfinder.GetPath(NavMesh::Point(from.x, from.y), NavMesh::Point(target.x, target.y));
+            NavMesh::Point pts[2];
+            pts[0] = NavMesh::Point(from.x, from.y);
+            pts[1] = NavMesh::Point(target.x, target.y);
+            _pathfinder.AddExternalPoints(pts);
+
+            auto out = _pathfinder.GetPath(_pathfinder.GetExternalPoints()[0], _pathfinder.GetExternalPoints()[1]);
             path.swap(reinterpret_cast<std::vector<Vec2i>&>(out));
             return out.empty();
         }
@@ -263,6 +267,13 @@ namespace fin
             {
                 if (!obj->_ptr->is_hidden())
                     obj->_ptr->render(dc);
+            }
+
+          //  auto vec = _pathfinder.GetEdgesForDebug(true);
+          //  dc.set_color({255,255,0,128});
+          //  for (auto& el : vec)
+            {
+         //       dc.render_line(el.b, el.e);
             }
         }
 
