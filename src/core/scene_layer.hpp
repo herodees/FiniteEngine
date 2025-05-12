@@ -36,19 +36,23 @@ namespace fin
         std::string_view& icon();
         uint32_t          color() const;
         Scene*            parent();
-        const Recti&      region() const;
+        const Rectf&      region() const;
+        Vec2f             screen_to_view(Vec2f pos) const;
+        Vec2f             view_to_screen(Vec2f pos) const;
+        Vec2f             get_mouse_position() const;
 
         virtual void serialize(msg::Writer& ar);
         virtual void deserialize(msg::Value& ar);
         virtual void resize(Vec2f size);
         virtual void clear();
 
-        virtual void activate(const Recti& region);
+        virtual void activate(const Rectf& region);
         virtual void update(float dt);
         virtual void render(Renderer& dc);
         virtual void render_edit(Renderer& dc);
 
         virtual bool find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path);
+        virtual void moveto(IsoSceneObject* obj, Vec2f pos);
 
         virtual void imgui_update(bool items);
         virtual void imgui_setup();
@@ -69,7 +73,7 @@ namespace fin
         std::string      _name;
         std::string_view _icon;
         uint32_t         _color{0xffffffff};
-        Recti            _region;
+        Rectf            _region;
         bool             _hidden{};
         bool             _active{};
     };

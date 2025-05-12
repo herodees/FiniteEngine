@@ -9,7 +9,7 @@ namespace fin
     public:
         inline static std::string_view type_id = "npc";
 
-        NpcSceneObject()              = default;
+        NpcSceneObject();
         ~NpcSceneObject() override = default;
 
         void update(float dt) override;
@@ -27,6 +27,10 @@ namespace fin
         std::string_view object_type() const override;
 
     protected:
-
+        std::vector<Vec2i> _path;
+        size_t             _currentIndex;
+        float              _speed{132};
     };
-}
+
+
+} // namespace fin

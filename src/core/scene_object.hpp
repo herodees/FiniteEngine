@@ -81,6 +81,7 @@ namespace fin
         virtual void deserialize(msg::Value& ar); // Load to scene
 
         virtual bool sprite_object() const;
+        void         move_to(Vec2f pos);
 
         virtual Region<float> bounding_box() const = 0;
 

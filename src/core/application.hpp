@@ -10,9 +10,9 @@ namespace fin
     struct Settings
     {
         std::string buffer;
-        bool        visible_grid{};
-        bool        visible_isometric{};
-        bool        visible_collision{};
+        bool        visible_grid{1};
+        bool        visible_isometric{1};
+        bool        visible_collision{1};
         bool        list_visible_items{};
     };
 

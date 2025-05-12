@@ -804,6 +804,11 @@ namespace fin
         return false;
     }
 
+    void IsoSceneObject::move_to(Vec2f pos)
+    {
+        _layer->moveto(this, pos);
+    }
+
     SoundObject::SoundObject()
     {
     }
@@ -815,7 +820,8 @@ namespace fin
 
     void SoundObject::update(float dt)
     {
-        PlaySound(_alias);
+    //    if(!IsSoundPlaying(_alias))
+    //        PlaySound(_alias);
     }
 
     void SoundObject::render(Renderer& dc)

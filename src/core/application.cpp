@@ -167,6 +167,7 @@ namespace fin
             _editor   = false;
             TraceLog(LOG_INFO, "SCENE LOAD: %s", path.data());
             _map.load(path);
+            _map.start(true);
         }
 
         if (_editor)

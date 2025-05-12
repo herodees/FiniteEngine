@@ -104,15 +104,18 @@ namespace fin
         {
             std::vector<NavMesh::Polygon> polygons;
 
-            for (auto el : _iso)
+            for (auto el : _scene)
             {
-                auto& col = el->_ptr->collision();
+                auto& col = el->collision();
                 if (col.size())
                 {
                     auto& poly = polygons.emplace_back();
                     for (uint32_t n = 0; n < col.size(); n += 2)
                     {
-                        poly.AddPoint(col.get_item(n).get(0.f), col.get_item(n + 1).get(0.f));
+                        NavMesh::Point pt(col.get_item(n).get(0.f), col.get_item(n + 1).get(0.f));
+                        pt.x += el->position().x;
+                        pt.y += el->position().y;
+                        poly.AddPoint(pt);
                     }
                 }
             }
@@ -149,7 +152,7 @@ namespace fin
             }
         }
 
-        void activate(const Recti& region) override
+        void activate(const Rectf& region) override
         {
             SceneLayer::activate(region);
 
@@ -622,10 +625,10 @@ namespace fin
             _spatial.resize({0, 0, size.width, size.height});
         }
 
-        void activate(const Recti& region) override
+        void activate(const Rectf& region) override
         {
             SceneLayer::activate(region);
-            _spatial.activate(Rectf(region.x, region.y, region.width, region.height));
+            _spatial.activate(region);
             if (_sort_y)
                 _spatial.sort_active([&](int a, int b) { return _spatial[a]._bbox.y < _spatial[b]._bbox.y; });
             else
@@ -1005,10 +1008,10 @@ namespace fin
             _spatial.resize({0, 0, size.width, size.height});
         }
 
-        void activate(const Recti& region) override
+        void activate(const Rectf& region) override
         {
             SceneLayer::activate(region);
-            _spatial.activate(Rectf(region.x, region.y, region.width, region.height));
+            _spatial.activate(region);
         }
 
         void serialize(msg::Writer& ar)
@@ -1365,9 +1368,25 @@ namespace fin
         return _parent;
     }
 
-    const Recti& SceneLayer::region() const
+    const Rectf& SceneLayer::region() const
     {
         return _region;
+    }
+
+    Vec2f SceneLayer::screen_to_view(Vec2f pos) const
+    {
+        return Vec2f(pos.x + _region.x, pos.y + _region.y); 
+    }
+
+    Vec2f SceneLayer::view_to_screen(Vec2f pos) const
+    {
+        return Vec2f(pos.x - _region.x, pos.y - _region.y); 
+    }
+
+    Vec2f SceneLayer::get_mouse_position() const
+    {
+        const auto p{GetMousePosition()};
+        return {p.x + _region.x, p.y + _region.y};
     }
 
     void SceneLayer::serialize(msg::Writer& ar)
@@ -1390,7 +1409,7 @@ namespace fin
     {
     }
 
-    void SceneLayer::activate(const Recti& region)
+    void SceneLayer::activate(const Rectf& region)
     {
         _region = region;
     }
@@ -1410,6 +1429,10 @@ namespace fin
     bool SceneLayer::find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path)
     {
         return false;
+    }
+
+    void SceneLayer::moveto(IsoSceneObject* obj, Vec2f pos)
+    {
     }
 
     void SceneLayer::imgui_update(bool items)
@@ -1451,8 +1474,8 @@ namespace fin
 
     void SceneLayer::render_grid(Renderer& dc)
     {
-        const int startX = std::max(0, _region.x / tile_size);
-        const int startY = std::max(0, _region.y / tile_size);
+        const int startX = std::max(0.f, _region.x / tile_size);
+        const int startY = std::max(0.f, _region.y / tile_size);
 
         const int endX = (_region.x2() / tile_size) + 2;
         const int endY = (_region.y2() / tile_size) + 2;

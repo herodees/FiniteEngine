@@ -250,6 +250,14 @@ namespace fin
         SaveFileData(_path.c_str(), pack.data().data(), pack.data().size());
     }
 
+    void Scene::start(bool st)
+    {
+        if (st)
+            _mode = Mode::Running;
+        else
+            _mode = Mode::Undefined;
+    }
+
     void Scene::imgui_props()
     {
         SceneFactory::instance().imgui_explorer();
@@ -467,7 +475,7 @@ namespace fin
             }
         }
 
-        Recti screen(_camera.position.x, _camera.position.y, _camera.size.y, _camera.size.y);
+        Rectf screen(_camera.position.x, _camera.position.y, _camera.size.y, _camera.size.y);
         for (auto* ly : _layers)
         {
             ly->activate(screen);
