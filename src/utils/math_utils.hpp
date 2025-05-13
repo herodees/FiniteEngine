@@ -51,6 +51,8 @@ namespace fin
         bool operator==(const Vec2& other) const { return x == other.x && y == other.y; }
         bool operator!=(const Vec2& other) const { return !(*this == other); }
 
+        bool operator<(const Vec2& other) const { return std::tie(x, y) < std::tie(other.x, other.y); }
+
         // Dot product
         auto dot(const Vec2& other) const -> std::common_type_t<T, decltype(x* other.x)> { return x * other.x + y * other.y; }
         // Cross product

@@ -6,6 +6,7 @@
 #include "utils/lquadtree.hpp"
 #include "utils/lquery.hpp"
 #include "utils/imguiline.hpp"
+#include "utils/pathfinder.hpp"
 #include "editor/imgui_control.hpp"
 
 namespace fin
@@ -94,6 +95,15 @@ namespace fin
         bool find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path) override
         {
             auto from = obj->position();
+            std::vector<Vec2f> pth;
+            _navmesh.FindPath(from, target, pth);
+            path.clear();
+            for (auto p : pth)
+            {
+                path.push_back(p);
+            }
+            return path.empty();
+
             NavMesh::Point pts[2];
             pts[0] = NavMesh::Point(from.x, from.y);
             pts[1] = NavMesh::Point(target.x, target.y);
@@ -124,6 +134,30 @@ namespace fin
                 }
             }
             _pathfinder.AddPolygons(polygons, _inflate);
+
+
+
+            auto sze = _parent->get_scene_size();
+            Rectf rc(0, 0, sze.x, sze.y);
+            _navmesh.Clear(rc);
+            std::vector<Vec2f> poly;
+            for (auto el : _scene)
+            {
+                auto& col = el->collision();
+                if (col.size())
+                {
+                    poly.clear();
+                    for (uint32_t n = 0; n < col.size(); n += 2)
+                    {
+                        Vec2f pt(col.get_item(n).get(0.f), col.get_item(n + 1).get(0.f));
+                        pt.x += el->position().x;
+                        pt.y += el->position().y;
+                        poly.push_back(pt);
+                    }
+                    _navmesh.AddObstacle(poly);
+                }
+            }
+            _navmesh.Generate();
         }
 
         void clear() override
@@ -269,12 +303,15 @@ namespace fin
                     obj->_ptr->render(dc);
             }
 
-          //  auto vec = _pathfinder.GetEdgesForDebug(true);
-          //  dc.set_color({255,255,0,128});
-          //  for (auto& el : vec)
+            dc.set_color({2, 228, 255, 150});
+            auto triangles = _navmesh.GetDebugTriangels();
+            for (auto& el : triangles)
             {
-         //       dc.render_line(el.b, el.e);
+                dc.render_line(el.a, el.b);
+                dc.render_line(el.b, el.c);
+                dc.render_line(el.a, el.c);
             }
+            dc.set_color(WHITE);
         }
 
         void render_edit(Renderer& dc) override
@@ -597,6 +634,8 @@ namespace fin
         int32_t                      _inflate{};
         IsoSceneObject*              _edit{};
         IsoSceneObject*              _select{};
+
+        Pathfinder _navmesh;
     };
 
 
