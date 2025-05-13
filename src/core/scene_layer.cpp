@@ -95,10 +95,9 @@ namespace fin
         bool find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path) override
         {
             auto from = obj->position();
-            std::vector<Vec2f> pth;
-            _navmesh.FindPath(from, target, pth);
+            auto nav = _navmesh.FindPath(from, target);
             path.clear();
-            for (auto p : pth)
+            for (auto p : nav.path)
             {
                 path.push_back(p);
             }
@@ -303,13 +302,15 @@ namespace fin
                     obj->_ptr->render(dc);
             }
 
-            dc.set_color({2, 228, 255, 150});
+            dc.set_color({5, 228, 255, 50});
             auto triangles = _navmesh.GetDebugTriangels();
             for (auto& el : triangles)
             {
-                dc.render_line(el.a, el.b);
-                dc.render_line(el.b, el.c);
-                dc.render_line(el.a, el.c);
+                dc.render_line(el.vertices[0], el.vertices[1]);
+                dc.render_line(el.vertices[1], el.vertices[2]);
+                dc.render_line(el.vertices[0], el.vertices[2]);
+
+              //  dc.render_triangle(el.verts[2], el.verts[1], el.verts[0]);
             }
             dc.set_color(WHITE);
         }
@@ -489,6 +490,7 @@ namespace fin
                 {
                     destroy(_select);
                     _select = nullptr;
+                    return;
                 }
                 if (ImGui::Line().HoverId() == 10)
                 {

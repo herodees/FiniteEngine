@@ -71,6 +71,12 @@ namespace fin
         DrawRectangleV({dest.x, dest.y}, {dest.width, dest.height}, _color);
     }
 
+    void Renderer::render_triangle(Vec2f a, Vec2f b, Vec2f c)
+    {
+        Color color = {_color.r, _color.g, _color.b, _color.a};
+        DrawTriangle({a.x, a.y}, {b.x, b.y}, {c.x, c.y}, color);
+    }
+
     void Renderer::render_line_circle(Vec2f pos, float radius)
     {
         DrawCircleLinesV({pos.x, pos.y}, radius, _color);
