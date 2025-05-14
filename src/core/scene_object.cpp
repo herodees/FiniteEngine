@@ -758,10 +758,8 @@ namespace fin
 
     std::vector<Vec2i> IsoSceneObject::find_path(Vec2i target) const
     {
-        std::vector<Vec2i> out;
-        _layer->find_path(this, target, out);
-
-        return std::move(out);
+        auto sp = _layer->find_path(this, target);
+        return std::vector<Vec2i>(sp.begin(), sp.end());
     }
 
     Vec2f IsoSceneObject::position() const

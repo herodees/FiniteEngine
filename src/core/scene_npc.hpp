@@ -12,6 +12,7 @@ namespace fin
         NpcSceneObject();
         ~NpcSceneObject() override = default;
 
+        void init() override;
         void update(float dt) override;
         void render(Renderer& dc) override;
 
@@ -28,7 +29,7 @@ namespace fin
 
     protected:
         std::vector<Vec2i> _path;
-        size_t             _currentIndex;
+        size_t             _currentIndex{};
         float              _speed{132};
     };
 

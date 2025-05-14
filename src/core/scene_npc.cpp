@@ -1,5 +1,6 @@
 #include "scene_npc.hpp"
 #include "scene_layer.hpp"
+#include "scene.hpp"
 #include "renderer.hpp"
 
 namespace fin
@@ -11,6 +12,11 @@ namespace fin
 
     NpcSceneObject::NpcSceneObject()
     {
+    }
+
+    void NpcSceneObject::init()
+    {
+        _layer->parent()->set_camera_center(_position);
     }
 
     void NpcSceneObject::update(float dt)
@@ -33,10 +39,12 @@ namespace fin
         {
             move_to(target);
             _currentIndex++;
+            _layer->parent()->set_camera_center(target, 0.9);
         }
         else
         {
             move_to(_position + movement);
+            _layer->parent()->set_camera_center(_position + movement, 0.9);
         }
     }
 

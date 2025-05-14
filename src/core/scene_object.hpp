@@ -68,6 +68,8 @@ namespace fin
 
         virtual std::string_view object_type() const = 0;
 
+        virtual void init() {};
+        virtual void deinit() {};
         virtual void update(float dt)     = 0;
         virtual void render(Renderer& dc) = 0;
 

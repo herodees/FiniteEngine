@@ -87,179 +87,130 @@ namespace NavMesh {
 			}
 		}
 	}
+
     void PathFinder::AddExternalPoints(std::span<Point> points_)
     {
+        // Remove old external points from the graph
+        for (const auto& p : ext_points_) {
+            auto it = vertex_ids_.find(p);
+            if (it == vertex_ids_.end()) continue;
+            int id = it->second;
+            free_vertices_.push_back(id);
+            for (const auto& e : edges_[id]) {
+                int u = e.first;
+                if (u == id) continue;
+                auto& u_edges = edges_[u];
+                for (size_t i = 0; i < u_edges.size(); ++i) {
+                    if (u_edges[i].first == id) {
+                        u_edges[i] = u_edges.back();
+                        u_edges.pop_back();
+                        break;
+                    }
+                }
+            }
+            edges_[id].clear();
+            vertex_ids_.erase(it);
+        }
 
-	    // Remove old external points from the graph
-	    for (const auto& p : ext_points_) {
-		    auto it = vertex_ids_.find(p);
-		    if (it == vertex_ids_.end()) continue;
-		    int id = it->second;
-		    free_vertices_.push_back(id);
-		    for (const auto& e : edges_[id]) {
-			    int u = e.first;
-			    if (u == id) continue;
-			    auto& u_edges = edges_[u];
-			    for (size_t i = 0; i < u_edges.size(); ++i) {
-				    if (u_edges[i].first == id) {
-					    u_edges[i] = u_edges.back();
-					    u_edges.pop_back();
-					    break;
-				    }
-			    }
-		    }
-		    edges_[id].clear();
-		    vertex_ids_.erase(it);
-	    }
+        ext_points_.assign(points_.begin(), points_.end());
+        std::vector<std::pair<int, int>> tangents(polygons_.size());
 
-	    ext_points_.assign(points_.begin(), points_.end());
-
-	    std::vector<std::pair<int, int>> tangents(polygons_.size());
-
-        for(auto& pt : ext_points_)
-        {
-		    bool inside = false;
-		    for (const auto& poly : polygons_)
-            {
-			    if (poly.IsInside(pt))
-                {
-				    inside = true;
+        // First pass: Handle points inside polygons
+        for (auto& pt : ext_points_) {
+            for (const auto& poly : polygons_) {
+                if (poly.IsInside(pt)) {
+                    // Fallback to closest point if no candidates
                     pt = poly.GetClosestPointOutside(pt);
-			    }
-		    }
-	    }
+                    break;
+                }
+            }
+        }
 
-	    // Now add edges
-	    for (size_t i = 0; i < ext_points_.size(); ++i)
-        {
-		    const Point& cur_point = ext_points_[i];
+        // Precompute all polygon vertices that are not inside other polygons
+        std::vector<Point> valid_poly_vertices;
+        for (size_t j = 0; j < polygons_.size(); ++j) {
+            const auto& poly = polygons_[j];
+            for (int k = 0; k < poly.Size(); ++k) {
+                if (!polygon_point_is_inside_[j][k]) {
+                    valid_poly_vertices.push_back(poly.points_[k]);
+                }
+            }
+        }
 
-		    for (size_t j = 0; j < polygons_.size(); ++j)
-            {
-			    tangents[j] = polygons_[j].GetTangentIds(cur_point);
-		    }
+        // Now add edges
+        for (size_t i = 0; i < ext_points_.size(); ++i) {
+            const Point& cur_point = ext_points_[i];
 
-		    // External-to-external edges
-		    for (size_t j = i + 1; j < ext_points_.size(); ++j)
-            {
-			    if (CanAddSegment(Segment(cur_point, ext_points_[j]), tangents))
-                {
-				    AddEdge(GetVertex(cur_point), GetVertex(ext_points_[j]));
-			    }
-		    }
+            // Precompute tangents for current point
+            for (size_t j = 0; j < polygons_.size(); ++j) {
+                tangents[j] = polygons_[j].GetTangentIds(cur_point);
+            }
 
-		    // External-to-polygon tangent points
-		    for (size_t j = 0; j < polygons_.size(); ++j)
-            {
-			    const auto& ids = tangents[j];
+            // External-to-external edges
+            for (size_t j = i + 1; j < ext_points_.size(); ++j) {
+                if (CanAddSegment(Segment(cur_point, ext_points_[j]), tangents)) {
+                    AddEdge(GetVertex(cur_point), GetVertex(ext_points_[j]));
+                }
+            }
 
-			    if (ids.first == -1 || ids.second == -1 || ids.first == ids.second)
+            // External-to-polygon tangent points
+            for (size_t j = 0; j < polygons_.size(); ++j) {
+                const auto& ids = tangents[j];
+                if (ids.first == -1 || ids.second == -1 || ids.first == ids.second)
                     continue;
 
-			    const Point& p1 = polygons_[j].points_[ids.first];
+                const Point& p1 = polygons_[j].points_[ids.first];
                 const Point& p2 = polygons_[j].points_[ids.second];
 
-			    if (!polygon_point_is_inside_[j][ids.first] && CanAddSegment(Segment(cur_point, p1), tangents))
-                {
-				    AddEdge(GetVertex(cur_point), GetVertex(p1));
-			    }
+                if (!polygon_point_is_inside_[j][ids.first] && CanAddSegment(Segment(cur_point, p1), tangents)) {
+                    AddEdge(GetVertex(cur_point), GetVertex(p1));
+                }
 
-			    if (!polygon_point_is_inside_[j][ids.second] && CanAddSegment(Segment(cur_point, p2), tangents))
-                {
-				    AddEdge(GetVertex(cur_point), GetVertex(p2));
-			    }
-		    }
-	    }
+                if (!polygon_point_is_inside_[j][ids.second] && CanAddSegment(Segment(cur_point, p2), tangents)) {
+                    AddEdge(GetVertex(cur_point), GetVertex(p2));
+                }
+            }
+
+            // Additional visibility connections to all valid polygon vertices
+            for (const auto& poly_pt : valid_poly_vertices) {
+                // Skip if this is already connected via tangent
+                bool already_connected = false;
+                for (size_t j = 0; j < polygons_.size(); ++j) {
+                    const auto& ids = tangents[j];
+                    if ((ids.first >= 0 && poly_pt == polygons_[j].points_[ids.first]) ||
+                        (ids.second >= 0 && poly_pt == polygons_[j].points_[ids.second])) {
+                        already_connected = true;
+                        break;
+                    }
+                }
+            
+                if (!already_connected && CanAddSegment(Segment(cur_point, poly_pt), tangents)) {
+                    AddEdge(GetVertex(cur_point), GetVertex(poly_pt));
+                }
+            }
+        }
     }
 
-    const std::vector<Point>& PathFinder::GetExternalPoints() const
+    std::span<const Point> PathFinder::GetExternalPoints() const
     {
         return ext_points_;
     }
 
-	void PathFinder::AddExternalPoints2(const std::vector<Point>& points_)
-	{
-		// Remove old points
-		for (const auto& p : ext_points_) {
-			auto it = vertex_ids_.find(p);
-			if (it == vertex_ids_.end()) continue;
-			int id = it->second;
-			free_vertices_.push_back(id);
-			// Remove all edges from and to the point.
-			for (const auto& e : edges_[id]) {
-				int u = e.first;
-				if (u == id) continue;
-				size_t i;
-				for (i = 0; i < edges_[u].size(); ++i) {
-					if (edges_[u][i].first == id) {
-						edges_[u][i] = edges_[u].back();
-						edges_[u].resize(edges_[u].size() - 1);
-						break;
-					}
-				}
-			}
-			edges_[id].clear();
-			vertex_ids_.erase(it);
-		}
-
-		ext_points_ = points_;
-
-		std::vector<std::pair<int, int>> tangents(polygons_.size());
-		std::vector<bool> point_is_inside(points_.size(), false);
-
-		for (int i = 0; i < points_.size(); ++i) {
-			for (int j = 0; j < polygons_.size(); ++j) {
-				if (polygons_[j].IsInside(points_[i])) {
-					point_is_inside[i] = true;
-					break;
-				}
-			}
-		}
-
-
-		for (int i = 0; i < points_.size(); ++i) {
-			const auto& cur_point = points_[i];
-			// Points inside of obstacle are bad.
-			// Also, Polygon::Intersect assumes endpoints of the segment
-			// are not inside of the polygon.
-			if (point_is_inside[i]) continue;
-			for (int j = 0; j < polygons_.size(); ++j) {
-				tangents[j] = polygons_[j].GetTangentIds(cur_point);
-			}
-			// Add edges between external points.
-			for (size_t j = i + 1; j < points_.size(); ++j) {
-				if (!point_is_inside[j] && CanAddSegment(Segment(cur_point, points_[j]), tangents)) {
-					AddEdge(GetVertex(cur_point), GetVertex(points_[j]));
-				}
-			}
-			// Add tangents to polygons.
-			for (int j = 0; j < polygons_.size(); ++j) {
-				const auto& ids = tangents[j];
-				if (ids.first == -1 || ids.second == -1 || ids.first == ids.second)
-					continue;
-				const Point& other_point1 = polygons_[j].points_[ids.first];
-				if (!polygon_point_is_inside_[j][ids.first] &&
-					CanAddSegment(Segment(cur_point, other_point1), tangents)) {
-					AddEdge(GetVertex(cur_point), GetVertex(other_point1));
-				}
-				const Point& other_point2 = polygons_[j].points_[ids.second];
-				if (!polygon_point_is_inside_[j][ids.second] &&
-					CanAddSegment(Segment(cur_point, other_point2), tangents)) {
-					AddEdge(GetVertex(cur_point), GetVertex(other_point2));
-				}
-			}
-		}
-	}
-
-	std::vector<Point> PathFinder::GetPath(const Point& start_coord, const Point& dest_coord)
+	std::span<const Point> PathFinder::GetPath(const Point& start_coord, const Point& dest_coord)
     {
+        path_.clear();
+
 	    int start = GetVertex(start_coord);
 	    int dest = GetVertex(dest_coord);
 
-	    if (start == dest) return { start_coord };
+	    if (start == dest)
+        {
+            path_.push_back(start_coord);
+            return path_;
+        }
 
 	    const size_t n = v_.size();
-	    const double INF = std::numeric_limits<double>::infinity();
+	    constexpr double INF = std::numeric_limits<double>::infinity();
 
 	    std::vector<double> dist(n, INF);
 	    std::vector<double> est(n, INF);
@@ -293,12 +244,11 @@ namespace NavMesh {
 
 	    if (prev[dest] == -1) return {}; // No path found
 
-	    std::vector<Point> path;
 	    for (int u = dest; u != -1; u = prev[u])
-		    path.push_back(v_[u]);
+		    path_.push_back(v_[u]);
 
-	    std::reverse(path.begin(), path.end());
-	    return path;
+	    std::reverse(path_.begin(), path_.end());
+	    return path_;
     }
 
 
@@ -370,8 +320,5 @@ namespace NavMesh {
 		}
 		return true;
 	}
-
-
-
 
 }

@@ -68,7 +68,9 @@ namespace fin
         void          activate_grid(const Recti& screen);
         Vec2i         get_active_size() const;
         Vec2i         get_scene_size() const;
-        void          set_camera_position(Vec2f pos, float time = 0.f);  
+        void          set_camera_position(Vec2f pos, float speed = 1.f);
+        void          set_camera_center(Vec2f pos, float speed = 1.f);
+        Vec2f         get_camera_center() const;
         const Camera& get_camera() const;
 
         void        name_object(ObjectBase* obj, std::string_view name);
@@ -103,7 +105,7 @@ namespace fin
         bool                                                                            _edit_region{};
         Mode                                                                            _mode{Mode::Setup};
         Vec2f                                                                           _goto;
-        float                                                                           _goto_time{};
+        float                                                                           _goto_speed{};
         Camera                                                                          _camera;
         RenderTexture2D                                                                 _canvas;
         std::string                                                                     _path;

@@ -67,14 +67,28 @@ namespace fin
         return _size;
     }
 
-    void Scene::set_camera_position(Vec2f pos, float time)
+    void Scene::set_camera_position(Vec2f pos, float speed)
     {
+        if (_camera.position == pos)
+            return;
+
         _goto = pos;
-        _goto_time = time;
-        if (time == 0)
+        _goto_speed = speed;
+        if (speed == 1.f)
         {
             _camera.position = _goto;
+            _goto_speed      = 0;
         }
+    }
+
+    void Scene::set_camera_center(Vec2f pos, float speed)
+    {
+        set_camera_position(pos - _camera.size / 2, speed);
+    }
+
+    Vec2f Scene::get_camera_center() const
+    {
+        return _camera.position + _camera.size / 2;
     }
 
     const Camera& Scene::get_camera() const
@@ -464,13 +478,13 @@ namespace fin
 
     void Scene::update_camera_position(float dt)
     {
-        if (_goto_time > 0)
+        if (_goto_speed > 0)
         {
-            _camera.position += (_goto - _camera.position) * _goto_time;
+            _camera.position += (_goto - _camera.position) * _goto_speed * dt;
 
             if (std::abs(_camera.position.x - _goto.x) < 0.1 && std::abs(_camera.position.y - _goto.y) < 0.1)
             {
-                _goto_time = 0;
+                _goto_speed      = 0;
                 _camera.position = _goto;
             }
         }
@@ -556,7 +570,7 @@ namespace fin
             activate_grid(Recti(0, 0, visible_size.x, visible_size.y));
             if (get_camera().position.x != params.scroll.x || get_camera().position.y != params.scroll.y)
             {
-                set_camera_position({params.scroll.x, params.scroll.y}, 0.1f);
+                set_camera_position({params.scroll.x, params.scroll.y});
             }
             _drag.update(params.mouse.x, params.mouse.y);
 

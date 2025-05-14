@@ -6,7 +6,6 @@
 #include "utils/lquadtree.hpp"
 #include "utils/lquery.hpp"
 #include "utils/imguiline.hpp"
-#include "utils/pathfinder.hpp"
 #include "editor/imgui_control.hpp"
 
 namespace fin
@@ -92,25 +91,25 @@ namespace fin
             clear();
         }
 
-        bool find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path) override
+        void init() override
         {
-            auto from = obj->position();
-            auto nav = _navmesh.FindPath(from, target);
-            path.clear();
-            for (auto p : nav.path)
+            for (auto* el : _scene)
             {
-                path.push_back(p);
+                el->init();
             }
-            return path.empty();
+        }
 
-            NavMesh::Point pts[2];
-            pts[0] = NavMesh::Point(from.x, from.y);
-            pts[1] = NavMesh::Point(target.x, target.y);
+        void deinit() override
+        {
+        }
+
+        std::span<const Vec2i> find_path(const IsoSceneObject* obj, Vec2i target) override
+        {
+            Vec2i          from  = obj->position();
+            NavMesh::Point pts[] = {{from.x, from.y}, {target.x, target.y}};
             _pathfinder.AddExternalPoints(pts);
-
-            auto out = _pathfinder.GetPath(_pathfinder.GetExternalPoints()[0], _pathfinder.GetExternalPoints()[1]);
-            path.swap(reinterpret_cast<std::vector<Vec2i>&>(out));
-            return out.empty();
+            return (std::span<const Vec2i>&)(_pathfinder.GetPath(_pathfinder.GetExternalPoints()[0],
+                                                                 _pathfinder.GetExternalPoints()[1]));
         }
 
         void update_navmesh()
@@ -133,30 +132,6 @@ namespace fin
                 }
             }
             _pathfinder.AddPolygons(polygons, _inflate);
-
-
-
-            auto sze = _parent->get_scene_size();
-            Rectf rc(0, 0, sze.x, sze.y);
-            _navmesh.Clear(rc);
-            std::vector<Vec2f> poly;
-            for (auto el : _scene)
-            {
-                auto& col = el->collision();
-                if (col.size())
-                {
-                    poly.clear();
-                    for (uint32_t n = 0; n < col.size(); n += 2)
-                    {
-                        Vec2f pt(col.get_item(n).get(0.f), col.get_item(n + 1).get(0.f));
-                        pt.x += el->position().x;
-                        pt.y += el->position().y;
-                        poly.push_back(pt);
-                    }
-                    _navmesh.AddObstacle(poly);
-                }
-            }
-            _navmesh.Generate();
         }
 
         void clear() override
@@ -301,18 +276,6 @@ namespace fin
                 if (!obj->_ptr->is_hidden())
                     obj->_ptr->render(dc);
             }
-
-            dc.set_color({5, 228, 255, 50});
-            auto triangles = _navmesh.GetDebugTriangels();
-            for (auto& el : triangles)
-            {
-                dc.render_line(el.vertices[0], el.vertices[1]);
-                dc.render_line(el.vertices[1], el.vertices[2]);
-                dc.render_line(el.vertices[0], el.vertices[2]);
-
-              //  dc.render_triangle(el.verts[2], el.verts[1], el.verts[0]);
-            }
-            dc.set_color(WHITE);
         }
 
         void render_edit(Renderer& dc) override
@@ -594,10 +557,12 @@ namespace fin
             obj->_layer = this;
             _scene.push_back(obj);
             _spatial_db.update_for_new_location(obj);
+            obj->init();
         }
 
         void remove(IsoSceneObject* obj)
         {
+            obj->deinit();
             if (obj->is_named())
             {
                 parent()->name_object(obj, {});
@@ -636,8 +601,6 @@ namespace fin
         int32_t                      _inflate{};
         IsoSceneObject*              _edit{};
         IsoSceneObject*              _select{};
-
-        Pathfinder _navmesh;
     };
 
 
@@ -1461,6 +1424,14 @@ namespace fin
     {
     }
 
+    void SceneLayer::init()
+    {
+    }
+
+    void SceneLayer::deinit()
+    {
+    }
+
     void SceneLayer::activate(const Rectf& region)
     {
         _region = region;
@@ -1478,9 +1449,9 @@ namespace fin
     {
     }
 
-    bool SceneLayer::find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path)
+    std::span<const Vec2i> SceneLayer::find_path(const IsoSceneObject* obj, Vec2i target)
     {
-        return false;
+        return std::span<const Vec2i>();
     }
 
     void SceneLayer::moveto(IsoSceneObject* obj, Vec2f pos)

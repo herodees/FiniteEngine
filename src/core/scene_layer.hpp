@@ -46,12 +46,14 @@ namespace fin
         virtual void resize(Vec2f size);
         virtual void clear();
 
+        virtual void init();
+        virtual void deinit();
         virtual void activate(const Rectf& region);
         virtual void update(float dt);
         virtual void render(Renderer& dc);
         virtual void render_edit(Renderer& dc);
 
-        virtual bool find_path(const IsoSceneObject* obj, Vec2i target, std::vector<Vec2i>& path);
+        virtual std::span<const Vec2i> find_path(const IsoSceneObject* obj, Vec2i target);
         virtual void moveto(IsoSceneObject* obj, Vec2f pos);
 
         virtual void imgui_update(bool items);

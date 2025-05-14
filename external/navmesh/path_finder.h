@@ -27,11 +27,11 @@ namespace NavMesh {
 		// It removes previously added external points and adds
 		// |points| to the graph.
 	    void AddExternalPoints(std::span<Point> points_);
-        void AddExternalPoints2(const std::vector<Point>& points_);
-        const std::vector<Point>& GetExternalPoints() const;
+
+        std::span<const Point> GetExternalPoints() const;
 		// Get shortest path between two points.
 		// points must be first added via AddExternalPoints().
-		std::vector<Point> GetPath(const Point& start_coord, const Point& dest_coord);
+		std::span<const Point> GetPath(const Point& start_coord, const Point& dest_coord);
 
 		// For debugging. Returns all the edges in the graph.
 		std::vector<Segment> GetEdgesForDebug(bool external) const;
@@ -46,9 +46,9 @@ namespace NavMesh {
 		std::vector<int> free_vertices_;
 		std::map<Point, int> vertex_ids_;
 		std::vector<Point> v_;
+        std::vector<Point> path_;
 
 		std::vector<std::vector<bool>> polygon_point_is_inside_;
-
 		std::vector<std::vector<std::pair<int, double>>> edges_;
 	};
 

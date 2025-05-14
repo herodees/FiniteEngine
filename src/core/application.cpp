@@ -166,6 +166,7 @@ namespace fin
         {
             _editor   = false;
             TraceLog(LOG_INFO, "SCENE LOAD: %s", path.data());
+            _map.activate_grid({0, 0, GetScreenWidth(), GetScreenHeight()});
             _map.load(path);
             _map.start(true);
         }
