@@ -90,43 +90,57 @@ namespace NavMesh {
 
     void PathFinder::AddExternalPoints(std::span<Point> points_)
     {
-        // Remove old external points from the graph
-        for (const auto& p : ext_points_) {
-            auto it = vertex_ids_.find(p);
-            if (it == vertex_ids_.end()) continue;
-            int id = it->second;
-            free_vertices_.push_back(id);
-            for (const auto& e : edges_[id]) {
-                int u = e.first;
-                if (u == id) continue;
-                auto& u_edges = edges_[u];
-                for (size_t i = 0; i < u_edges.size(); ++i) {
-                    if (u_edges[i].first == id) {
-                        u_edges[i] = u_edges.back();
-                        u_edges.pop_back();
-                        break;
-                    }
-                }
+        // --- Cleanup phase ---
+        for (int id : external_vertex_ids_) {
+            // Remove incoming edges
+            for (auto& edge_list : edges_) {
+                edge_list.erase(std::remove_if(edge_list.begin(), edge_list.end(),
+                    [id](const auto& e) { return e.first == id; }), edge_list.end());
             }
+
+            // Clear outgoing edges
             edges_[id].clear();
-            vertex_ids_.erase(it);
+
+            // Recycle the vertex ID
+            free_vertices_.push_back(id);
+
+            // Find the point (costly if no reverse map, you may want to store ext_point id too)
+            for (auto it = vertex_ids_.begin(); it != vertex_ids_.end(); ) {
+                if (it->second == id)
+                    it = vertex_ids_.erase(it);
+                else
+                    ++it;
+            }
         }
 
-        ext_points_.assign(points_.begin(), points_.end());
-        std::vector<std::pair<int, int>> tangents(polygons_.size());
+        external_vertex_ids_.clear();
+        ext_points_.clear();
 
-        // First pass: Handle points inside polygons
-        for (auto& pt : ext_points_) {
+        // --- Adjust points (resolve collisions inside polygons) ---
+        for (const auto& p : points_) {
+            Point adjusted = p;
             for (const auto& poly : polygons_) {
-                if (poly.IsInside(pt)) {
-                    // Fallback to closest point if no candidates
-                    pt = poly.GetClosestPointOutside(pt);
+                if (poly.IsInside(adjusted)) {
+                    adjusted = poly.GetClosestPointOutside(adjusted);
                     break;
                 }
             }
+
+            // If it's already in vertex_ids_, don't add it again
+            auto it = vertex_ids_.find(adjusted);
+            int vid = (it != vertex_ids_.end()) ? it->second : GetVertex(adjusted);
+
+            // Track only vertices we added ourselves
+            if (it == vertex_ids_.end()) {
+                external_vertex_ids_.insert(vid);
+            }
+
+            ext_points_.push_back(adjusted);
         }
 
-        // Precompute all polygon vertices that are not inside other polygons
+        std::vector<std::pair<int, int>> tangents(polygons_.size());
+
+        // Precompute valid polygon vertices (those not inside other polygons)
         std::vector<Point> valid_poly_vertices;
         for (size_t j = 0; j < polygons_.size(); ++j) {
             const auto& poly = polygons_[j];
@@ -137,11 +151,11 @@ namespace NavMesh {
             }
         }
 
-        // Now add edges
+        // --- Graph construction phase ---
         for (size_t i = 0; i < ext_points_.size(); ++i) {
             const Point& cur_point = ext_points_[i];
 
-            // Precompute tangents for current point
+            // Precompute tangents
             for (size_t j = 0; j < polygons_.size(); ++j) {
                 tangents[j] = polygons_[j].GetTangentIds(cur_point);
             }
@@ -153,27 +167,27 @@ namespace NavMesh {
                 }
             }
 
-            // External-to-polygon tangent points
+            // External-to-polygon tangents
             for (size_t j = 0; j < polygons_.size(); ++j) {
                 const auto& ids = tangents[j];
                 if (ids.first == -1 || ids.second == -1 || ids.first == ids.second)
                     continue;
 
                 const Point& p1 = polygons_[j].points_[ids.first];
-                const Point& p2 = polygons_[j].points_[ids.second];
-
-                if (!polygon_point_is_inside_[j][ids.first] && CanAddSegment(Segment(cur_point, p1), tangents)) {
+                if (!polygon_point_is_inside_[j][ids.first] &&
+                    CanAddSegment(Segment(cur_point, p1), tangents)) {
                     AddEdge(GetVertex(cur_point), GetVertex(p1));
                 }
 
-                if (!polygon_point_is_inside_[j][ids.second] && CanAddSegment(Segment(cur_point, p2), tangents)) {
+                const Point& p2 = polygons_[j].points_[ids.second];
+                if (!polygon_point_is_inside_[j][ids.second] &&
+                    CanAddSegment(Segment(cur_point, p2), tangents)) {
                     AddEdge(GetVertex(cur_point), GetVertex(p2));
                 }
             }
 
-            // Additional visibility connections to all valid polygon vertices
+            // External-to-all-valid-poly-points (not just tangents)
             for (const auto& poly_pt : valid_poly_vertices) {
-                // Skip if this is already connected via tangent
                 bool already_connected = false;
                 for (size_t j = 0; j < polygons_.size(); ++j) {
                     const auto& ids = tangents[j];
@@ -183,13 +197,15 @@ namespace NavMesh {
                         break;
                     }
                 }
-            
-                if (!already_connected && CanAddSegment(Segment(cur_point, poly_pt), tangents)) {
+
+                if (!already_connected &&
+                    CanAddSegment(Segment(cur_point, poly_pt), tangents)) {
                     AddEdge(GetVertex(cur_point), GetVertex(poly_pt));
                 }
             }
         }
     }
+
 
     std::span<const Point> PathFinder::GetExternalPoints() const
     {

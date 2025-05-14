@@ -9,6 +9,7 @@
 #include "polygon.h"
 #include "segment.h"
 #include <span>
+#include <unordered_set>
 
 
 namespace NavMesh {
@@ -42,6 +43,7 @@ namespace NavMesh {
 
 		std::vector<Polygon> polygons_;
 		std::vector<Point> ext_points_;
+        std::unordered_set<int> external_vertex_ids_;
 
 		std::vector<int> free_vertices_;
 		std::map<Point, int> vertex_ids_;
