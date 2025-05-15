@@ -113,6 +113,7 @@ namespace fin::msg
         {
             struct Parser;
         public:
+            enum : uint32_t { npos = 0xffffffff };
             using Member = std::pair<Var, Var>;
 
             ~Var() { clear(); }
@@ -179,6 +180,7 @@ namespace fin::msg
 
             Var              get_item(std::string_view key);
             Var              get_key(uint32_t n);
+            uint32_t         find_key(std::string_view key) const;
             void             set_item(std::string_view key, auto v) { set_item(key, Var(v)); }
             void             set_item(std::string_view key, const Var& v);
 
@@ -214,6 +216,10 @@ namespace fin::msg
             void             erase(uint32_t n);
             void             erase(std::string_view key);
             Tag              get_tag() const;
+
+            Var              diff(const Var& other);
+            void             apply(const Var& diffvar);
+
         private:
             void             setstr(std::string_view v);
             void             setid(std::string_view v);
@@ -754,6 +760,17 @@ namespace fin::msg
             return Var();
         }
 
+        inline uint32_t Var::find_key(std::string_view key) const
+        {
+            if (_tag == Tag::Object)
+            {
+                for (auto n = 0; n < _arr->_size; n += 2)
+                    if (_arr->_data[n].c_str() == key)
+                        return n / 2;
+            }
+            return npos;
+        }
+
         inline void Var::make_array(uint32_t s)
         {
             if (_tag != Tag::Array)
@@ -1258,6 +1275,110 @@ namespace fin::msg
         inline Var::Tag Var::get_tag() const
         {
             return _tag;
+        }
+
+        inline Var Var::diff(const Var& modified)
+        {
+            if (get_tag() != modified.get_tag())
+            {
+                return modified.clone(); // Replace entire value
+            }
+
+            if (is_object())
+            {
+                Var result;
+                for (auto& [key, value] : modified.members())
+                {
+                    if (!contains(key.str()))
+                    {
+                        result.set_item(key.str(), value.clone()); // New key
+                    }
+                    else
+                    {
+                        Var child_diff = get_item(key.str()).diff(value);
+                        if (!child_diff.is_undefined())
+                        {
+                            result.set_item(key.str(), child_diff);
+                        }
+                    }
+                }
+                return result; // Return empty Var if no diff
+            }
+
+            if (is_array())
+            {
+                if (size() != modified.size())
+                {
+                    return modified.clone();
+                }
+
+                Var mod(modified);
+                for (uint32_t i = 0; i < size(); ++i)
+                {
+                    if (get_item(i).diff(mod.get_item(i)).is_undefined() == false)
+                    {
+                        return mod.clone(); // Replace whole array
+                    }
+                }
+
+                return Var(); // No change
+            }
+
+            if (is_string())
+            {
+                if (str() != modified.str())
+                    return Var(modified.str());
+                return Var();
+            }
+
+            if (_u64 != modified._u64)
+            {
+                return modified.clone(); // Replace entire value
+            }
+
+            return Var(); // No change (undefined result)
+        }
+
+        inline void Var::apply(const Var& diffvar)
+        {
+            if (diffvar.is_undefined())
+                return;
+
+            if (is_object() && diffvar.is_object())
+            {
+                for (auto& [key, value] : diffvar.members())
+                {
+                    auto pos = find_key(key.str());
+                    if (value.is_object() && pos != npos && get_item(pos).is_object())
+                    {
+                        get_item(pos).apply(value);
+                    }
+                    else
+                    {
+                        set_item(key.str(), value.clone());
+                    }
+                }
+                return;
+            }
+
+            if (is_array() && diffvar.is_array())
+            {
+                if (_arr->_size > diffvar._arr->_size)
+                {
+                    _arr->erase(diffvar._arr->_size, _arr->_size - diffvar._arr->_size);
+                }
+                else
+                {
+                    _arr->resize(diffvar._arr->_size);
+                }
+                for (uint32_t n = 0; n < diffvar._arr->_size; ++n)
+                {
+                    _arr->_data[n].apply(diffvar._arr->_data[n]);
+                }
+                return;
+            }
+
+            *this = diffvar.clone();
         }
 
         inline Var Var::clone() const
