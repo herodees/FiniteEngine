@@ -362,6 +362,9 @@ namespace fin
         {
             _edit = nullptr;
 
+            if (is_hidden())
+                return;
+
             if (ImGui::IsItemClicked(0))
             {
                 if (auto* obj = find_active(params.mouse))
@@ -779,6 +782,9 @@ namespace fin
         {
             _edit._sprite = {};
 
+            if (is_hidden())
+                return;
+
             if (ImGui::IsItemClicked(0))
             {
                 _select = find_active(params.mouse);
@@ -853,7 +859,7 @@ namespace fin
 
             if (ImGui::Line().Return())
             {
-                if (_select == -1 && ImGui::Line().HoverId() == 1)
+                if (_select != -1 && ImGui::Line().HoverId() == 1)
                 {
                     destroy(_select);
                     _select = -1;
@@ -861,6 +867,15 @@ namespace fin
                 if (ImGui::Line().HoverId() == 10)
                 {
                     g_settings.list_visible_items = !g_settings.list_visible_items;
+                }
+            }
+
+            if ( IsKeyPressed(KEY_DELETE))
+            {
+                if (_select != -1)
+                {
+                    destroy(_select);
+                    _select = -1;
                 }
             }
 
@@ -891,14 +906,22 @@ namespace fin
                         for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
                         {
                             ImGui::PushID(n);
-                            auto& el = _spatial[n];
-                            if (el._sprite.sprite)
+                            if (!_spatial.is_empty(n))
                             {
-                                if (ImGui::Selectable(el._sprite.sprite->_name.c_str(), n == _select))
+                                auto& el = _spatial[n];
+                                if (el._sprite.sprite)
                                 {
-                                    _select = n;
+                                    if (ImGui::Selectable(el._sprite.sprite->_name.c_str(), n == _select))
+                                    {
+                                        _select = n;
+                                    }
                                 }
                             }
+                            else
+                            {
+                                ImGui::Selectable(" ");
+                            }
+
                             ImGui::PopID();
                         }
                     }

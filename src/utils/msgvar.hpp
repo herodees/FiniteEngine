@@ -1289,13 +1289,14 @@ namespace fin::msg
                 Var result;
                 for (auto& [key, value] : modified.members())
                 {
-                    if (!contains(key.str()))
+                    auto pos = find_key(key.str());
+                    if (pos == npos)
                     {
                         result.set_item(key.str(), value.clone()); // New key
                     }
                     else
                     {
-                        Var child_diff = get_item(key.str()).diff(value);
+                        Var child_diff = get_item(pos).diff(value);
                         if (!child_diff.is_undefined())
                         {
                             result.set_item(key.str(), child_diff);
@@ -1333,7 +1334,7 @@ namespace fin::msg
 
             if (_u64 != modified._u64)
             {
-                return modified.clone(); // Replace entire value
+                return modified; // Replace entire value
             }
 
             return Var(); // No change (undefined result)

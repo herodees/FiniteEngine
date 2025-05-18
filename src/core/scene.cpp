@@ -140,8 +140,8 @@ namespace fin
         BeginTextureMode(*_canvas.get_texture());
         ClearBackground(_background);
 
-        dc.set_origin({(float)_camera.position.x, (float)_camera.position.y});
 
+        dc.set_origin({(float)_camera.position.x, (float)_camera.position.y});
         BeginMode2D(dc._camera);
 
         for (auto* el : _layers)
@@ -489,7 +489,7 @@ namespace fin
             }
         }
 
-        Rectf screen(_camera.position.x, _camera.position.y, _camera.size.y, _camera.size.y);
+        Rectf screen(_camera.position.x, _camera.position.y, _camera.size.x, _camera.size.y);
         for (auto* ly : _layers)
         {
             ly->activate(screen);

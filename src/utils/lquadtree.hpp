@@ -118,6 +118,11 @@ namespace fin
             return active;
         }
 
+        bool is_empty(int n) const
+        {
+            return objects[n].empty;
+        }
+
         T& operator[](int n)
         {
             return objects[n].object;
