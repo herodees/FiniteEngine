@@ -11,9 +11,9 @@ namespace ImGui
 {
     struct SharedData
     {
-        void*  drag_data = 0;
+        void*         drag_data = 0;
         std::string   drag_type;
-        std::string buff;
+        std::string   buff;
         fin::msg::Var selected_var;
     } s_shared;
 
@@ -289,7 +289,7 @@ namespace ImGui
     static std::string s_active;
     static std::string s_temp;
 
-    bool FileMenu(const char* label, std::string& path, const char* filter)
+    bool FileMenu(std::string& path, const char* filter)
     {
         if (s_active.empty())
         {
@@ -314,7 +314,7 @@ namespace ImGui
                 s_active         = ".";
                 s_root._expanded = false;
             }
-            ret = FileMenu(label, path, filter);
+            ret = FileMenu( path, filter);
             ImGui::EndCombo();
         }
         return ret;

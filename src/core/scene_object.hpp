@@ -22,10 +22,13 @@ namespace fin
     namespace Sc
     {
         constexpr std::string_view Id("$id");
+        constexpr std::string_view Group("$grp");
         constexpr std::string_view Name("$nme");
         constexpr std::string_view Uid("$uid");
         constexpr std::string_view Class("$cls");
         constexpr std::string_view Flag("$fl");
+        constexpr std::string_view Atlas("atl");
+        constexpr std::string_view Sprite("spr");
     } // namespace Sc
 
 
@@ -198,6 +201,7 @@ namespace fin
         void imgui_workspace();
         void imgui_workspace_menu();
         void imgui_properties();
+        void imgui_items();
         void imgui_explorer();
         void imgui_file_explorer();
         void center_view();
@@ -205,19 +209,26 @@ namespace fin
     private:
         struct ClassInfo
         {
-            void                              select(int32_t n);
-            bool                              is_selected() const;
-            fact_t                            fn;
-            std::string_view                  id;
-            std::string                       name;
-            msg::Var                          items;
-            int32_t                           selected{-1};
-            int32_t                           active{-1};
+            void                            select(int32_t n);
+            bool                            is_selected() const;
+            void                            generate_groups();
+
+            fact_t                          fn;
+            std::string_view                id;
+            std::string                     name;
+            msg::Var                        items;
+            int32_t                         selected{-1};
+            int32_t                         active{-1};
             std::unique_ptr<IsoSceneObject> obj{};
+            std::unordered_map<std::string, std::vector<int>, std::string_hash, std::equal_to<>> groups;
         };
+
+        msg::Var    create_empty_prefab(ClassInfo& info, std::string_view name, std::string_view group);
         void        show_properties(ClassInfo& info);
         void        reset_atlas_cache();
         Atlas::Pack load_atlas(msg::Var& el);
+        void        import_atlas(ClassInfo& info, Atlas::Ptr ptr, std::string_view group);
+        void        set_edit(ClassInfo* info);
 
         std::unordered_map<std::string, ClassInfo, std::string_hash, std::equal_to<>>              _factory;
         std::unordered_map<uint64_t, msg::Var>                                                     _prefab;

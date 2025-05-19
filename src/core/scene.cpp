@@ -255,13 +255,18 @@ namespace fin
         deserialize(ar);
     }
 
-    void Scene::save(std::string_view path)
+    void Scene::save(std::string_view path, bool change_path)
     {
-        _path = path;
+        std::string p(path);
+        if (change_path)
+        {
+            _path = p;
+        }
+
         msg::Pack pack;
         serialize(pack);
         auto ar = pack.data();
-        SaveFileData(_path.c_str(), pack.data().data(), pack.data().size());
+        SaveFileData(p.c_str(), pack.data().data(), pack.data().size());
     }
 
     void Scene::start(bool st)
@@ -296,6 +301,18 @@ namespace fin
         }
 
         ImGui::End();
+    }
+
+    void Scene::imgui_items()
+    {
+        if (_mode == Mode::Prefab)
+        {
+            if (ImGui::Begin("Items"))
+            {
+                SceneFactory::instance().imgui_items();
+            }
+            ImGui::End();
+        }
     }
 
     void Scene::imgui_props_object()

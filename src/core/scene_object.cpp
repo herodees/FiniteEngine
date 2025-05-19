@@ -17,7 +17,9 @@ namespace fin
     };
 
     SceneFactory* s_factory{};
-    FileDir       s_file_dir{};
+    FileDir            s_file_dir{};
+    std::string s_buff;
+    Atlas::Ptr s_atlas;
 
     void SpriteSceneObject::serialize(msg::Writer& ar)
     {
@@ -98,10 +100,10 @@ namespace fin
        
         if (_img.atlas)
         {
-            ar.set_item("atl", _img.atlas->get_path());
+            ar.set_item(Sc::Atlas, _img.atlas->get_path());
             if (_img.sprite)
             {
-                ar.set_item("spr", _img.sprite->_name);
+                ar.set_item(Sc::Sprite, _img.sprite->_name);
             }
         }
     }
@@ -110,7 +112,7 @@ namespace fin
     {
         IsoSceneObject::load(ar);
 
-        set_sprite(ar["atl"].str(), ar["spr"].str());
+        set_sprite(ar[Sc::Atlas].str(), ar[Sc::Sprite].str());
     }
 
 
@@ -167,7 +169,6 @@ namespace fin
             UnloadFileText(txt);
             return err == msg::VarError::ok;
         }
-
         return false;
     }
 
@@ -183,7 +184,12 @@ namespace fin
         std::string txt;
         it->second.items.to_string(txt);
 
-        return SaveFileText(str.c_str(), txt.data());
+        if (SaveFileText(str.c_str(), txt.data()))
+        {
+            load_prototypes(type);
+            return true;
+        }
+        return false;
     }
 
     void SceneFactory::set_root(const std::string& startPath)
@@ -366,76 +372,132 @@ namespace fin
         }
     }
 
-    void SceneFactory::imgui_properties()
+    void SceneFactory::imgui_items()
     {
-        if (ImGui::BeginTabBar("ScnFactTab"))
+        if (!_edit && !_classes.empty())
         {
-            _edit = nullptr;
-            for (auto* cls : _classes)
+            set_edit(_classes[0]);
+        }
+
+        if (ImGui::BeginCombo("Type", _edit ? _edit->name.c_str() : ""))
+        {
+            for (auto* el : _classes)
             {
-                if (ImGui::BeginTabItem(cls->name.c_str()))
+                if(ImGui::Selectable(el->name.c_str(), _edit == el))
                 {
-                    _edit = cls;
-
-                    if (ImGui::Button(" " ICON_FA_LAPTOP " Add "))
-                    {
-                        auto obj = msg::Var::object(2);
-                        obj.set_item(Sc::Uid, std::generate_unique_id());
-                        obj.set_item(Sc::Class, cls->id);
-                        obj.set_item(Sc::Id, ImGui::FormatStr("%s_%d", cls->id.data(), cls->items.size()));
-                        cls->items.push_back(obj);
-                        cls->select(cls->items.size() - 1);
-                    }
-                    ImGui::SameLine();
-                    if (ImGui::Button(" " ICON_FA_UPLOAD " Save "))
-                    {
-                        cls->select(cls->selected);
-                        save_prototypes(cls->id);
-                    }
-                    ImGui::SameLine();
-                    ImGui::InvisibleButton("##ib", {-34, 1});
-                    ImGui::SameLine();
-                    if (ImGui::Button(" " ICON_FA_BAN " "))
-                    {
-                        if ((uint32_t)cls->selected < cls->items.size())
-                        {
-                            auto sel = cls->selected;
-                            cls->items.erase(sel);
-                            cls->select(sel);
-                        }
-                    }
-
-                    if (ImGui::BeginChildFrame(-1, {-1, 100}))
-                    {
-                        ImGuiListClipper clipper;
-                        clipper.Begin(cls->items.size());
-                        while (clipper.Step())
-                        {
-                            for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
-                            {
-                                ImGui::PushID(n);
-                                auto val = cls->items.get_item(n);
-                                auto id = val.get_item(Sc::Id);
-                                if (ImGui::Selectable(id.c_str(), cls->selected == n))
-                                {
-                                    cls->select(n);
-                                }
-                                ImGui::PopID();
-                            }
-                        }
-                    }
-                    ImGui::EndChildFrame();
-                    ImGui::Text("Properties");
-                    if (ImGui::BeginChildFrame(-2, {-1, -1}))
-                    {
-                        show_properties(*cls);
-                    }
-                    ImGui::EndChildFrame();
-
-                    ImGui::EndTabItem();
+                    set_edit(el);
                 }
             }
-            ImGui::EndTabBar();
+            ImGui::EndCombo();
+        }
+
+        if (_edit)
+        {
+            if (ImGui::Button(" " ICON_FA_LAPTOP " Add "))
+            {
+                auto obj = create_empty_prefab(*_edit,
+                                               ImGui::FormatStr("%s_%d", _edit->id.data(), _edit->items.size()),
+                                               "");
+                _edit->items.push_back(obj);
+                _edit->select(_edit->items.size() - 1);
+                set_edit(_edit);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(" " ICON_FA_UPLOAD " Save "))
+            {
+                _edit->select(_edit->selected);
+                save_prototypes(_edit->id);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(" " ICON_FA_DOWNLOAD " "))
+            {
+                ImGui::OpenPopup("AtlasMenu");
+            }
+            ImGui::SameLine();
+            ImGui::InvisibleButton("##ib", {-34, 1});
+            ImGui::SameLine();
+            if (ImGui::Button(" " ICON_FA_BAN " "))
+            {
+                if ((uint32_t)_edit->selected < _edit->items.size())
+                {
+                    auto sel = _edit->selected;
+                    _edit->items.erase(sel);
+                    _edit->selected = -1;
+                    _edit->select(sel);
+                    _edit->generate_groups();
+                }
+            }
+
+            bool import = false;
+            if (ImGui::BeginPopup("AtlasMenu"))
+            {
+                std::string buff;
+                if (ImGui::FileMenu(buff, ".atlas"))
+                {
+                    s_atlas = Atlas::load_shared(buff);
+                    import  = !!s_atlas;
+                }
+                ImGui::EndPopup();
+            }
+            if (import)
+            {
+                s_buff.clear();
+                ImGui::OpenPopup("Import##atlimport");
+            }
+
+            if (ImGui::BeginPopupModal("Import##atlimport", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+            {
+                ImGui::Text("Import Atlas %s", s_atlas->get_path().c_str());
+                ImGui::InputText("Group", &s_buff, 64);
+                if (ImGui::Button("Import", {150, 0}))
+                {
+                    import_atlas(*_edit, s_atlas, s_buff);
+                    ImGui::CloseCurrentPopup();
+                    s_atlas.reset();
+                }
+                ImGui::SameLine();
+                if(ImGui::Button("Cancel", {150, 0}))
+                {
+                    ImGui::CloseCurrentPopup();
+                    s_atlas.reset();
+                }
+                ImGui::EndPopup();
+            }
+
+            if (ImGui::BeginChildFrame(-1, {-1, -1}))
+            {
+                for (auto& [groupName, indices] : _edit->groups)
+                {
+                    if (groupName.empty() || ImGui::TreeNode(groupName.c_str()))
+                    {
+                        for (int n : indices)
+                        {
+                            ImGui::PushID(n);
+                            auto val = _edit->items.get_item(n);
+                            auto id  = val.get_item(Sc::Id);
+
+                            if (ImGui::Selectable(id.c_str(), _edit->selected == n))
+                            {
+                                _edit->select(n);
+                            }
+
+                            ImGui::PopID();
+                        }
+
+                        if(!groupName.empty())
+                            ImGui::TreePop();
+                    }
+                }
+            }
+            ImGui::EndChildFrame();
+        }
+    }
+
+    void SceneFactory::imgui_properties()
+    {
+        if (_edit)
+        {
+            show_properties(*_edit);
         }
     }
 
@@ -472,16 +534,19 @@ namespace fin
                                 reset_atlas_cache();
                             }
 
-                            if (ImGui::BeginChildFrame(-1, {-1, -1}))
+                            if (info.groups.empty() && info.items.size())
                             {
-                                _explore = &info;
-                                ImGuiListClipper clipper;
-                                clipper.Begin(info.items.size());
-                                while (clipper.Step())
+                                info.generate_groups();
+                            }
+
+                            for (auto& [groupName, indices] : info.groups)
+                            {
+                                if (groupName.empty() || ImGui::TreeNode(groupName.c_str()))
                                 {
-                                    for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                                    for (int n : indices)
                                     {
                                         ImGui::PushID(n);
+
                                         auto val  = info.items.get_item(n);
                                         auto id   = val.get_item(Sc::Id);
                                         auto pack = load_atlas(val);
@@ -509,9 +574,11 @@ namespace fin
 
                                         ImGui::PopID();
                                     }
+
+                                    if (!groupName.empty())
+                                        ImGui::TreePop();
                                 }
                             }
-                            ImGui::EndChildFrame();
 
                             ImGui::EndTabItem();
                         }
@@ -649,6 +716,17 @@ namespace fin
         ImGui::EndChildFrame();
     }
 
+    msg::Var SceneFactory::create_empty_prefab(ClassInfo& info, std::string_view name, std::string_view group)
+    {
+        auto obj = msg::Var::object(2);
+        obj.set_item(Sc::Uid, std::generate_unique_id());
+        obj.set_item(Sc::Class, info.id);
+        obj.set_item(Sc::Id, name);
+        if (!group.empty())
+            obj.set_item(Sc::Group, group);
+        return obj;
+    }
+
     void SceneFactory::show_properties(ClassInfo& info)
     {
         if (!info.is_selected())
@@ -659,6 +737,12 @@ namespace fin
         if (ImGui::InputText("Id", &_buff))
         {
             proto.set_item(Sc::Id, _buff);
+        }
+        _buff = proto.get_item(Sc::Group).str();
+        if (ImGui::InputText("Group", &_buff))
+        {
+            proto.set_item(Sc::Group, _buff);
+            info.generate_groups();
         }
 
         info.obj->imgui_update();
@@ -672,8 +756,8 @@ namespace fin
     Atlas::Pack SceneFactory::load_atlas(msg::Var& el)
     {
         Atlas::Pack out;
-        auto atl = el.get_item("atl");
-        auto spr = el.get_item("spr");
+        auto        atl = el.get_item(Sc::Atlas);
+        auto        spr = el.get_item(Sc::Sprite);
         auto it = _cache.find(atl.str());
         if (it == _cache.end())
         {
@@ -687,6 +771,31 @@ namespace fin
                 out.sprite = &out.atlas->get(n);
         }
         return out;
+    }
+
+    void SceneFactory::import_atlas(ClassInfo& info, Atlas::Ptr ptr, std::string_view group)
+    {
+        if (!ptr)
+            return;
+
+        Atlas* atl = ptr.get();
+        for (auto n = 0; n < atl->size(); n++)
+        {
+            auto& spr = atl->get(n + 1);
+            auto obj  = create_empty_prefab(info, spr._name, group);
+            obj.set_item(Sc::Atlas, atl->get_path());
+            obj.set_item(Sc::Sprite, spr._name);
+
+            info.items.push_back(obj);
+        }
+
+        info.generate_groups();
+    }
+
+    void SceneFactory::set_edit(ClassInfo* info)
+    {
+        _edit = info;
+        _edit->generate_groups();
     }
 
     void SceneFactory::ClassInfo::select(int32_t n)
@@ -709,6 +818,17 @@ namespace fin
     bool SceneFactory::ClassInfo::is_selected() const
     {
         return (uint32_t)selected < items.size();
+    }
+
+    void SceneFactory::ClassInfo::generate_groups()
+    {
+        groups.clear();
+        for (int i = 0; i < items.size(); i++)
+        {
+            auto val   = items.get_item(i);
+            auto group = val.get_item(Sc::Group); // assuming std::string
+            groups[group.get("")].push_back(i);
+        }
     }
 
     bool ObjectBase::flag_get(SceneObjectFlag f) const

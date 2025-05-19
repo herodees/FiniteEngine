@@ -26,7 +26,7 @@ namespace ImGui
     void SetActiveVar(fin::msg::Var el);
     fin::msg::Var& GetActiveVar();
 
-    bool FileMenu(const char* label, std::string& path, const char* filter);
+    bool FileMenu(std::string& path, const char* filter);
     bool OpenFileName(const char* label, std::string& path, const char* filter);
 
     class Editor : std::enable_shared_from_this<Editor>

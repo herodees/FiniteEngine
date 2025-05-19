@@ -10,6 +10,8 @@ namespace fin
     struct Params;
     struct DragData;
 
+    constexpr int32_t tile_size(512);
+
     void BeginDefaultMenu(const char* id);
     bool EndDefaultMenu();
 
@@ -27,6 +29,9 @@ namespace fin
 
         static SceneLayer* create(msg::Value& ar, Scene* scene);
         static SceneLayer* create(Type t);
+        static SceneLayer* create_isometric();
+        static SceneLayer* create_sprite();
+        static SceneLayer* create_region();
 
         SceneLayer(Type t = Type::Undefined);
         virtual ~SceneLayer() = default;
@@ -66,8 +71,6 @@ namespace fin
 
         void hide(bool b);
         void activate(bool a);
-
-        void render_grid(Renderer& dc);
 
     protected:
         Scene*           _parent{};

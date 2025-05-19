@@ -85,11 +85,12 @@ namespace fin
         void deserialize(msg::Value& ar);
 
         void load(std::string_view path);
-        void save(std::string_view path);
+        void save(std::string_view path, bool change_path = true);
 
         void start(bool st);
 
         void imgui_props();
+        void imgui_items();
         void imgui_menu();
         void imgui_workspace();
 

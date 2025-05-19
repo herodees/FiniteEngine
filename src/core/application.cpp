@@ -261,10 +261,12 @@ namespace fin
             ImGuiID dock_id_list = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, NULL, &dock_main_id);
             ImGuiID dock_id_comp = ImGui::DockBuilderSplitNode(dock_id_list, ImGuiDir_Down, 0.30f, NULL, &dock_id_list);
             ImGuiID dock_id_prop = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, NULL, &dock_main_id);
+            ImGuiID dock_id_items = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, NULL, &dock_main_id);
             ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.20f, NULL, &dock_main_id);
 
             ImGui::DockBuilderDockWindow("Workspace", dock_id_bottom);
             ImGui::DockBuilderDockWindow("Properties", dock_id_prop);
+            ImGui::DockBuilderDockWindow("Items", dock_id_items);
             ImGui::DockBuilderDockWindow("Explorer", dock_id_list);
             ImGui::DockBuilderDockWindow("Setup", dock_id_comp);
             ImGui::DockBuilderFinish(dockspace_id);
@@ -273,6 +275,7 @@ namespace fin
         ImGui::DockSpace(dockspace_id);
         if (!init_docking)
         {
+            _map.imgui_items();
             _map.imgui_props();
             imgui_workspace();
 
@@ -441,14 +444,14 @@ namespace fin
         {
             _map.imgui_menu();
 
-            if (!_map.get_path().empty())
+            if (ImGui::TabItemButton(" " ICON_FA_PLAY " ", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
             {
-                if (ImGui::TabItemButton(" " ICON_FA_PLAY " ", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
-                {
-                    run_current_process({"/scene=\"" + _map.get_path() + "\""});
-                }
-            }
 
+                    std::string runtime_file("assets/___run___.map");
+                    _map.save(runtime_file, false);
+                    run_current_process({"/scene=\"" + runtime_file + "\""});
+                
+            }
             ImGui::EndTabBar();
         }
 
