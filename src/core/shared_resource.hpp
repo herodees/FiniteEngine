@@ -52,7 +52,10 @@ namespace fin
     class Texture2D : std::enable_shared_from_this<Texture2D>
     {
     private:
-        Texture texture{};
+        Texture              texture{};
+        std::vector<uint8_t> bitmask;
+
+        void generate_alpha_mask(const Image& img, float threshold);
 
     public:
         using Ptr = std::shared_ptr<Texture2D>;
@@ -87,6 +90,8 @@ namespace fin
         {
             return &texture;
         }
+
+        bool is_alpha_visible(uint32_t x, uint32_t y) const;
 
         static Ptr load_shared(std::string_view pth);
         explicit   operator bool() const;

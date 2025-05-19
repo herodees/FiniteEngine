@@ -141,7 +141,11 @@ namespace fin
     bool Texture2D::load_from_file(const std::filesystem::path& filePath)
     {
         clear(); // Free existing texture if any
-        texture = LoadTexture(filePath.string().c_str());
+
+        auto img = LoadImage(filePath.string().c_str());
+        generate_alpha_mask(img, 0.5f);
+        texture = LoadTextureFromImage(img);
+        UnloadImage(img);
 
         if (!texture.id)
         {
@@ -156,6 +160,7 @@ namespace fin
         clear(); // Free existing texture if any
 
         texture = LoadTextureFromImage(*loadedSurface.get_surface());
+        generate_alpha_mask(*loadedSurface.get_surface(), 0.5f);
 
         if (!texture.id)
         {
@@ -183,6 +188,42 @@ namespace fin
         UpdateTextureRec(texture, (::Rectangle&)(rc), pixels);
 
         return true;
+    }
+
+    bool Texture2D::is_alpha_visible(uint32_t x, uint32_t y) const
+    {
+        if (x >= texture.width || y >= texture.height)
+            return false;
+        int idx = y * texture.width + x;
+        return (bitmask[idx / 8] >> (idx % 8)) & 1;
+    }
+
+    void Texture2D::generate_alpha_mask(const Image& img, float threshold)
+    {
+        const int w     = img.width;
+        const int h     = img.height;
+        const int total = w * h;
+
+        bitmask.clear();
+        bitmask.resize((total + 7) / 8, 0);
+
+        if (img.format == PIXELFORMAT_UNCOMPRESSED_R8G8B8A8)
+        {
+            const uint8_t* data           = static_cast<const uint8_t*>(img.data);
+            const uint8_t  alphaThreshold = static_cast<uint8_t>(threshold * 255.0f);
+
+            for (int i = 0; i < total; ++i)
+            {
+                uint8_t a = data[i * 4 + 3]; // A channel
+                if (a >= alphaThreshold)
+                    bitmask[i / 8] |= (1 << (i % 8));
+            }
+        }
+        else
+        {
+            // Assume solid image if not RGBA8 — mark all as opaque
+            std::fill(bitmask.begin(), bitmask.end(), 0xFF);
+        }
     }
 
     Texture2D::Ptr Texture2D::load_shared(std::string_view pth)

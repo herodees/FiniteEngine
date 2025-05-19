@@ -513,9 +513,23 @@ namespace fin
         {
             for (auto it = _iso.rbegin(); it != _iso.rend(); ++it)
             {
-                if ((*it)->_ptr->bounding_box().contains(position))
+                auto* obj = (*it)->_ptr;
+                auto  bbox = obj->bounding_box();
+
+                if (bbox.contains(position))
                 {
-                    return (*it)->_ptr;
+                    if (obj->sprite_object())
+                    {
+                        auto& spr = static_cast<SpriteSceneObject*>(obj)->sprite();
+                        if (spr.is_alpha_visible(position.x - bbox.x1, position.y - bbox.y1))
+                        {
+                            return obj;
+                        }
+                    }
+                    else
+                    {
+                        return (*it)->_ptr;
+                    }
                 }
             }
             return nullptr;
@@ -697,7 +711,15 @@ namespace fin
 
             if (g_settings.visible_grid)
             {
-                SceneLayer::render_grid(dc);
+                Color clr{255, 255, 0, 190};
+                dc.set_color(clr);
+
+                auto cb = [&dc](const Rectf& rc) {
+                    dc.render_line_rect(rc);
+                    };
+                _spatial.for_each_node(cb);
+
+              //  SceneLayer::render_grid(dc);
             }
         }
 
@@ -728,6 +750,8 @@ namespace fin
         {
             SceneLayer::deserialize(ar);
             _spatial.clear();
+            _spatial.resize(Rectf(0, 0, _parent->get_scene_size().x, _parent->get_scene_size().y));
+            
             _max_index = ar["max_index"].get(0u);
             _sort_y = ar["sort_y"].get(false);
             auto els = ar["items"];
@@ -758,9 +782,12 @@ namespace fin
 
             for (auto it = els.rbegin(); it != els.rend(); ++it)
             {
-                if (_spatial[*it]._bbox.contains(position))
+                const auto& spr = _spatial[*it];
+
+                if (spr._bbox.contains(position))
                 {
-                    return *it;
+                    if (spr._sprite.is_alpha_visible(position.x - spr._bbox.x, position.y - spr._bbox.y))
+                        return *it;
                 }
             }
             return -1;

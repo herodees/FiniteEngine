@@ -42,6 +42,7 @@ namespace fin
         {
             Atlas::Ptr atlas;
             Sprite*    sprite{};
+            bool       is_alpha_visible(uint32_t x, uint32_t y) const;
         };
 
         bool               load_from_file(std::string_view pth);
@@ -244,5 +245,14 @@ namespace fin
     inline const Texture2D& Atlas::texture() const
     {
         return _texture;
+    }
+
+    inline bool Atlas::Pack::is_alpha_visible(uint32_t x, uint32_t y) const
+    {
+        if (sprite)
+        {
+            return atlas->_texture.is_alpha_visible(x + sprite->_source.x, y + sprite->_source.y);
+        }
+        return false;
     }
 } // namespace fin
