@@ -25,9 +25,10 @@ namespace fin
         const auto width  = texture->width;
         const auto height = texture->height;
 
-        rlSetTexture(texture->id);
+
         rlBegin(RL_QUADS);
 
+        rlSetTexture(texture->id);
         rlColor4ub(_color.r, _color.g, _color.b, _color.a);
         rlNormal3f(0.0f, 0.0f, 1.0f); // Normal vector pointing towards viewer
 

@@ -292,6 +292,7 @@ namespace fin
             if (is_hidden())
                 return;
 
+      
             for (auto n : _spatial.get_active())
             {
                 auto& nde = _spatial[n];
@@ -301,7 +302,7 @@ namespace fin
                     const auto width  = nde._texture->get_texture()->width;
                     const auto height = nde._texture->get_texture()->height;
 
-                    rlBegin(RL_TRIANGLES);
+                    rlBegin(RL_QUADS);
                     rlSetTexture(nde._texture->get_texture()->id);
                     rlColor4ub(255, 255, 255, 255);
                     rlNormal3f(0.0f, 0.0f, 1.0f);
@@ -319,12 +320,16 @@ namespace fin
 
                         rlTexCoord2f((center.x - nde._offset.x) / width, (center.y - nde._offset.y) / height);
                         rlVertex2f(center.x, center.y);
+
+                        rlTexCoord2f((center.x - nde._offset.x) / width, (center.y - nde._offset.y) / height);
+                        rlVertex2f(center.x, center.y);
                     }
 
                     rlEnd();
-                    rlSetTexture(0);
+
                 }
             }
+            rlSetTexture(0);
         }
 
         void imgui_workspace_menu() override
