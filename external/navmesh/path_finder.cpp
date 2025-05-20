@@ -119,12 +119,21 @@ namespace NavMesh {
         // --- Adjust points (resolve collisions inside polygons) ---
         for (const auto& p : points_) {
             Point adjusted = p;
-            for (const auto& poly : polygons_) {
-                if (poly.IsInside(adjusted)) {
-                    adjusted = poly.GetClosestPointOutside(adjusted);
-                    break;
+
+            bool safe = true;
+            int iteration = 0;
+            do {
+                safe = true;
+                for (const auto& poly : polygons_) {
+                    if (poly.IsInside(adjusted)) {
+                        adjusted = poly.GetClosestPointOutside(adjusted);
+                        safe = false;
+                        break;
+                    }
                 }
-            }
+                ++iteration;
+            } while(!safe && iteration < 10);
+
 
             // If it's already in vertex_ids_, don't add it again
             auto it = vertex_ids_.find(adjusted);
@@ -215,9 +224,16 @@ namespace NavMesh {
 	std::span<const Point> PathFinder::GetPath(const Point& start_coord, const Point& dest_coord)
     {
         path_.clear();
+        auto it_start_coord = vertex_ids_.find(start_coord);
+        auto it_dest_coord = vertex_ids_.find(dest_coord);
 
-	    int start = GetVertex(start_coord);
-	    int dest = GetVertex(dest_coord);
+        if(it_start_coord == vertex_ids_.end() || it_dest_coord == vertex_ids_.end())
+        {
+            return path_;
+        }
+
+	    int start = it_start_coord->second;
+	    int dest = it_dest_coord->second;
 
 	    if (start == dest)
         {

@@ -162,6 +162,48 @@ namespace ImGui
         return modified;
     }
 
+    bool TextureInput(const char* label, fin::Texture2D::Ptr* pack)
+    {
+        ImGui::PushID(ImGui::GetID(label));
+        bool modified = false;
+
+        ImGui::BeginGroup();
+        {
+            fin::Texture2D::Ptr& txt = *pack;
+
+            if (txt)
+            {
+                ImGui::Image((ImTextureID)txt->get_texture(), {32, 32});
+                ImGui::SameLine();
+            }
+            else
+            {
+                ImGui::InvisibleButton("##img", {32, 32});
+            }
+
+            if (txt)
+            {
+                s_shared.buff = txt->get_path();
+            }
+            else
+            {
+                s_shared.buff.clear();
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::OpenFileName(label, s_shared.buff, ".png"))
+            {
+                txt      = fin::Texture2D::load_shared(s_shared.buff);
+                modified = true;
+            }
+        }
+        ImGui::EndGroup();
+        ImGui::PopID();
+
+        return modified;
+    }
+
     bool SoundInput(const char* label, fin::SoundSource::Ptr* pack)
     {
         ImGui::PushID(ImGui::GetID(label));

@@ -501,7 +501,7 @@ namespace fin
         }
     }
 
-    void SceneFactory::imgui_explorer()
+    void SceneFactory::imgui_explorer(Scene* map)
     {
         if (!ImGui::Begin("Explorer"))
         {
@@ -514,7 +514,7 @@ namespace fin
             ImGui::SetNextItemWidth(90);
             if (ImGui::BeginTabItem("Assets"))
             {
-                imgui_file_explorer();
+                imgui_file_explorer(map);
                 ImGui::EndTabItem();
             }
 
@@ -624,7 +624,7 @@ namespace fin
         return ICON_FA_FILE;
     }
 
-    void SceneFactory::imgui_file_explorer()
+    void SceneFactory::imgui_file_explorer(Scene* map)
     {
         if (!s_file_dir.expanded)
         {
@@ -709,6 +709,16 @@ namespace fin
                             .End())
                     {
                         s_file_dir.editor = ImGui::Editor::load_from_file(s_file_dir.path + file);
+                    }
+
+                    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                    {
+                        std::string_view ext(file);
+                        ext = ext.substr(ext.rfind('.') + 1);
+                        if (ext == "map")
+                        {
+                            map->load(s_file_dir.path + file);
+                        }
                     }
                 }
             }

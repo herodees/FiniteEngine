@@ -277,6 +277,8 @@ namespace fin
         {
             _map.imgui_items();
             _map.imgui_props();
+            _factory.imgui_explorer(&_map);
+
             imgui_workspace();
 
            //  ImGui::ShowDemoWindow();

@@ -131,6 +131,8 @@ namespace fin
 
     void Texture2D::clear()
     {
+        path.clear();
+        bitmask.clear();
         if (texture.id)
         {
             UnloadTexture(texture);
@@ -141,8 +143,8 @@ namespace fin
     bool Texture2D::load_from_file(const std::filesystem::path& filePath)
     {
         clear(); // Free existing texture if any
-
-        auto img = LoadImage(filePath.string().c_str());
+        path     = filePath.string();
+        auto img = LoadImage(path.c_str());
         generate_alpha_mask(img, 0.5f);
         texture = LoadTextureFromImage(img);
         UnloadImage(img);
@@ -188,6 +190,11 @@ namespace fin
         UpdateTextureRec(texture, (::Rectangle&)(rc), pixels);
 
         return true;
+    }
+
+    void Texture2D::set_repeat(bool r)
+    {
+        SetTextureWrap(texture, r ? TEXTURE_WRAP_REPEAT : TEXTURE_WRAP_CLAMP);
     }
 
     bool Texture2D::is_alpha_visible(uint32_t x, uint32_t y) const

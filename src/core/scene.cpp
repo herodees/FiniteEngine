@@ -279,8 +279,6 @@ namespace fin
 
     void Scene::imgui_props()
     {
-        SceneFactory::instance().imgui_explorer();
-
         if (!ImGui::Begin("Properties"))
         {
             ImGui::End();

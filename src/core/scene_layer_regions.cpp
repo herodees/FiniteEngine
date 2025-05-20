@@ -7,6 +7,7 @@
 #include "utils/imguiline.hpp"
 #include "utils/lquadtree.hpp"
 #include "utils/lquery.hpp"
+#include <rlgl.h>
 
 namespace fin
 {
@@ -15,9 +16,12 @@ namespace fin
     public:
         struct Node
         {
-            msg::Var _points;
-            Rectf    _bbox;
-            bool     _need_update{};
+            msg::Var       _points;
+            Rectf          _bbox;
+            Texture2D::Ptr _texture;
+            Vec2i          _offset;
+            bool           _need_update{};
+
             bool     operator==(const Node& ot) const
             {
                 return this == &ot;
@@ -131,6 +135,19 @@ namespace fin
                 for (auto el : node._points.elements())
                     ar.value(el.get(0.f));
                 ar.end_array();
+
+                if (node._texture)
+                {
+                    ar.member("t", node._texture->get_path());
+                }
+                if (node._offset.x)
+                {
+                    ar.member("tx", node._offset.x);
+                }
+                if (node._offset.y)
+                {
+                    ar.member("ty", node._offset.y);
+                }
                 ar.end_object();
             };
 
@@ -154,6 +171,17 @@ namespace fin
                 {
                     nde._points.push_back(el.get(0.f));
                 }
+
+                auto tx = el["t"];
+                if (tx.is_string())
+                {
+                    nde._texture = Texture2D::load_shared(tx.str());
+                    nde._texture->set_repeat(true);
+
+                    nde._offset.x = el["tx"].get(0);
+                    nde._offset.y = el["ty"].get(0);
+                }
+
                 nde.update();
                 _spatial.insert(nde);
             }
@@ -259,6 +287,46 @@ namespace fin
         {
         }
 
+        void render(Renderer& dc) override
+        {
+            if (is_hidden())
+                return;
+
+            for (auto n : _spatial.get_active())
+            {
+                auto& nde = _spatial[n];
+                if (nde._texture)
+                {
+                    const auto center = nde._bbox.center();
+                    const auto width  = nde._texture->get_texture()->width;
+                    const auto height = nde._texture->get_texture()->height;
+
+                    rlBegin(RL_TRIANGLES);
+                    rlSetTexture(nde._texture->get_texture()->id);
+                    rlColor4ub(255, 255, 255, 255);
+                    rlNormal3f(0.0f, 0.0f, 1.0f);
+
+                    for (uint32_t n = 0; n < nde.size(); ++n)
+                    {
+                        auto pt1 = nde.get_point(n);
+                        auto pt2 = nde.get_point((n + 1) % nde.size());
+
+                        rlTexCoord2f((pt1.x - nde._offset.x) / width, (pt1.y - nde._offset.y) / height);
+                        rlVertex2f(pt1.x, pt1.y);
+
+                        rlTexCoord2f((pt2.x - nde._offset.x) / width, (pt2.y - nde._offset.y) / height);
+                        rlVertex2f(pt2.x, pt2.y);
+
+                        rlTexCoord2f((center.x - nde._offset.x) / width, (center.y - nde._offset.y) / height);
+                        rlVertex2f(center.x, center.y);
+                    }
+
+                    rlEnd();
+                    rlSetTexture(0);
+                }
+            }
+        }
+
         void imgui_workspace_menu() override
         {
             BeginDefaultMenu("wsmnu");
@@ -353,6 +421,17 @@ namespace fin
         {
             if (auto* reg = selected_region())
             {
+                bool modified = false;
+                modified |= ImGui::PointVector("Points", &reg->_points, {-1, ImGui::GetFrameHeightWithSpacing() * 4});
+                modified |= ImGui::TextureInput("Texture", &reg->_texture);
+                if (reg->_texture)
+                    modified |= ImGui::DragInt2("Offset", &reg->_offset.x);
+                
+
+                if (modified)
+                {
+                    reg->update();
+                }
             }
         }
 

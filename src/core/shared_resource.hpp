@@ -53,6 +53,7 @@ namespace fin
     {
     private:
         Texture              texture{};
+        std::string          path;
         std::vector<uint8_t> bitmask;
 
         void generate_alpha_mask(const Image& img, float threshold);
@@ -73,6 +74,12 @@ namespace fin
         bool load_from_surface(const Surface& loadedSurface);
         bool update_texture_data(const void* pixels);
         bool update_texture_data(const void* pixels, const Rectf& rc);
+        void set_repeat(bool r);
+
+        const std::string& get_path() const
+        {
+            return path;
+        }
 
         Vec2i get_size() const
         {

@@ -202,8 +202,8 @@ namespace fin
         void imgui_workspace_menu();
         void imgui_properties();
         void imgui_items();
-        void imgui_explorer();
-        void imgui_file_explorer();
+        void imgui_explorer(Scene* map);
+        void imgui_file_explorer(Scene* map);
         void center_view();
 
     private:
