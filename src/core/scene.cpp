@@ -2,15 +2,22 @@
 #include "utils/dialog_utils.hpp"
 #include "utils/imguiline.hpp"
 #include "editor/imgui_control.hpp"
+#include "ecs/base.hpp"
 
 namespace fin
 {
     Scene::Scene()
     {
+
     }
 
     Scene::~Scene()
     {
+    }
+
+    void Scene::init()
+    {
+        ecs::register_base_components(_factory);
     }
 
     const std::string& Scene::get_path() const
@@ -296,6 +303,9 @@ namespace fin
             case Mode::Prefab:
                 SceneFactory::instance().imgui_properties();
                 break;
+            case Mode::Prefabs:
+                _factory.imgui_props(this);
+                break;
         }
 
         ImGui::End();
@@ -309,6 +319,12 @@ namespace fin
             {
                 SceneFactory::instance().imgui_items();
             }
+            ImGui::End();
+        }
+        else if (_mode == Mode::Prefabs)
+        {
+            if (ImGui::Begin("Items"))
+                _factory.imgui_items(this);
             ImGui::End();
         }
     }
@@ -539,6 +555,14 @@ namespace fin
         {
             _mode = Mode::Prefab;
             SceneFactory::instance().imgui_workspace_menu();
+            ImGui::EndTabItem();
+        }
+
+        ImGui::SetNextItemWidth(tabw);
+        if (ImGui::BeginTabItem(ICON_FA_BOXES_PACKING " Prefabs"))
+        {
+            _mode = Mode::Prefabs;
+            _factory.imgui_show(this);
             ImGui::EndTabItem();
         }
     }

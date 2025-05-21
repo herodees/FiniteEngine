@@ -161,6 +161,8 @@ namespace fin
         _factory.load_factory<NpcSceneObject>(NpcSceneObject::type_id, "NPC");
         _factory.load_factory<SoundObject>(SoundObject::type_id, "Sound");
 
+        _map.init();
+
         auto path = cmd_attribute_get("/scene");
         if (!path.empty())
         {

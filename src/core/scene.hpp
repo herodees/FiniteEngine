@@ -7,6 +7,7 @@
 #include "scene_object.hpp"
 #include "scene_npc.hpp"
 #include "shared_resource.hpp"
+#include "ecs/component.hpp"
 
 namespace fin
 {
@@ -51,12 +52,14 @@ namespace fin
             Setup,
             Objects,
             Prefab,
+            Prefabs,
         };
 
         Scene();
         ~Scene();
 
         const std::string& get_path() const;
+        void               init();
 
         void        set_size(Vec2f size);
         int32_t     add_layer(SceneLayer* layer);
@@ -99,6 +102,7 @@ namespace fin
         void imgui_props_setup();
         void update_camera_position(float dt);
 
+        ComponentFactory                                                                _factory;
         std::vector<SceneLayer*>                                                        _layers;
         std::unordered_map<std::string, ObjectBase*, std::string_hash, std::equal_to<>> _named_object;
         DragData                                                                        _drag{};

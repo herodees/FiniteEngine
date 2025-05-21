@@ -7,6 +7,9 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "rlImGui.h"
 
+// ENTT
+#include "entt.hpp"
+
 // Utils
 #include "utils/std_utils.hpp"
 #include "utils/math_utils.hpp"

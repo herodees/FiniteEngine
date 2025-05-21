@@ -1,0 +1,164 @@
+#pragma once
+
+#include "include.hpp"
+
+namespace fin
+{
+    class Scene;
+    using Registry      = entt::registry;
+    using Entity        = entt::registry::entity_type;
+
+    struct ArchiveParams
+    {
+        Registry&        reg;
+        Entity           entity;
+        msg::Var         data;
+    };
+
+    struct ComponentData
+    {
+        entt::registry::base_type* storage;
+        std::string_view           id;
+        std::string_view           label;
+        void (*emplace)(Entity);
+        void (*remove)(Entity);
+        bool (*contains)(Entity);
+        bool (*load)(ArchiveParams& ar);
+        bool (*save)(ArchiveParams& ar);
+        bool (*edit)(Registry&, Entity);
+    };
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    struct Component
+    {
+        using Storage = entt::storage_for_t<C>;
+
+        static C& emplace_or_replace(Entity e)
+        {
+            if (!storage().contains(e))
+                storage().emplace(e);
+            return storage().get(e);
+        }
+        static void emplace(Entity e)
+        {
+            _s_storage.storage->emplace(e);
+        }
+        static void remove(Entity e)
+        {
+            _s_storage.storage->remove(e);
+        }
+        static bool contains(Entity e)
+        {
+            return _s_storage.storage->contains(e);
+        }
+        static C* get(Entity e)
+        {
+            return static_cast<C*>(_s_storage.storage->get(e));
+        }
+        static bool load(ArchiveParams& ar)
+        {
+            return true;
+        }
+        static bool save(ArchiveParams& ar)
+        {
+            return true;
+        }
+        static bool edit(Registry&, Entity)
+        {
+            return false;
+        }
+        static Storage& storage()
+        {
+            return static_cast<Storage&>(*_s_storage.storage);
+        }
+        static ComponentData    _s_storage;
+        static std::string_view _s_id;
+        static std::string_view _s_label;
+    };
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    ComponentData Component<C, ID, LABEL>::_s_storage{};
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    std::string_view Component<C, ID, LABEL>::_s_id{ID.value};
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    std::string_view Component<C, ID, LABEL>::_s_label{LABEL.value};
+
+    class ComponentFactory
+    {
+    public:
+        using Map = std::unordered_map<std::string, ComponentData, std::string_hash, std::equal_to<>>;
+
+        ComponentFactory()  = default;
+        ~ComponentFactory() = default;
+
+        template <typename C>
+        void register_component()
+        {
+            C::_s_storage.storage = &_registry.storage<C>();
+            C::_s_storage.id       = C::_s_id;
+            C::_s_storage.label    = C::_s_label;
+            C::_s_storage.emplace  = &C::emplace;
+            C::_s_storage.remove   = &C::remove;
+            C::_s_storage.contains = &C::contains;
+            C::_s_storage.load     = &C::load;
+            C::_s_storage.save     = &C::save;
+            C::_s_storage.edit     = &C::edit;
+            _components.insert(std::pair(C::_s_id, C::_s_storage));
+        }
+
+        Registry& get_registry()
+        {
+            return _registry;
+        }
+
+        Map& get_components()
+        {
+            return _components;
+        }
+
+        Entity create_entity()
+        {
+            return _registry.create();
+        }
+
+        void delete_entity(Entity e)
+        {
+            _registry.destroy(e);
+        }
+
+        Entity get_old_entity(Entity old_id);
+
+        void clear_old_entities()
+        {
+            _entity_map.clear();
+        }
+
+        void serialize(msg::Var& ar);
+        void deserialize(msg::Var& ar);
+
+        void imgui_show(Scene* scene);
+        void imgui_props(Scene* scene);
+        void imgui_items(Scene* scene);
+
+    private:
+        void     load_prefab(Entity e, msg::Var& ar);
+        void     save_prefab(Entity e, msg::Var& ar);
+
+        void     selet_prefab(int32_t n);
+        void     generate_prefab_map();
+        msg::Var create_empty_prefab(std::string_view name, std::string_view group = "");
+
+        Registry                                                                             _registry;
+        Map                                                                                  _components;
+        entt::storage<Entity>                                                                _entity_map;
+        std::unordered_map<uint64_t, msg::Var>                                               _prefab_map;
+        msg::Var                                                                             _prefabs;
+        std::unordered_map<std::string, std::vector<int>, std::string_hash, std::equal_to<>> _groups;
+        std::string                                                                          _buff;
+        int32_t                                                                              _selected{0};
+        Entity                                                                               _edit{entt::null};
+    };
+
+} // namespace fin
