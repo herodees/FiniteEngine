@@ -4,11 +4,14 @@
 #include "core/atlas.hpp"
 #include "utils/lquery.hpp"
 
+namespace fin
+{
+    class ObjectSceneLayer;
+}
+
 namespace fin::ecs
 {
     void register_base_components(ComponentFactory& fact);
-
-    class ObjectSceneLayer;
 
 
     struct Base : lq::SpatialDatabase::Proxy, Component<Base, "_", "Base">

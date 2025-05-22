@@ -83,6 +83,7 @@ namespace fin
         void             update(float dt);
         void             clear();
         RenderTexture2D& canvas();
+        ComponentFactory& factory();
 
         void serialize(msg::Pack& ar);
         void deserialize(msg::Value& ar);

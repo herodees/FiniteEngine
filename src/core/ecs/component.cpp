@@ -245,42 +245,25 @@ namespace fin
     {
     }
 
-    void ComponentFactory::imgui_props(Scene* scene)
+    bool ComponentFactory::imgui_prefab(Scene* scene, Entity edit)
     {
-        if (!_prefab_explorer)
-            return;
-        if ((uint32_t)_selected >= _prefabs.size())
-            return;
-        if (_edit == entt::null)
-            return;
-
-        auto proto = _prefabs.get_item(_selected);
-        _buff      = proto.get_item(Sc::Id).str();
-        if (ImGui::InputText("Id", &_buff))
-        {
-            proto.set_item(Sc::Id, _buff);
-        }
-        _buff = proto.get_item(Sc::Group).str();
-        if (ImGui::InputText("Group", &_buff))
-        {
-            proto.set_item(Sc::Group, _buff);
-            generate_prefab_map();
-        }
+        bool ret = false;
 
         for (auto& component : _components)
         {
-            if (component.second.contains(_edit))
+            if (component.second.contains(edit))
             {
                 bool show = true;
                 if (ImGui::CollapsingHeader(component.second.label.data(),
                                             &show,
                                             ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    component.second.edit(_registry, _edit);
+                    ret |= component.second.edit(_registry, edit);
                 }
                 if (!show)
                 {
-                    component.second.remove(_edit);
+                    component.second.remove(edit);
+                    ret = true;
                 }
             }
         }
@@ -305,13 +288,48 @@ namespace fin
         {
             for (auto& [key, value] : _components)
             {
-                if (ImGui::MenuItem(value.label.data(), 0, false, !value.contains(_edit)))
+                if (ImGui::MenuItem(value.label.data(), 0, false, !value.contains(edit)))
                 {
-                    value.emplace(_edit);
+                    value.emplace(edit);
+                    ret = true;
                 }
             }
             ImGui::EndPopup();
         }
+        return ret;
+    }
+
+    void ComponentFactory::imgui_props(Scene* scene)
+    {
+        if (!_prefab_explorer)
+            return;
+        if ((uint32_t)_selected >= _prefabs.size())
+            return;
+        if (_edit == entt::null)
+            return;
+        if (ecs::Base::contains(_edit))
+        {
+            auto obj = ecs::Base::get(_edit);
+            if (obj->_layer)
+            {
+                _edit = entt::null;
+            }
+        }
+
+        auto proto = _prefabs.get_item(_selected);
+        _buff      = proto.get_item(Sc::Id).str();
+        if (ImGui::InputText("Id", &_buff))
+        {
+            proto.set_item(Sc::Id, _buff);
+        }
+        _buff = proto.get_item(Sc::Group).str();
+        if (ImGui::InputText("Group", &_buff))
+        {
+            proto.set_item(Sc::Group, _buff);
+            generate_prefab_map();
+        }
+
+        imgui_prefab(scene, _edit);
     }
 
     void ComponentFactory::imgui_prefabs(Scene* scene)
@@ -336,7 +354,11 @@ namespace fin
                     {
                         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
                         {
-                            selet_prefab(n);
+                            if (_edit == entt::null || _selected != n)
+                            {
+                                selet_prefab(n);
+                            }
+     
                             ImGui::SetDragDropPayload("ENTITY", &_edit, sizeof(Entity));
                             ImGui::EndDragDropSource();
                         }
@@ -572,5 +594,6 @@ namespace fin
         }
         ImGui::EndChildFrame();
     }
+
 
 } // namespace fin

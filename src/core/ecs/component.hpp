@@ -5,8 +5,6 @@
 namespace fin
 {
     class Scene;
-    using Registry      = entt::registry;
-    using Entity        = entt::registry::entity_type;
 
     struct ArchiveParams
     {
@@ -141,6 +139,8 @@ namespace fin
         void imgui_show(Scene* scene);
         void imgui_props(Scene* scene);
         void imgui_items(Scene* scene);
+
+        bool imgui_prefab(Scene* scene, Entity e);
 
         void set_root(const std::string& startPath);
         bool load();

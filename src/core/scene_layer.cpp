@@ -65,6 +65,8 @@ namespace fin
                 return create_region();
             case Type::Isometric:
                 return create_isometric();
+            case Type::Object:
+                return create_object();
         }
         return nullptr;
     }

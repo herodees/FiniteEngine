@@ -198,6 +198,11 @@ namespace fin
         return _canvas;
     }
 
+    ComponentFactory& Scene::factory()
+    {
+        return _factory;
+    }
+
     void Scene::serialize(msg::Pack& out)
     {
         auto ar = out.create();
@@ -551,6 +556,8 @@ namespace fin
                     add_layer(SceneLayer::create(SceneLayer::Type::Sprite));
                 if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Region layer"))
                     add_layer(SceneLayer::create(SceneLayer::Type::Region));
+                if (ImGui::MenuItem(ICON_FA_BOX " Object layer"))
+                    add_layer(SceneLayer::create(SceneLayer::Type::Object));
                 ImGui::EndPopup();
             }
 

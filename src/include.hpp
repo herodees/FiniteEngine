@@ -9,6 +9,11 @@
 
 // ENTT
 #include "entt.hpp"
+namespace fin
+{
+    using Entity = entt::registry::entity_type;
+    using Registry = entt::registry;
+} // namespace fin
 
 // Utils
 #include "utils/std_utils.hpp"

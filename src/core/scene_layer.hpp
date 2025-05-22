@@ -10,7 +10,6 @@ namespace fin
     class IsoSceneObject;
     struct Params;
     struct DragData;
-    using Entity = entt::registry::entity_type;
 
     constexpr int32_t tile_size(512);
 
@@ -35,6 +34,7 @@ namespace fin
         static SceneLayer* create_isometric();
         static SceneLayer* create_sprite();
         static SceneLayer* create_region();
+        static SceneLayer* create_object();
 
         SceneLayer(Type t = Type::Undefined);
         virtual ~SceneLayer() = default;
@@ -98,9 +98,9 @@ namespace fin
             Region<float>           _bbox;
             Entity                  _ptr;
             std::vector<IsoObject*> _back;
+
             int32_t                 depth_get();
-            Region<float>           bbox_get();
-            Line<float>             iso_get();
+            void                    setup(Entity ent);
         };
 
     public:
@@ -111,17 +111,33 @@ namespace fin
         void resize(Vec2f size) override;
         void activate(const Rectf& region) override;
 
+        void   insert(Entity ent);
+        void   remove(Entity ent);
+        void   moveto(Entity ent, Vec2f pos);
+        void   move(Entity ent, Vec2f pos);
+        Entity find_at(Vec2f position) const;
+        Entity find_active_at(Vec2f position) const;
+        void   select_edit(Entity ent);
+
+        void update(float dt) override;
+        void render(Renderer& dc) override;
+        void render_edit(Renderer& dc) override;
+
+        void imgui_workspace(Params& params, DragData& drag) override;
+        void imgui_workspace_menu() override;
+        void imgui_update(bool items) override;
 
     protected:
-        entt::sparse_set             _objects;
-        entt::sparse_set             _selected;
-        Vec2i                        _grid_size;
-        lq::SpatialDatabase          _spatial_db;
-        std::vector<IsoObject>       _iso_pool;
-        std::vector<IsoObject*>      _iso;
-        uint32_t                     _iso_pool_size{};
-        int32_t                      _inflate{};
-        Entity                       _edit{entt::null};
+        entt::sparse_set        _objects;
+        entt::sparse_set  _selected;
+        Vec2i                   _grid_size;
+        lq::SpatialDatabase     _spatial_db;
+        std::vector<IsoObject>  _iso_pool;
+        std::vector<IsoObject*> _iso;
+        uint32_t                _iso_pool_size{};
+        int32_t                 _inflate{};
+        Entity                  _edit{entt::null};
+        Entity                  _drop{entt::null};
     };
 
 } // namespace fin

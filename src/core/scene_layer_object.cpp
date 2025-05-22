@@ -33,15 +33,42 @@ namespace fin
         return _depth;
     }
 
-    Region<float> ObjectSceneLayer::IsoObject::bbox_get()
+    void ObjectSceneLayer::IsoObject::setup(Entity ent)
     {
-        return Region<float>();
+        auto* base = ecs::Base::get(ent);
+
+        _ptr           = ent;
+        _depth        = 0;
+        _depth_active = false;
+        _origin.point1 = base->_position;
+        _origin.point2 = _origin.point1;
+        _bbox.x1       = _origin.point1.x;
+        _bbox.y1       = _origin.point1.y;
+        _bbox.x2       = _origin.point1.x;
+        _bbox.y2       = _origin.point1.y;
+
+        if (ecs::Isometric::contains(ent))
+        {
+            auto* iso = ecs::Isometric::get(ent);
+            _origin.point1 += iso->a;
+            _origin.point2 += iso->b;
+        }
+
+        if (ecs::Sprite::contains(ent))
+        {
+            auto* img = ecs::Sprite::get(ent);
+            if (img->pack.sprite)
+            {
+                _bbox.x1 -= img->pack.sprite->_origina.x;
+                _bbox.y1 -= img->pack.sprite->_origina.y;
+                _bbox.x2 = _bbox.x1 + img->pack.sprite->_source.width;
+                _bbox.y2 = _bbox.y1 + img->pack.sprite->_source.height;
+            }  
+        }
+
+        _back.clear();
     }
 
-    Line<float> ObjectSceneLayer::IsoObject::iso_get()
-    {
-        return Line<float>();
-    }
 
     ObjectSceneLayer::ObjectSceneLayer() : SceneLayer(SceneLayer::Type::Object)
     {
@@ -53,6 +80,70 @@ namespace fin
     ObjectSceneLayer ::~ObjectSceneLayer()
     {
         clear();
+    }
+
+    void ObjectSceneLayer::insert(Entity ent)
+    {
+        if (ecs::Base::contains(ent))
+        {
+            auto* obj = ecs::Base::get(ent);
+            if (obj->_layer == this)
+                return;
+
+            if (obj->_layer)
+                obj->_layer->remove(ent);
+
+            obj->_layer = this;
+            _spatial_db.update_for_new_location(obj);
+        }
+        _objects.emplace(ent);
+    }
+
+    void ObjectSceneLayer::remove(Entity ent)
+    {
+        if (!ecs::Base::contains(ent))
+            return;
+
+        auto* obj = ecs::Base::get(ent);
+        if (obj->_layer != this)
+            return;
+
+        obj->_layer = nullptr;
+        _spatial_db.remove_from_bin(obj);
+        _objects.erase(ent);
+    }
+
+    Entity ObjectSceneLayer::find_at(Vec2f position) const
+    {
+        return entt::null;
+    }
+
+    Entity ObjectSceneLayer::find_active_at(Vec2f position) const
+    {
+        return entt::null;
+    }
+
+    void ObjectSceneLayer::select_edit(Entity ent)
+    {
+        _edit = ent;
+    }
+
+    void ObjectSceneLayer::moveto(Entity ent, Vec2f pos)
+    {
+        auto* obj      = ecs::Base::get(ent);
+        obj->_position = pos;
+        _spatial_db.update_for_new_location(obj);
+    }
+
+    void ObjectSceneLayer::move(Entity ent, Vec2f pos)
+    {
+        auto* obj      = ecs::Base::get(ent);
+        obj->_position += pos;
+        _spatial_db.update_for_new_location(obj);
+    }
+
+    void ObjectSceneLayer::update(float dt)
+    {
     }
 
     void ObjectSceneLayer::clear()
@@ -91,24 +182,17 @@ namespace fin
 
         _selected.clear();
         _iso_pool_size = 0;
+        auto& reg = parent()->factory().get_registry();
+
         auto cb = [&](lq::SpatialDatabase::Proxy* item)
         {
             if (_iso_pool_size >= _iso_pool.size())
                 _iso_pool.resize(_iso_pool_size + 64);
 
-            _iso_pool[_iso_pool_size]._ptr = static_cast<ecs::Base*>(item)->_self;
-            ++_iso_pool_size;
-        };
+            auto& obj = _iso_pool[_iso_pool_size++];
+            auto ent = static_cast<ecs::Base*>(item)->_self;
 
-        auto add_pool_item = [&](size_t n)
-        {
-            _iso[n]                    = &_iso_pool[n];
-            _iso_pool[n]._depth        = 0;
-            _iso_pool[n]._depth_active = false;
-            _iso_pool[n]._back.clear();
-            _iso_pool[n]._bbox   = _iso_pool[n].bbox_get();
-            _iso_pool[n]._origin = _iso_pool[n].iso_get();
-            _selected.emplace(_iso_pool[n]._ptr);
+            obj.setup(ent);
         };
 
 
@@ -119,7 +203,6 @@ namespace fin
                                                       (float)region.height + 2 * tile_size},
                                                      cb);
 
-
         if (_iso_pool_size >= _iso_pool.size())
             _iso_pool.resize(_iso_pool_size + 32);
 
@@ -127,15 +210,17 @@ namespace fin
         _iso.resize(_iso_pool_size);
         for (size_t n = 0; n < _iso_pool_size; ++n)
         {
-            add_pool_item(n);
+            _iso[n] = &_iso_pool[n];
+            _selected.emplace(_iso_pool[n]._ptr);
         }
 
         // Add edit object to render queue
-        if (_edit != entt::null)
+        if (_drop != entt::null)
         {
-            _iso_pool[_iso_pool_size]._ptr = _edit;
+            _iso_pool[_iso_pool_size].setup(_drop);
             _iso.emplace_back();
-            add_pool_item(_iso_pool_size);
+            _iso[_iso_pool_size] = &_iso_pool[_iso_pool_size];
+            _selected.emplace(_iso_pool[_iso_pool_size]._ptr);
         }
 
 
@@ -174,6 +259,209 @@ namespace fin
                       _iso.end(),
                       [](const IsoObject* a, const IsoObject* b) { return a->_depth < b->_depth; });
         }
+    }
+
+    void ObjectSceneLayer::render(Renderer& dc)
+    {
+        if (is_hidden())
+            return;
+
+        dc.set_color(WHITE);
+
+        auto& reg = parent()->factory().get_registry();
+        auto sprites = reg.view<ecs::Sprite, ecs::Base>();
+
+        for (auto ent : _iso)
+        {
+            if (sprites.contains(ent->_ptr))
+            {
+                auto* base   = ecs::Base::get(ent->_ptr);
+                auto* sprite = ecs::Sprite::get(ent->_ptr);
+
+                if (sprite->pack.sprite)
+                {
+                    Rectf dest;
+                    dest.x      = base->_position.x - sprite->pack.sprite->_origina.x;
+                    dest.y      = base->_position.y - sprite->pack.sprite->_origina.y;
+                    dest.width  = sprite->pack.sprite->_source.width;
+                    dest.height = sprite->pack.sprite->_source.height;
+
+                    dc.render_texture(sprite->pack.sprite->_texture, sprite->pack.sprite->_source, dest);
+                }
+            }
+        }
+    }
+
+    void ObjectSceneLayer::render_edit(Renderer& dc)
+    {
+        dc.set_color(WHITE);
+
+        for (auto ent : _selected)
+        {
+            if (ecs::Base::contains(ent) && ecs::Isometric::contains(ent))
+            {
+                auto* base   = ecs::Base::get(ent);
+                auto* iso = ecs::Isometric::get(ent);
+
+                if (g_settings.visible_isometric)
+                {
+                    Vec2f a = iso->a + base->_position;
+                    Vec2f b = iso->b + base->_position;
+                    dc.set_color(RED);
+                    dc.render_line(a, b);
+                }
+            }
+        }
+        dc.set_color(WHITE);
+    }
+
+    void ObjectSceneLayer::imgui_workspace(Params& params, DragData& drag)
+    {
+        _drop = entt::null;
+
+        if (is_hidden())
+            return;
+
+        if (ImGui::IsItemClicked(0))
+        {
+            auto el = find_active_at(params.mouse);
+            select_edit(el);
+        }
+
+        if (ImGui::IsItemClicked(1))
+        {
+            select_edit(entt::null);
+        }
+
+        if (drag._active && ecs::Base::contains(_edit))
+        {
+            move(_edit, drag._delta);
+        }
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY",
+                                                                           ImGuiDragDropFlags_AcceptPeekOnly |
+                                                                               ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(Entity));
+                _drop = *(const Entity*)payload->Data;
+                if (ecs::Base::contains(_drop))
+                {
+                    auto* obj = ecs::Base::get(_drop);
+                    obj->_position = {params.mouse.x, params.mouse.y};
+                }
+                else
+                {
+                    _drop = entt::null;
+                }
+            }
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(Entity));
+                _drop = *(const Entity*)payload->Data;
+                if (ecs::Base::contains(_drop))
+                {
+                    auto* obj      = ecs::Base::get(_drop);
+                    obj->_position = {params.mouse.x, params.mouse.y};
+
+                    insert(_drop);
+                }
+
+                _drop = entt::null;
+                
+            }
+
+            ImGui::EndDragDropTarget();
+        }
+    }
+
+    void ObjectSceneLayer::imgui_workspace_menu()
+    {
+    }
+
+    void ObjectSceneLayer::imgui_update(bool items)
+    {
+        if (items)
+        {
+            ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
+                .Space()
+                .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
+                .Text(g_settings.list_visible_items ? " " ICON_FA_EYE " " : " " ICON_FA_EYE_SLASH " ")
+                .PopStyle()
+                .Spring()
+                .PushStyle(ImStyle_Button, 1, false)
+                .Text(" " ICON_FA_BAN " ")
+                .PopStyle()
+                .End();
+
+
+            if (ImGui::Line().Return())
+            {
+                if (_edit != entt::null && ImGui::Line().HoverId() == 1)
+                {
+                    remove(_edit);
+                    _edit = entt::null;
+                    return;
+                }
+                if (ImGui::Line().HoverId() == 10)
+                {
+                    g_settings.list_visible_items = !g_settings.list_visible_items;
+                }
+            }
+
+            if (ImGui::BeginChildFrame(ImGui::GetID("obj"), {-1, -1}, 0))
+            {
+                if (g_settings.list_visible_items)
+                {
+                    for (auto& el : _iso)
+                    {
+                        ImGui::PushID(static_cast<uint32_t>(el->_ptr));
+
+                        const char* name = ImGui::FormatStr("Object %p", el->_ptr);
+
+                        if (ImGui::Selectable(name, el->_ptr == _edit))
+                        {
+                            select_edit(el->_ptr);
+                        }
+                        ImGui::PopID();
+                    }
+                }
+                else
+                {
+                    ImGuiListClipper clipper;
+                    clipper.Begin(_objects.size());
+                    while (clipper.Step())
+                    {
+                        for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
+                        {
+                            ImGui::PushID(n);
+                            auto el   = _objects[n];
+
+                            const char* name = ImGui::FormatStr("Object %p", el);
+
+                            if (ImGui::Selectable(name, el == _edit))
+                            {
+                                select_edit(el);
+                            }
+                            ImGui::PopID();
+                        }
+                    }
+                }
+            }
+
+            ImGui::EndChildFrame();
+
+        }
+        else if (_edit != entt::null)
+        {
+            parent()->factory().imgui_prefab(parent(), _edit);
+        }
+    }
+
+    SceneLayer* SceneLayer::create_object()
+    {
+        return new ObjectSceneLayer;
     }
 
 } // namespace fin
