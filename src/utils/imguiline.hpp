@@ -23,6 +23,9 @@ LineConstructor& Line();
 LineConstructor& LineItem(ImGuiID id, const ImVec2& size);
 LineConstructor& LineSelect(ImGuiID id, bool selected);
 LineConstructor& LineSelect(ImGuiID id, bool selected, const ImVec4& color);
+LineConstructor& LineItem(const char* id, const ImVec2& size);
+LineConstructor& LineSelect(const char* id, bool selected);
+LineConstructor& LineSelect(const char* id, bool selected, const ImVec4& color);
 
 class LineConstructor
 {

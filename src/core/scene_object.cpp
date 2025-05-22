@@ -17,9 +17,9 @@ namespace fin
     };
 
     SceneFactory* s_factory{};
-    FileDir            s_file_dir{};
-    std::string s_buff;
-    Atlas::Ptr s_atlas;
+    FileDir       s_file_dir{};
+    std::string   s_buff;
+    Atlas::Ptr    s_atlas;
 
     void SpriteSceneObject::serialize(msg::Writer& ar)
     {

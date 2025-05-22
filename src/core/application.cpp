@@ -161,8 +161,7 @@ namespace fin
         _factory.load_factory<NpcSceneObject>(NpcSceneObject::type_id, "NPC");
         _factory.load_factory<SoundObject>(SoundObject::type_id, "Sound");
 
-        _map.init();
-
+        _map.init("./assets/");
         auto path = cmd_attribute_get("/scene");
         if (!path.empty())
         {
@@ -261,7 +260,7 @@ namespace fin
 
             ImGuiID dock_main_id = dockspace_id; // This variable will track the document node, however we are not using it here as we aren't docking anything into it.
             ImGuiID dock_id_list = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, NULL, &dock_main_id);
-            ImGuiID dock_id_comp = ImGui::DockBuilderSplitNode(dock_id_list, ImGuiDir_Down, 0.30f, NULL, &dock_id_list);
+            ImGuiID dock_id_comp = ImGui::DockBuilderSplitNode(dock_id_list, ImGuiDir_Down, 0.40f, NULL, &dock_id_list);
             ImGuiID dock_id_prop = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, NULL, &dock_main_id);
             ImGuiID dock_id_items = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, NULL, &dock_main_id);
             ImGuiID dock_id_bottom = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Down, 0.20f, NULL, &dock_main_id);
@@ -270,7 +269,7 @@ namespace fin
             ImGui::DockBuilderDockWindow("Properties", dock_id_prop);
             ImGui::DockBuilderDockWindow("Items", dock_id_items);
             ImGui::DockBuilderDockWindow("Explorer", dock_id_list);
-            ImGui::DockBuilderDockWindow("Setup", dock_id_comp);
+            ImGui::DockBuilderDockWindow("Scene", dock_id_comp);
             ImGui::DockBuilderFinish(dockspace_id);
         }
 
@@ -279,7 +278,7 @@ namespace fin
         {
             _map.imgui_items();
             _map.imgui_props();
-            _factory.imgui_explorer(&_map);
+         //   _factory.imgui_explorer(&_map);
 
             imgui_workspace();
 
@@ -374,10 +373,17 @@ namespace fin
 
     void application::imgui_menu()
     {
+        std::string_view show_popup;
+
         if (ImGui::BeginMainMenuBar())
         {
             if (ImGui::BeginMenu("File"))
             {
+                if (ImGui::MenuItem("New"))
+                {
+                    _map.clear();
+                }
+
                 char const* filter_patterns[2] = {"*.json", "*.atlas"};
                 char const* filter_description = "Atlas file";
                 bool        open_save_as       = false;
@@ -415,6 +421,16 @@ namespace fin
                 }
                 ImGui::EndMenu();
             }
+
+            if (ImGui::BeginMenu("Scene"))
+            {
+                if (ImGui::MenuItem(ICON_FA_WRENCH " Properties", NULL))
+                {
+                    show_popup = "Scene Properties";
+                }
+                ImGui::EndMenu();
+            }
+
             if (ImGui::BeginMenu("View"))
             {
                 if (ImGui::MenuItem(ICON_FA_BORDER_ALL " Visible grid", NULL, g_settings.visible_grid))
@@ -435,6 +451,11 @@ namespace fin
 
             ImGui::EndMainMenuBar();
         }
+
+        if (!show_popup.empty())
+            ImGui::OpenPopup(show_popup.data());
+
+        _map.imgui_filemenu();
     }
 
     void application::imgui_workspace()

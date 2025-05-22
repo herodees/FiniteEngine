@@ -59,7 +59,7 @@ namespace fin
         ~Scene();
 
         const std::string& get_path() const;
-        void               init();
+        void               init(std::string_view root);
 
         void        set_size(Vec2f size);
         int32_t     add_layer(SceneLayer* layer);
@@ -95,9 +95,13 @@ namespace fin
         void imgui_props();
         void imgui_items();
         void imgui_menu();
+        void imgui_filemenu();
         void imgui_workspace();
 
     private:
+        void on_new_position(Registry& reg, Entity ent);
+        void on_destroy_position(Registry& reg, Entity ent);
+        void imgui_scene();
         void imgui_props_object();
         void imgui_props_setup();
         void update_camera_position(float dt);
@@ -108,13 +112,14 @@ namespace fin
         DragData                                                                        _drag{};
         int32_t                                                                         _active_layer{0};
         bool                                                                            _edit_region{};
+        bool                                                                            _edit_prefabs{};
         Mode                                                                            _mode{Mode::Setup};
         Vec2f                                                                           _goto;
         float                                                                           _goto_speed{};
         Camera                                                                          _camera;
         RenderTexture2D                                                                 _canvas;
         std::string                                                                     _path;
-        Vec2f                                                                           _size;
+        Vec2f                                                                           _size{1024,1024};
         Color                                                                           _background{BLACK};
     };
 

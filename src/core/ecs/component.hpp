@@ -142,9 +142,19 @@ namespace fin
         void imgui_props(Scene* scene);
         void imgui_items(Scene* scene);
 
+        void set_root(const std::string& startPath);
+        bool load();
+        bool save();
+
     private:
-        void     load_prefab(Entity e, msg::Var& ar);
-        void     save_prefab(Entity e, msg::Var& ar);
+        bool load(msg::Var& ar);
+        bool save(msg::Var& ar);
+
+        void imgui_prefabs(Scene* scene);
+        void imgui_explorer(Scene* scene);
+
+        void load_prefab(Entity e, msg::Var& ar);
+        void save_prefab(Entity e, msg::Var& ar);
 
         void     selet_prefab(int32_t n);
         void     generate_prefab_map();
@@ -156,9 +166,11 @@ namespace fin
         std::unordered_map<uint64_t, msg::Var>                                               _prefab_map;
         msg::Var                                                                             _prefabs;
         std::unordered_map<std::string, std::vector<int>, std::string_hash, std::equal_to<>> _groups;
+        std::string                                                                          _base_folder;
         std::string                                                                          _buff;
         int32_t                                                                              _selected{0};
         Entity                                                                               _edit{entt::null};
+        bool                                                                                 _prefab_explorer{};
     };
 
 } // namespace fin

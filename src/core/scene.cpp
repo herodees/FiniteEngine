@@ -15,9 +15,14 @@ namespace fin
     {
     }
 
-    void Scene::init()
+    void Scene::init(std::string_view root)
     {
+        _factory.set_root(std::string(root));
         ecs::register_base_components(_factory);
+        _factory.load();
+
+        ecs::Base::storage().on_update().connect<&Scene::on_new_position>(this);
+        ecs::Base::storage().on_destroy().connect<&Scene::on_destroy_position>(this);
     }
 
     const std::string& Scene::get_path() const
@@ -184,6 +189,8 @@ namespace fin
     {
         std::for_each(_layers.begin(), _layers.end(), [](auto* p) { delete p; });
         _layers.clear();
+        _factory.clear_old_entities();
+        _size={1024, 1024};
     }
 
     RenderTexture2D& Scene::canvas()
@@ -304,7 +311,15 @@ namespace fin
                 SceneFactory::instance().imgui_properties();
                 break;
             case Mode::Prefabs:
-                _factory.imgui_props(this);
+
+                if (_edit_prefabs)
+                    _factory.imgui_props(this);
+                else if (auto* lyr = active_layer())
+                {
+                    ImGui::PushID("lypt");
+                    lyr->imgui_update(false);
+                    ImGui::PopID();
+                }
                 break;
         }
 
@@ -323,9 +338,78 @@ namespace fin
         }
         else if (_mode == Mode::Prefabs)
         {
-            if (ImGui::Begin("Items"))
+            if (ImGui::Begin("Explorer"))
+            {
+                if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+                {
+                    _edit_prefabs = true;
+                }
+
                 _factory.imgui_items(this);
+            }
             ImGui::End();
+
+            if (ImGui::Begin("Scene"))
+            {
+                if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+                {
+                    _edit_prefabs = false;
+                }
+
+                imgui_scene();
+            }
+            ImGui::End();
+        }
+    }
+
+    void Scene::on_new_position(Registry& reg, Entity ent)
+    {
+        auto& base = ecs::Base::storage().get(ent);
+    }
+
+    void Scene::on_destroy_position(Registry& reg, Entity ent)
+    {
+        auto& base = ecs::Base::storage().get(ent);
+    }
+
+    void Scene::imgui_scene()
+    {
+        if (ImGui::BeginChildFrame(ImGui::GetID("lyrssl"), {-1, 100}, 0))
+        {
+            int n = 0;
+            for (auto* ly : _layers)
+            {
+                if (ImGui::LineSelect(ImGui::GetID(ly), _active_layer == n)
+                        .Space()
+                        .PushStyle(ImStyle_Button, 1)
+                        .Text(ly->is_hidden() ? ICON_FA_EYE_SLASH : ICON_FA_EYE)
+                        .PopStyle()
+                        .Space()
+                        .PushColor(ly->color())
+                        .Text(ly->icon())
+                        .Space()
+                        .Text(ly->name())
+                        .Spring()
+                        .PopColor()
+                        .Text(_active_layer == n ? ICON_FA_BRUSH : "")
+                        .End())
+                {
+                    _active_layer = n;
+                    if (ImGui::Line().HoverId() == 1)
+                    {
+                        ly->hide(!ly->is_hidden());
+                    }
+                }
+                ++n;
+            }
+        }
+        ImGui::EndChildFrame();
+
+        if (auto* lyr = active_layer())
+        {
+            ImGui::PushID("lyit");
+            lyr->imgui_update(true);
+            ImGui::PopID();
         }
     }
 
@@ -564,6 +648,28 @@ namespace fin
             _mode = Mode::Prefabs;
             _factory.imgui_show(this);
             ImGui::EndTabItem();
+        }
+    }
+
+    void Scene::imgui_filemenu()
+    {
+        if (ImGui::BeginPopupModal("Scene Properties", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            imgui_props_setup();
+
+            if (ImGui::LineItem("itms", { -1, ImGui::GetFrameHeight() })
+                .Spring()
+                .PushStyle(ImStyle_Button, 1)
+                .Text("   OK   ")
+                .PopStyle()
+                .Space()
+                .End())
+            {
+                if (ImGui::Line().HoverId())
+                    ImGui::CloseCurrentPopup();
+            }
+
+            ImGui::EndPopup();
         }
     }
 

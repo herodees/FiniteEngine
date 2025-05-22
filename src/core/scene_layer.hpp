@@ -1,6 +1,7 @@
 #pragma once
 
 #include "include.hpp"
+#include "utils/lquery.hpp"
 
 namespace fin
 {
@@ -9,6 +10,7 @@ namespace fin
     class IsoSceneObject;
     struct Params;
     struct DragData;
+    using Entity = entt::registry::entity_type;
 
     constexpr int32_t tile_size(512);
 
@@ -25,6 +27,7 @@ namespace fin
             Sprite,
             Region,
             Isometric,
+            Object,
         };
 
         static SceneLayer* create(msg::Value& ar, Scene* scene);
@@ -81,6 +84,44 @@ namespace fin
         Rectf            _region;
         bool             _hidden{};
         bool             _active{};
+    };
+
+
+
+    class ObjectSceneLayer : public SceneLayer
+    {
+        struct IsoObject
+        {
+            int32_t                 _depth        : 31;
+            bool                    _depth_active : 1;
+            Line<float>             _origin;
+            Region<float>           _bbox;
+            Entity                  _ptr;
+            std::vector<IsoObject*> _back;
+            int32_t                 depth_get();
+            Region<float>           bbox_get();
+            Line<float>             iso_get();
+        };
+
+    public:
+        ObjectSceneLayer();
+        ~ObjectSceneLayer() override;
+
+        void clear() override;
+        void resize(Vec2f size) override;
+        void activate(const Rectf& region) override;
+
+
+    protected:
+        entt::sparse_set             _objects;
+        entt::sparse_set             _selected;
+        Vec2i                        _grid_size;
+        lq::SpatialDatabase          _spatial_db;
+        std::vector<IsoObject>       _iso_pool;
+        std::vector<IsoObject*>      _iso;
+        uint32_t                     _iso_pool_size{};
+        int32_t                      _inflate{};
+        Entity                       _edit{entt::null};
     };
 
 } // namespace fin

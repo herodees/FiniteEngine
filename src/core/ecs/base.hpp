@@ -1,24 +1,26 @@
 #pragma once
 
-#include "core/atlas.hpp"
 #include "component.hpp"
+#include "core/atlas.hpp"
 #include "utils/lquery.hpp"
 
 namespace fin::ecs
 {
     void register_base_components(ComponentFactory& fact);
 
+    class ObjectSceneLayer;
 
 
-    struct Base : lq::SpatialDatabase::Proxy, Component<Base, "bse", "Base">
+    struct Base : lq::SpatialDatabase::Proxy, Component<Base, "_", "Base">
     {
         static constexpr auto in_place_delete = true;
 
         Entity  _self;
-        uint8_t _layer{0};
+        ObjectSceneLayer* _layer{};
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
+        static bool edit(Registry& reg, Entity self);
     };
 
 
@@ -30,6 +32,7 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
+        static bool edit(Registry& reg, Entity self);
     };
 
 
@@ -40,6 +43,7 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
+        static bool edit(Registry& reg, Entity self);
     };
 
 
@@ -50,6 +54,7 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
+        static bool edit(Registry& reg, Entity self);
     };
 
 
@@ -60,6 +65,7 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
+        static bool edit(Registry& reg, Entity self);
     };
 
 

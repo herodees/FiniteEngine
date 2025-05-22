@@ -249,13 +249,50 @@ namespace ImGui
         return modified;
     }
 
+    bool PointVector(const char* label, std::vector<fin::Vec2f>* points, ImVec2 size)
+    {
+        bool modified = false;
+        ImGui::PushID(ImGui::GetID(label));
+
+        ImGui::LabelText(label, "");
+        if (ImGui::BeginChildFrame(ImGui::GetID("pts"), size))
+        {
+            for (auto n = 0; n < points->size(); ++n)
+            {
+                ImGui::PushID(n);
+                if (ImGui::Button("-"))
+                {
+                    points->erase(points->begin()+n);
+                    ImGui::PopID();
+                    continue;
+                }
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(-1);
+                if (ImGui::InputFloat2("_", &(*points)[n].x))
+                {
+                    modified = true;
+                }
+                ImGui::PopID();
+            }
+
+            if (ImGui::Button("+"))
+            {
+                points->emplace_back();
+            }
+        }
+        ImGui::EndChildFrame();
+
+        ImGui::PopID();
+        return modified;
+    }
+
     bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit)
     {
         bool modified = false;
         ImGui::PushID(ImGui::GetID(label));
 
         ImGui::Text(label);
-        if (ImGui::BeginChildFrame(-2, size))
+        if (ImGui::BeginChildFrame(ImGui::GetID("pts"), size))
         {
             for (auto n = 0; n < points->size(); n += 2)
             {

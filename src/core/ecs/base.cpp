@@ -1,4 +1,5 @@
 #include "base.hpp"
+#include <core/editor/imgui_control.hpp>
 
 namespace fin::ecs
 {
@@ -18,7 +19,7 @@ namespace fin::ecs
         base._self       = ar.entity;
         base._position.x = ar.data["x"].get(0.f);
         base._position.y = ar.data["y"].get(0.f);
-        base._layer      = ar.data["l"].get(0);
+
         return true;
     }
 
@@ -27,9 +28,16 @@ namespace fin::ecs
         auto& base = ar.reg.get<Base>(ar.entity);
         ar.data.set_item("x", base._position.x);
         ar.data.set_item("y", base._position.y);
-        if (base._layer)
-            ar.data.set_item("l", base._layer);
+
         return true;
+    }
+
+    bool Base::edit(Registry& reg, Entity self)
+    {
+        auto& base = reg.get<Base>(self);
+        auto r = ImGui::InputFloat2("Position", &base._position.x);
+
+        return r;
     }
 
     bool Isometric::load(ArchiveParams& ar)
@@ -50,6 +58,14 @@ namespace fin::ecs
         ar.data.set_item("bx", iso.b.x);
         ar.data.set_item("by", iso.b.y);
         return true;
+    }
+
+    bool Isometric::edit(Registry& reg, Entity self)
+    {
+        auto& base = reg.get<Isometric>(self);
+        auto  r    = ImGui::InputFloat2("A", &base.a.x);
+        r |= ImGui::InputFloat2("B", &base.b.x);
+        return r;
     }
 
     bool Collider::load(ArchiveParams& ar)
@@ -77,6 +93,13 @@ namespace fin::ecs
         return true;
     }
 
+    bool Collider::edit(Registry& reg, Entity self)
+    {
+        auto& base = reg.get<Collider>(self);
+        auto  r    = ImGui::PointVector("Points##cldr", &base.points, {-1, 100});
+        return r;
+    }
+
     bool Sprite::load(ArchiveParams& ar)
     {
         auto& spr = ar.reg.get<Sprite>(ar.entity);
@@ -100,7 +123,27 @@ namespace fin::ecs
         return true;
     }
 
+    bool Sprite::edit(Registry& reg, Entity self)
+    {
+        auto& base = reg.get<Sprite>(self);
+        auto  r    = ImGui::SpriteInput("Sprite##spr", &base.pack);
+
+        return r;
+    }
+
     bool Region::load(ArchiveParams& ar)
+    {
+        auto& col = ar.reg.get<Region>(ar.entity);
+        auto  pts = ar.data.get_item("p");
+        col.points.clear();
+        for (size_t i = 0; i < pts.size(); i += 2)
+        {
+            col.points.emplace_back(pts[i].get(0.f), pts[i + 1].get(0.f));
+        }
+        return true;
+    }
+
+    bool Region::save(ArchiveParams& ar)
     {
         auto&    col = ar.reg.get<Region>(ar.entity);
         msg::Var pts;
@@ -113,16 +156,11 @@ namespace fin::ecs
         return true;
     }
 
-    bool Region::save(ArchiveParams& ar)
+    bool Region::edit(Registry& reg, Entity self)
     {
-        auto& col = ar.reg.get<Region>(ar.entity);
-        auto  pts = ar.data.get_item("p");
-        col.points.clear();
-        for (size_t i = 0; i < pts.size(); i += 2)
-        {
-            col.points.emplace_back(pts[i].get(0.f), pts[i + 1].get(0.f));
-        }
-        return true;
+        auto& base = reg.get<Region>(self);
+        auto  r    = ImGui::PointVector("Points##reg", &base.points, {-1, 100});
+        return r;
     }
 
     bool Prefab::load(ArchiveParams& ar)

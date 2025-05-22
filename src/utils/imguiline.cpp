@@ -65,6 +65,21 @@ LineConstructor& LineSelect(ImGuiID id, bool selected, const ImVec4& color)
     return Create(GImGui->LastItemData.Rect.Min, GImGui->LastItemData.Rect.Max, ImGui::IsItemVisible(), ImGui::IsItemHovered(), r);
 }
 
+LineConstructor& LineItem(const char* id, const ImVec2& size)
+{
+    return LineItem(GetID(id), size);
+}
+
+LineConstructor& LineSelect(const char* id, bool selected)
+{
+    return LineSelect(GetID(id), selected);
+}
+
+LineConstructor& LineSelect(const char* id, bool selected, const ImVec4& color)
+{
+    return LineSelect(GetID(id), selected, color);
+}
+
 int LineHover()
 {
     return g_line.HoverId();
