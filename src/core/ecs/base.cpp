@@ -1,5 +1,6 @@
 #include "base.hpp"
 #include <core/editor/imgui_control.hpp>
+#include <core/scene_layer.hpp>
 
 namespace fin::ecs
 {
@@ -11,6 +12,7 @@ namespace fin::ecs
         fact.register_component<Sprite>();
         fact.register_component<Region>();
         fact.register_component<Prefab>();
+        fact.register_component<Camera>();
     }
 
     fin::Region<float> Base::get_bounding_box() const
@@ -84,8 +86,17 @@ namespace fin::ecs
     {
         auto& base = reg.get<Base>(self);
         auto r = ImGui::InputFloat2("Position", &base._position.x);
-
+        if (r)
+        {
+            base.update();
+        }
         return r;
+    }
+
+    void Base::update()
+    {
+        if (_layer)
+            _layer->update(this);
     }
 
     bool Isometric::load(ArchiveParams& ar)
@@ -229,6 +240,34 @@ namespace fin::ecs
     {
         auto& base = reg.get<Region>(self);
         auto  r    = ImGui::PointVector("Points##reg", &base._points, {-1, 100});
+        return r;
+    }
+
+    bool Camera::load(ArchiveParams& ar)
+    {
+        auto& cam       = ar.reg.get<Camera>(ar.entity);
+        cam._position.x = ar.data["x"].get(0.f);
+        cam._position.y = ar.data["y"].get(0.f);
+        cam._size.x     = ar.data["w"].get(0.f);
+        cam._size.y     = ar.data["h"].get(0.f);
+        return true;
+    }
+
+    bool Camera::save(ArchiveParams& ar)
+    {
+        auto& cam = ar.reg.get<Camera>(ar.entity);
+        ar.data.set_item("x", cam._position.x);
+        ar.data.set_item("y", cam._position.y);
+        ar.data.set_item("w", cam._size.x);
+        ar.data.set_item("h", cam._size.y);
+        return true;
+    }
+
+    bool Camera::edit(Registry& reg, Entity self)
+    {
+        auto& base = reg.get<Camera>(self);
+        auto  r    = ImGui::InputFloat2("Position", &base._position.x);
+        r |= ImGui::InputFloat2("Size", &base._size.x);
         return r;
     }
 

@@ -1,0 +1,1 @@
+{"version":1,"width":1024,"height":1024,"background":[0,0,0,255],"layers":[{"type":"iso","name":"Background","hidden":false,"items":[],"max_index":0,"sort_y":false},{"type":"reg","name":"RegionLayer","hidden":false,"items":[]},{"type":"obj","name":"ObjectLayer","hidden":false,"items":[]},{"type":"spr","name":"Foreground","hidden":false,"items":[],"max_index":0,"sort_y":false}]}

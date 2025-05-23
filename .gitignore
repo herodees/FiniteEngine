@@ -11,3 +11,5 @@ _deps
 # Clangd cache
 .cache
 imgui.ini
+
+___run___.map

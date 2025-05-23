@@ -105,7 +105,7 @@ namespace fin
             }
         };
 
-        RegionSceneLayer() : SceneLayer(SceneLayer::Type::Region), _spatial({})
+        RegionSceneLayer() : SceneLayer(LayerType::Region), _spatial({})
         {
             name() = "RegionLayer";
             icon() = ICON_FA_MAP_LOCATION_DOT;
@@ -123,41 +123,38 @@ namespace fin
             _spatial.activate(region);
         }
 
-        void serialize(msg::Writer& ar)
+        void serialize(msg::Var& ar)
         {
             SceneLayer::serialize(ar);
+            msg::Var items;
+            items.make_array(_spatial.size());
 
-            auto save = [&ar](Node& node)
+            auto save = [&items](Node& node)
             {
-                ar.begin_object();
-                ar.key("p");
-                ar.begin_array();
-                for (auto el : node._points.elements())
-                    ar.value(el.get(0.f));
-                ar.end_array();
-
+                msg::Var item;
+                item.make_object(1);
+                item.set_item("p", node._points.clone());
                 if (node._texture)
                 {
-                    ar.member("t", node._texture->get_path());
+                    item.set_item("t", node._texture->get_path());
                 }
                 if (node._offset.x)
                 {
-                    ar.member("tx", node._offset.x);
+                    item.set_item("tx", node._offset.x);
                 }
                 if (node._offset.y)
                 {
-                    ar.member("ty", node._offset.y);
+                    item.set_item("ty", node._offset.y);
                 }
-                ar.end_object();
+
+                items.push_back(item);
             };
 
-            ar.key("items");
-            ar.begin_array();
             _spatial.for_each(save);
-            ar.end_array();
+            ar.set_item("items", items);
         }
 
-        void deserialize(msg::Value& ar)
+        void deserialize(msg::Var& ar)
         {
             SceneLayer::deserialize(ar);
             _spatial.clear();
@@ -166,11 +163,7 @@ namespace fin
             for (auto& el : els.elements())
             {
                 Node nde;
-                auto pts = el["p"];
-                for (auto& el : pts.elements())
-                {
-                    nde._points.push_back(el.get(0.f));
-                }
+                nde._points = el["p"].clone();
 
                 auto tx = el["t"];
                 if (tx.is_string())
@@ -471,7 +464,7 @@ namespace fin
                 }
             }
 
-            if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
+            if (ImGui::BeginChildFrame(ImGui::GetID("regpt"), {-1, -1}, 0))
             {
                 if (g_settings.list_visible_items)
                 {

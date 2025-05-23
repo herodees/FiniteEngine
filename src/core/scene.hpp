@@ -47,15 +47,6 @@ namespace fin
         friend class SpriteSceneObject;
 
     public:
-        enum Mode
-        {
-            Undefined,
-            Running,
-            Setup,
-            Objects,
-            Prefab,
-            Prefabs,
-        };
 
         Scene();
         ~Scene();
@@ -87,16 +78,13 @@ namespace fin
         RenderTexture2D& canvas();
         ComponentFactory& factory();
 
-        void serialize(msg::Pack& ar);
-        void deserialize(msg::Value& ar);
-
         void serialize(msg::Var& ar);
         void deserialize(msg::Var& ar);
 
         void load(std::string_view path);
         void save(std::string_view path, bool change_path = true);
 
-        void start(bool st);
+        void edit_mode(bool st);
 
         void imgui_props();
         void imgui_items();
@@ -121,7 +109,7 @@ namespace fin
         bool                                                                            _show_properties{};
         bool                                                                            _edit_region{};
         bool                                                                            _edit_prefabs{};
-        Mode                                                                            _mode{Mode::Setup};
+        bool                                                                            _editor{};
         Vec2f                                                                           _goto;
         float                                                                           _goto_speed{};
         Camera                                                                          _camera;

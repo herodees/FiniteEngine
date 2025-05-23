@@ -46,7 +46,7 @@ namespace fin
 
     SceneLayer* SceneLayer::create(msg::Var& ar, Scene* scene)
     {
-        if (auto* obj = create(Type(ar["type"].get(1))))
+        if (auto* obj = create(ar["type"].str()))
         {
             obj->_parent = scene;
             obj->deserialize(ar);
@@ -55,38 +55,23 @@ namespace fin
         return nullptr;
     }
 
-    SceneLayer* SceneLayer::create(msg::Value& ar, Scene* scene)
+    SceneLayer* SceneLayer::create(std::string_view t)
     {
-        if (auto* obj = create(Type(ar["type"].get(0))))
-        {
-            obj->_parent = scene;
-            obj->deserialize(ar);
-            return obj;
-        }
-        return nullptr;
+        if (t == LayerType::Object)
+            return create_object();
+        if (t == LayerType::Sprite)
+            return create_sprite();
+        if (t == LayerType::Region)
+            return create_region();
+
+        return create_sprite();
     }
 
-    SceneLayer* SceneLayer::create(Type t)
-    {
-        switch (t)
-        {
-            case Type::Sprite:
-                return create_sprite();
-            case Type::Region:
-                return create_region();
-            case Type::Isometric:
-                return create_isometric();
-            case Type::Object:
-                return create_object();
-        }
-        return nullptr;
-    }
-
-    SceneLayer::SceneLayer(Type t) : _type(t)
+    SceneLayer::SceneLayer(std::string_view t) : _type(t)
     {
     }
 
-    SceneLayer::Type SceneLayer::type() const
+    std::string_view SceneLayer::type() const
     {
         return _type;
     }
@@ -139,26 +124,19 @@ namespace fin
 
     void SceneLayer::serialize(msg::Var& ar)
     {
-        ar.set_item("type", (int)_type);
+        ar.set_item("type", _type);
         ar.set_item("name", _name);
+        ar.set_item("hidden", _hidden);
+        if (_active)
+            ar.set_item("active", _active);
     }
 
     void SceneLayer::deserialize(msg::Var& ar)
     {
-        _type = Type(ar["type"].get(0));
+        _type = ar["type"].str();
         _name = ar["name"].str();
-    }
-
-    void SceneLayer::serialize(msg::Writer& ar)
-    {
-        ar.member("type", (int)_type);
-        ar.member("name", _name);
-    }
-
-    void SceneLayer::deserialize(msg::Value& ar)
-    {
-        _type = Type(ar["type"].get(0));
-        _name = ar["name"].str();
+        _hidden = ar["hidden"].get(false);
+        _active = ar["active"].get(false);
     }
 
     void SceneLayer::resize(Vec2f size)

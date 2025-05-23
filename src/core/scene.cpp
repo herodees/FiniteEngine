@@ -149,8 +149,6 @@ namespace fin
         if (!_canvas)
             return;
 
-        dc.set_debug(_mode == Mode::Objects);
-
         // Draw on the canvas
         BeginTextureMode(*_canvas.get_texture());
         ClearBackground(_background);
@@ -172,14 +170,13 @@ namespace fin
         EndMode2D();
         EndTextureMode();
 
-        dc.set_debug(false);
     }
 
     void Scene::update(float dt)
     {
         update_camera_position(dt);
 
-        if (_mode == Mode::Running)
+        if (!_editor)
         {
             for (auto* el : _layers)
             {
@@ -204,65 +201,6 @@ namespace fin
     ComponentFactory& Scene::factory()
     {
         return _factory;
-    }
-
-    void Scene::serialize(msg::Pack& out)
-    {
-        auto ar = out.create();
-        ar.begin_object();
-        {
-            ar.member("width", _size.x);
-            ar.member("height", _size.y);
-
-            ar.key("background");
-            ar.begin_array()
-                .value((int)_background.r)
-                .value((int)_background.g)
-                .value((int)_background.b)
-                .value((int)_background.a)
-                .end_array();
-
-            ar.key("layers");
-            ar.begin_array();
-            for (auto* ly : _layers)
-            {
-                ar.begin_object();
-                ly->serialize(ar);
-                ar.end_object();
-            }
-            ar.end_array();
-        }
-        ar.end_object();
-    }
-
-    void Scene::deserialize(msg::Value& ar)
-    {
-        clear();
-
-        if (ar.is_object())
-        {
-            _size.x = ar["width"].get(0.f);
-            _size.y = ar["height"].get(0.f);
-
-            auto bg       = ar["background"];
-            _background.r = bg[0].get(0);
-            _background.g = bg[1].get(0);
-            _background.b = bg[2].get(0);
-            _background.a = bg[3].get(0);
-
-            auto layers = ar["layers"];
-            for (auto ly : layers.elements())
-            {
-                if (auto* l = SceneLayer::create(ly, this))
-                {
-                    add_layer(l);
-                }
-            }
-        }
-        else
-        {
-            //TODO: Trace error
-        }
     }
 
     void Scene::serialize(msg::Var& ar)
@@ -314,12 +252,6 @@ namespace fin
         _path = path;
         auto*     txt = LoadFileText(_path.c_str());
 
-        /*
-        msg::Pack pack;
-        pack.data().assign(txt, txt + size);
-        auto ar = pack.get();
-        deserialize(ar);
-        */
         msg::Var doc;
         doc.from_string((const char*)txt);
         deserialize(doc);
@@ -341,21 +273,11 @@ namespace fin
         std::string str;
         doc.to_string(str);
         SaveFileData(p.c_str(), str.data(), str.size());
-        return;
-
-
-        msg::Pack pack;
-        serialize(pack);
-        auto ar = pack.data();
-        SaveFileData(p.c_str(), pack.data().data(), pack.data().size());
     }
 
-    void Scene::start(bool st)
+    void Scene::edit_mode(bool st)
     {
-        if (st)
-            _mode = Mode::Running;
-        else
-            _mode = Mode::Undefined;
+        _editor = st;
     }
 
     void Scene::imgui_props()
@@ -366,28 +288,13 @@ namespace fin
             return;
         }
 
-        switch (_mode)
+        if (_edit_prefabs)
+            _factory.imgui_props(this);
+        else if (auto* lyr = active_layer())
         {
-            case Mode::Setup:
-                imgui_props_setup();
-                break;
-            case Mode::Objects:
-                imgui_props_object();
-                break;
-            case Mode::Prefab:
-                SceneFactory::instance().imgui_properties();
-                break;
-            case Mode::Prefabs:
-
-                if (_edit_prefabs)
-                    _factory.imgui_props(this);
-                else if (auto* lyr = active_layer())
-                {
-                    ImGui::PushID("lypt");
-                    lyr->imgui_update(false);
-                    ImGui::PopID();
-                }
-                break;
+            ImGui::PushID("lypt");
+            lyr->imgui_update(false);
+            ImGui::PopID();
         }
 
         ImGui::End();
@@ -404,48 +311,35 @@ namespace fin
             ImGui::SetNextWindowPos(win_pos, ImGuiCond_Appearing);
             ImGui::SetNextWindowSize(win_size, ImGuiCond_Appearing);
 
-            if (ImGui::Begin("Scene Properties",
-                             &_show_properties,
-                             ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse))
+            if (ImGui::Begin("Scene Properties", &_show_properties, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse))
             {
                 imgui_props_setup();
             }
             ImGui::End();
         }
 
-
-        if (_mode == Mode::Prefab)
+        if (ImGui::Begin("Explorer"))
         {
-            if (ImGui::Begin("Items"))
+            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             {
-                SceneFactory::instance().imgui_items();
+                _edit_prefabs = true;
             }
-            ImGui::End();
+
+            _factory.imgui_items(this);
         }
-        else if (_mode == Mode::Prefabs)
+        ImGui::End();
+
+        if (ImGui::Begin("Scene"))
         {
-            if (ImGui::Begin("Explorer"))
+            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             {
-                if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
-                {
-                    _edit_prefabs = true;
-                }
-
-                _factory.imgui_items(this);
+                _edit_prefabs = false;
             }
-            ImGui::End();
 
-            if (ImGui::Begin("Scene"))
-            {
-                if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
-                {
-                    _edit_prefabs = false;
-                }
-
-                imgui_scene();
-            }
-            ImGui::End();
+            imgui_scene();
         }
+        ImGui::End();
+        
     }
 
     void Scene::on_new_position(Registry& reg, Entity ent)
@@ -477,7 +371,8 @@ namespace fin
                         .Text(ly->name())
                         .Spring()
                         .PopColor()
-                        .Text(_active_layer == n ? ICON_FA_BRUSH : "")
+                        .Text(_active_layer == n ? ICON_FA_CIRCLE_DOT : "")
+                        .Space()
                         .End())
                 {
                     _active_layer = n;
@@ -503,7 +398,6 @@ namespace fin
     {
         if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
         {
-
             if (ImGui::BeginChildFrame(ImGui::GetID("lyrssl"), {-1, 100}, 0))
             {
                 int n = 0;
@@ -631,14 +525,12 @@ namespace fin
 
             if (ImGui::BeginPopup("LayerMenu"))
             {
-                if (ImGui::MenuItem(ICON_FA_MAP_PIN " Isometric layer"))
-                    add_layer(SceneLayer::create(SceneLayer::Type::Isometric));
                 if (ImGui::MenuItem(ICON_FA_IMAGE " Sprite layer"))
-                    add_layer(SceneLayer::create(SceneLayer::Type::Sprite));
+                    add_layer(SceneLayer::create(LayerType::Sprite));
                 if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Region layer"))
-                    add_layer(SceneLayer::create(SceneLayer::Type::Region));
+                    add_layer(SceneLayer::create(LayerType::Region));
                 if (ImGui::MenuItem(ICON_FA_BOX " Object layer"))
-                    add_layer(SceneLayer::create(SceneLayer::Type::Object));
+                    add_layer(SceneLayer::create(LayerType::Object));
                 ImGui::EndPopup();
             }
 
@@ -701,42 +593,7 @@ namespace fin
 
     void Scene::imgui_menu()
     {
-        _mode = Mode::Undefined;
-
-        constexpr float tabw = 90.f;
-        ImGui::SetNextItemWidth(tabw);
-        if (ImGui::BeginTabItem(ICON_FA_GEAR " Setup"))
-        {
-            _mode = Mode::Setup;
-            BeginDefaultMenu("wsmnu");
-            EndDefaultMenu();
-            ImGui::EndTabItem();
-        }
-        ImGui::SetNextItemWidth(tabw);
-        if (ImGui::BeginTabItem(ICON_FA_BRUSH " Edit"))
-        {
-            _mode = Mode::Objects;
-            if (auto* lyr = active_layer())
-            {
-                lyr->imgui_workspace_menu();
-            }
-            ImGui::EndTabItem();
-        }
-        ImGui::SetNextItemWidth(tabw);
-        if (ImGui::BeginTabItem(ICON_FA_BOX_ARCHIVE " Prefabs"))
-        {
-            _mode = Mode::Prefab;
-            SceneFactory::instance().imgui_workspace_menu();
-            ImGui::EndTabItem();
-        }
-
-        ImGui::SetNextItemWidth(tabw);
-        if (ImGui::BeginTabItem(ICON_FA_BOXES_PACKING " Prefabs"))
-        {
-            _mode = Mode::Prefabs;
-            _factory.imgui_show(this);
-            ImGui::EndTabItem();
-        }
+        _factory.imgui_show(this);
     }
 
     void Scene::imgui_filemenu()
@@ -763,17 +620,10 @@ namespace fin
 
     void Scene::imgui_workspace()
     {
-        if (_mode == Mode::Prefab)
-        {
-            return SceneFactory::instance().imgui_workspace();
-        }
-        else
-        {
-            SceneFactory::instance().center_view();
-        }
+        if (_factory.imgui_workspace(this))
+            return;
 
-        auto size = get_scene_size();
-        if (size.x && size.y)
+        if (_size.x && _size.y)
         {
             Params params;
             ImVec2 visible_size = ImGui::GetContentRegionAvail();
@@ -797,7 +647,7 @@ namespace fin
             params.pos.y -= ImGui::GetScrollY();
 
 
-            ImGui::InvisibleButton("Canvas", ImVec2(size.x, size.y));
+            ImGui::InvisibleButton("Canvas", ImVec2(_size.x, _size.y));
             auto itemid = ImGui::GetItemID();
 
             activate_grid(Recti(0, 0, visible_size.x, visible_size.y));
@@ -807,12 +657,9 @@ namespace fin
             }
             _drag.update(params.mouse.x, params.mouse.y);
 
-         //   if (_mode == Mode::Objects)
+            if (auto* lyr = active_layer())
             {
-                if (auto* lyr = active_layer())
-                {
-                    lyr->imgui_workspace(params, _drag);
-                }
+                 lyr->imgui_workspace(params, _drag);
             }
 
             ImGui::ScrollWhenDragging({-1, -1}, ImGuiMouseButton_Right, itemid);
@@ -842,7 +689,7 @@ namespace fin
                 return layer - 1;
             }
         }
-        for (size_t n = 0; _layers.size(); ++n)
+        for (size_t n = 0; n < _layers.size(); ++n)
             _layers[n]->_index = (int32_t)n;
         return layer;
     }

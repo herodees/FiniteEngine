@@ -2,13 +2,10 @@
 #include "renderer.hpp"
 #include "scene.hpp"
 #include "application.hpp"
-#include "scene_object.hpp"
-#include "utils/lquadtree.hpp"
-#include "utils/lquery.hpp"
-#include "utils/imguiline.hpp"
 #include "editor/imgui_control.hpp"
+#include "ecs/base.hpp"
+#include "utils/imguiline.hpp"
 
-#include "core/ecs/base.hpp"
 
 namespace fin
 {
@@ -56,7 +53,7 @@ namespace fin
     }
 
 
-    ObjectSceneLayer::ObjectSceneLayer() : SceneLayer(SceneLayer::Type::Object)
+    ObjectSceneLayer::ObjectSceneLayer() : SceneLayer(LayerType::Object)
     {
         name() = "ObjectLayer";
         icon() = ICON_FA_MAP_PIN;
@@ -199,14 +196,19 @@ namespace fin
     {
         auto* obj      = ecs::Base::get(ent);
         obj->_position = pos;
-        _spatial_db.update_for_new_location(obj);
+        update(obj);
     }
 
     void ObjectSceneLayer::move(Entity ent, Vec2f pos)
     {
         auto* obj      = ecs::Base::get(ent);
         obj->_position += pos;
-        _spatial_db.update_for_new_location(obj);
+        update(obj);
+    }
+
+    void ObjectSceneLayer::update(void* obj)
+    {
+        _spatial_db.update_for_new_location(reinterpret_cast<ecs::Base*>(obj));
     }
 
     void ObjectSceneLayer::update(float dt)
@@ -401,7 +403,36 @@ namespace fin
                 dc.render_line_rect(bb.rect());
             }
         }
+
+        if (g_settings.visible_grid)
+            render_grid(dc);
+
         dc.set_color(WHITE);
+    }
+
+    void ObjectSceneLayer::render_grid(Renderer& dc)
+    {
+        const int startX = std::max(0.f, _region.x / tile_size);
+        const int startY = std::max(0.f, _region.y / tile_size);
+
+        const int endX = (_region.x2() / tile_size) + 2;
+        const int endY = (_region.y2() / tile_size) + 2;
+
+        auto minpos = Vec2i{startX, startY};
+        auto maxpos = Vec2i{endX, endY};
+
+        Color clr{255, 255, 0, 190};
+        dc.set_color(clr);
+
+        for (int y = minpos.y; y < maxpos.y; ++y)
+        {
+            dc.render_line((float)minpos.x * tile_size, (float)y * tile_size, (float)maxpos.x * tile_size, (float)y * tile_size);
+        }
+
+        for (int x = minpos.x; x < maxpos.x; ++x)
+        {
+            dc.render_line((float)x * tile_size, (float)minpos.y * tile_size, (float)x * tile_size, (float)maxpos.y * tile_size);
+        }
     }
 
     void ObjectSceneLayer::imgui_workspace(Params& params, DragData& drag)
@@ -453,7 +484,6 @@ namespace fin
                 {
                     auto* obj      = ecs::Base::get(_drop);
                     obj->_position = {params.mouse.x, params.mouse.y};
-
                     insert(_drop);
                 }
 

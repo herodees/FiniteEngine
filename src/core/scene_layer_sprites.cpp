@@ -25,7 +25,7 @@ namespace fin
             }
         };
 
-        SpriteSceneLayer() : SceneLayer(SceneLayer::Type::Sprite), _spatial({})
+        SpriteSceneLayer() : SceneLayer(LayerType::Sprite), _spatial({})
         {
             name() = "SpriteLayer";
             icon() = ICON_FA_IMAGE;
@@ -106,30 +106,30 @@ namespace fin
             }
         }
 
-        void serialize(msg::Writer& ar) override
+        void serialize(msg::Var& ar) override
         {
             SceneLayer::serialize(ar);
 
-            ar.member("max_index", _max_index);
-            ar.member("sort_y", _sort_y);
-            auto save = [&ar](Node& node)
+            msg::Var   items;
+            items.make_array(_spatial.size());
+            auto     save = [&items](Node& node)
             {
-                ar.begin_object();
-                ar.member("i", node._index);
-                ar.member("a", node._sprite.atlas->get_path());
-                ar.member("s", node._sprite.sprite->_name);
-                ar.member("x", node._bbox.x);
-                ar.member("y", node._bbox.y);
-                ar.end_object();
+                msg::Var item;
+                item.set_item("i", node._index);
+                item.set_item("a", node._sprite.atlas->get_path());
+                item.set_item("s", node._sprite.sprite->_name);
+                item.set_item("x", node._bbox.x);
+                item.set_item("y", node._bbox.y);
+                items.push_back(item);
             };
 
-            ar.key("items");
-            ar.begin_array();
             _spatial.for_each(save);
-            ar.end_array();
+            ar.set_item("items", items);
+            ar.set_item("max_index", _max_index);
+            ar.set_item("sort_y", _sort_y);
         }
 
-        void deserialize(msg::Value& ar) override
+        void deserialize(msg::Var& ar) override
         {
             SceneLayer::deserialize(ar);
             _spatial.clear();
@@ -289,7 +289,7 @@ namespace fin
                 }
             }
 
-            if (ImGui::BeginChildFrame(-1, {-1, 250}, 0))
+            if (ImGui::BeginChildFrame(ImGui::GetID("sprpt"), {-1, -1}, 0))
             {
                 if (g_settings.list_visible_items)
                 {

@@ -45,6 +45,16 @@ namespace fin
         return out;
     }
 
+    Registry& ComponentFactory::get_registry()
+    {
+        return _registry;
+    }
+
+    ComponentFactory::Map& ComponentFactory::get_components()
+    {
+        return _components;
+    }
+
     Entity ComponentFactory::get_old_entity(Entity old_id)
     {
         if (old_id == entt::null)
@@ -58,6 +68,11 @@ namespace fin
         }
 
         return _entity_map.get(old_id);
+    }
+
+    void ComponentFactory::clear_old_entities()
+    {
+        _entity_map.clear();
     }
 
     void ComponentFactory::serialize(msg::Var& ar)
@@ -164,6 +179,14 @@ namespace fin
         _edit = _registry.create();
         auto el = _prefabs.get_item(n);
         load_prefab(_edit, el);
+
+        auto& prefab = ecs::Prefab::emplace_or_replace(_edit);
+        prefab._data = el;
+    }
+
+    void ComponentFactory::edit_prefab(int32_t n)
+    {
+        _opened = n;
     }
 
     void ComponentFactory::generate_prefab_map()
@@ -263,12 +286,21 @@ namespace fin
             if (component.second.contains(edit))
             {
                 bool show = true;
+                bool change = false;
                 if (ImGui::CollapsingHeader(component.second.label.data(),
                                             component.first != "_" ? & show : nullptr,
                                             ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_DefaultOpen))
                 {
-                    ret |= component.second.edit(_registry, edit);
+                    ImGui::PushID(component.first.data());
+                    change = component.second.edit(_registry, edit);
+                    ImGui::PopID();
                 }
+
+                if (change)
+                {
+                    ret |= change;
+                }
+
                 if (!show)
                 {
                     component.second.remove(edit);
@@ -286,7 +318,6 @@ namespace fin
             .PopStyle()
             .Spring()
             .End();
-
 
         if (ImGui::Line().Return() && ImGui::Line().HoverId() == 1)
         {
@@ -357,6 +388,11 @@ namespace fin
                     if (ImGui::Selectable("##id", _selected == n, 0, {0, 25}))
                     {
                         selet_prefab(n);
+                    }
+
+                    if (ImGui::IsMouseDoubleClicked(0) && ImGui::IsItemHovered())
+                    {
+                        edit_prefab(n);
                     }
 
                     if (ImGui::IsItemVisible())
@@ -526,10 +562,14 @@ namespace fin
         ImGui::LineItem("astmnu", {-1, ImGui::GetFrameHeight()})
             .Space()
             .PushStyle(ImStyle_Button, 1, !_prefab_explorer)
+            .Space()
             .Text(ICON_FA_FOLDER_TREE)
+            .Space()
             .PopStyle()
             .PushStyle(ImStyle_Button, 2, _prefab_explorer)
+            .Space()
             .Text(ICON_FA_BOX_ARCHIVE)
+            .Space()
             .PopStyle()
             .Space(8);
 
@@ -602,6 +642,34 @@ namespace fin
             }
         }
         ImGui::EndChildFrame();
+    }
+
+    bool ComponentFactory::imgui_workspace(Scene* scene)
+    {
+        if ((uint32_t)_opened >= _prefabs.size())
+            return false;
+
+        ImGui::LineItem(ImGui::GetID("prefab"), {-1, ImGui::GetFrameHeight()}).Space();
+
+        int n = 1;
+        for (auto& cmp : _components)
+        {
+            if (cmp.second.contains(_edit))
+            {
+                ImGui::Line()
+                    .PushStyle(ImStyle_Button, n, _selected_component == n)
+                    .Space()
+                    .Text(cmp.second.label.data())
+                    .Space()
+                    .PopStyle();
+            }
+            ++n;
+        }
+        if (ImGui::Line().End())
+        {
+            _selected_component = ImGui::Line().HoverId();
+        }
+        return true;
     }
 
 

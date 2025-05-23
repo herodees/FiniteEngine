@@ -106,43 +106,21 @@ namespace fin
             _components.insert(std::pair(C::_s_id, C::_s_storage));
         }
 
-        Registry& get_registry()
-        {
-            return _registry;
-        }
-
-        Map& get_components()
-        {
-            return _components;
-        }
-
-        Entity create_entity()
-        {
-            return _registry.create();
-        }
-
-        void delete_entity(Entity e)
-        {
-            _registry.destroy(e);
-        }
+        Registry& get_registry();
+        Map& get_components();
 
         Entity get_old_entity(Entity old_id);
-
-        void clear_old_entities()
-        {
-            _entity_map.clear();
-        }
-
-        void serialize(msg::Var& ar);
-        void deserialize(msg::Var& ar);
+        void clear_old_entities();
 
         void imgui_show(Scene* scene);
         void imgui_props(Scene* scene);
         void imgui_items(Scene* scene);
+        bool imgui_workspace(Scene* scene);
 
         bool imgui_prefab(Scene* scene, Entity e);
 
         void set_root(const std::string& startPath);
+
         bool load();
         bool save();
 
@@ -155,14 +133,17 @@ namespace fin
     private:
         bool load(msg::Var& ar);
         bool save(msg::Var& ar);
-
+        void serialize(msg::Var& ar);
+        void deserialize(msg::Var& ar);
         void imgui_prefabs(Scene* scene);
         void imgui_explorer(Scene* scene);
+        void selet_prefab(int32_t n);
+        void edit_prefab(int32_t n);
+        void generate_prefab_map();
 
-        void     selet_prefab(int32_t n);
-        void     generate_prefab_map();
         msg::Var create_empty_prefab(std::string_view name, std::string_view group = "");
 
+    private:
         Registry                                                                             _registry;
         Map                                                                                  _components;
         entt::storage<Entity>                                                                _entity_map;
@@ -172,6 +153,8 @@ namespace fin
         std::string                                                                          _base_folder;
         std::string                                                                          _buff;
         int32_t                                                                              _selected{0};
+        int32_t                                                                              _opened{-1};
+        int32_t                                                                              _selected_component{};
         Entity                                                                               _edit{entt::null};
         bool                                                                                 _prefab_explorer{};
     };

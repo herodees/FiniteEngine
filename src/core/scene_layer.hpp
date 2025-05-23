@@ -13,34 +13,28 @@ namespace fin
 
     constexpr int32_t tile_size(512);
 
-    void BeginDefaultMenu(const char* id);
-    bool EndDefaultMenu();
+    namespace LayerType
+    {
+        constexpr std::string_view Object = "obj";
+        constexpr std::string_view Sprite = "spr";
+        constexpr std::string_view Region = "reg";
+    } // namespace LayerType
 
     class SceneLayer
     {
         friend class Scene;
     public:
-        enum class Type
-        {
-            Undefined,
-            Sprite,
-            Region,
-            Isometric,
-            Object,
-        };
-
         static SceneLayer* create(msg::Var& ar, Scene* scene);
-        static SceneLayer* create(msg::Value& ar, Scene* scene);
-        static SceneLayer* create(Type t);
-        static SceneLayer* create_isometric();
+        static SceneLayer* create(std::string_view t);
+
         static SceneLayer* create_sprite();
         static SceneLayer* create_region();
         static SceneLayer* create_object();
 
-        SceneLayer(Type t = Type::Undefined);
+        SceneLayer(std::string_view t);
         virtual ~SceneLayer() = default;
 
-        Type              type() const;
+        std::string_view  type() const;
         std::string&      name();
         std::string_view& icon();
         uint32_t          color() const;
@@ -54,8 +48,6 @@ namespace fin
         virtual void serialize(msg::Var& ar);
         virtual void deserialize(msg::Var& ar);
 
-        virtual void serialize(msg::Writer& ar);
-        virtual void deserialize(msg::Value& ar);
         virtual void resize(Vec2f size);
         virtual void clear();
 
@@ -83,8 +75,8 @@ namespace fin
     protected:
         Scene*           _parent{};
         int32_t          _index{-1};
-        Type             _type;
         std::string      _name;
+        std::string      _type;
         std::string_view _icon;
         uint32_t         _color{0xffffffff};
         Rectf            _region;
@@ -124,6 +116,7 @@ namespace fin
         void   remove(Entity ent);
         void   moveto(Entity ent, Vec2f pos);
         void   move(Entity ent, Vec2f pos);
+        void   update(void* obj);
         Entity find_at(Vec2f position) const;
         Entity find_active_at(Vec2f position) const;
         void   select_edit(Entity ent);
@@ -131,6 +124,7 @@ namespace fin
         void update(float dt) override;
         void render(Renderer& dc) override;
         void render_edit(Renderer& dc) override;
+        void render_grid(Renderer& dc);
 
         void imgui_workspace(Params& params, DragData& drag) override;
         void imgui_workspace_menu() override;
@@ -148,5 +142,8 @@ namespace fin
         Entity                  _edit{entt::null};
         Entity                  _drop{entt::null};
     };
+
+    void BeginDefaultMenu(const char* id);
+    bool EndDefaultMenu();
 
 } // namespace fin

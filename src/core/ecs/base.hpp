@@ -23,6 +23,7 @@ namespace fin::ecs
 
         fin::Region<float> get_bounding_box() const;
         bool               hit_test(Vec2f pos) const;
+        void               update();
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
@@ -78,9 +79,23 @@ namespace fin::ecs
     };
 
 
+
+    struct Camera : Component<Camera, "cam", "Camera">
+    {
+        Vec2f _position;
+        Vec2f _size;
+
+        static bool load(ArchiveParams& ar);
+        static bool save(ArchiveParams& ar);
+        static bool edit(Registry& reg, Entity self);
+    };
+
+
+
     struct Prefab : Component<Prefab, "pfb", "Prefab">
     {
         msg::Var _data;
+        msg::Var _diff;
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
