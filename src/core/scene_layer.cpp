@@ -44,6 +44,17 @@ namespace fin
         return false;
     }
 
+    SceneLayer* SceneLayer::create(msg::Var& ar, Scene* scene)
+    {
+        if (auto* obj = create(Type(ar["type"].get(1))))
+        {
+            obj->_parent = scene;
+            obj->deserialize(ar);
+            return obj;
+        }
+        return nullptr;
+    }
+
     SceneLayer* SceneLayer::create(msg::Value& ar, Scene* scene)
     {
         if (auto* obj = create(Type(ar["type"].get(0))))
@@ -95,6 +106,11 @@ namespace fin
         return _color;
     }
 
+    int32_t SceneLayer::index() const
+    {
+        return _index;
+    }
+
     Scene* SceneLayer::parent()
     {
         return _parent;
@@ -119,6 +135,18 @@ namespace fin
     {
         const auto p{GetMousePosition()};
         return {p.x + _region.x, p.y + _region.y};
+    }
+
+    void SceneLayer::serialize(msg::Var& ar)
+    {
+        ar.set_item("type", (int)_type);
+        ar.set_item("name", _name);
+    }
+
+    void SceneLayer::deserialize(msg::Var& ar)
+    {
+        _type = Type(ar["type"].get(0));
+        _name = ar["name"].str();
     }
 
     void SceneLayer::serialize(msg::Writer& ar)

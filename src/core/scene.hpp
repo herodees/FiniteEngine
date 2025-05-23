@@ -11,6 +11,8 @@
 
 namespace fin
 {
+    constexpr int32_t SCENE_VERSION = 1;
+
     struct Params
     {
         ImDrawList* dc;
@@ -88,6 +90,9 @@ namespace fin
         void serialize(msg::Pack& ar);
         void deserialize(msg::Value& ar);
 
+        void serialize(msg::Var& ar);
+        void deserialize(msg::Var& ar);
+
         void load(std::string_view path);
         void save(std::string_view path, bool change_path = true);
 
@@ -98,6 +103,7 @@ namespace fin
         void imgui_menu();
         void imgui_filemenu();
         void imgui_workspace();
+        void imgui_show_properties(bool show);
 
     private:
         void on_new_position(Registry& reg, Entity ent);
@@ -112,6 +118,7 @@ namespace fin
         std::unordered_map<std::string, ObjectBase*, std::string_hash, std::equal_to<>> _named_object;
         DragData                                                                        _drag{};
         int32_t                                                                         _active_layer{0};
+        bool                                                                            _show_properties{};
         bool                                                                            _edit_region{};
         bool                                                                            _edit_prefabs{};
         Mode                                                                            _mode{Mode::Setup};

@@ -72,6 +72,27 @@ namespace fin
         DrawRectangleV({dest.x, dest.y}, {dest.width, dest.height}, _color);
     }
 
+    void Renderer::render_polyline(const Vec2f* point, size_t size, bool closed, Vec2f offset)
+    {
+        if (size < 1)
+            return;
+
+        for (size_t n = 0; n < size - 1; ++n)
+        {
+            auto from = point[n] + offset;
+            auto to   = point[n + 1] + offset;
+            DrawLine(from.x, from.y, to.x, to.y, _color);
+        }
+
+        if (closed)
+        {
+            auto from = point[0] + offset;
+            auto to   = point[size - 1] + offset;
+            DrawLine(from.x, from.y, to.x, to.y, _color);
+        }
+
+    }
+
     void Renderer::render_triangle(Vec2f a, Vec2f b, Vec2f c)
     {
         Color color = {_color.r, _color.g, _color.b, _color.a};

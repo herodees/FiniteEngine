@@ -42,28 +42,14 @@ namespace fin
         _depth_active = false;
         _origin.point1 = base->_position;
         _origin.point2 = _origin.point1;
-        _bbox.x1       = _origin.point1.x;
-        _bbox.y1       = _origin.point1.y;
-        _bbox.x2       = _origin.point1.x;
-        _bbox.y2       = _origin.point1.y;
+
+        _bbox = base->get_bounding_box();
 
         if (ecs::Isometric::contains(ent))
         {
             auto* iso = ecs::Isometric::get(ent);
-            _origin.point1 += iso->a;
-            _origin.point2 += iso->b;
-        }
-
-        if (ecs::Sprite::contains(ent))
-        {
-            auto* img = ecs::Sprite::get(ent);
-            if (img->pack.sprite)
-            {
-                _bbox.x1 -= img->pack.sprite->_origina.x;
-                _bbox.y1 -= img->pack.sprite->_origina.y;
-                _bbox.x2 = _bbox.x1 + img->pack.sprite->_source.width;
-                _bbox.y2 = _bbox.y1 + img->pack.sprite->_source.height;
-            }  
+            _origin.point1 += iso->_a;
+            _origin.point2 += iso->_b;
         }
 
         _back.clear();
@@ -80,6 +66,40 @@ namespace fin
     ObjectSceneLayer ::~ObjectSceneLayer()
     {
         clear();
+    }
+
+    void ObjectSceneLayer::serialize(msg::Var& ar)
+    {
+        SceneLayer::serialize(ar);
+        msg::Var items;
+        items.make_array(_objects.size());
+
+        auto& fact = parent()->factory();
+
+        for (auto ent : _objects)
+        {
+            msg::Var obj;
+            obj.set_item(Sc::Id, (uint32_t)ent);
+            fact.save_prefab(ent, obj);
+            items.push_back(obj);
+        }
+
+        ar.set_item("items", items);
+    }
+
+    void ObjectSceneLayer::deserialize(msg::Var& ar)
+    {
+        SceneLayer::deserialize(ar);
+
+        auto& fact  = parent()->factory();
+
+        auto items = ar.get_item("items");
+        for (auto& obj : items.elements())
+        {
+            auto ent = fact.get_old_entity((Entity)obj[Sc::Id].get(0));
+            fact.load_prefab(ent, obj);
+            insert(ent);
+        }
     }
 
     void ObjectSceneLayer::insert(Entity ent)
@@ -115,11 +135,58 @@ namespace fin
 
     Entity ObjectSceneLayer::find_at(Vec2f position) const
     {
+        Entity ret = entt::null;
+        auto   cb  = [&ret, position](lq::SpatialDatabase::Proxy* obj, float dist)
+            {
+                auto ent = static_cast<ecs::Base*>(obj)->_self;
+                if (ecs::Sprite::contains(ent))
+                {
+                    auto* spr = ecs::Sprite::get(ent);
+                    if (spr->pack.sprite)
+                    {
+                        Vec2f bbox;
+                        bbox.x = static_cast<ecs::Base*>(obj)->_position.x - spr->pack.sprite->_origina.x;
+                        bbox.y = static_cast<ecs::Base*>(obj)->_position.y - spr->pack.sprite->_origina.y;
+                        if (spr->pack.is_alpha_visible(position.x - bbox.x, position.y - bbox.y))
+                        {
+                            ret = ent;
+                        }
+                    }
+                }
+            };
+
+        _spatial_db.map_over_all_objects_in_locality(position.x, position.y, tile_size, cb);
         return entt::null;
     }
 
     Entity ObjectSceneLayer::find_active_at(Vec2f position) const
     {
+        for (auto it = _iso.rbegin(); it != _iso.rend(); ++it)
+        {
+            auto obj  = (*it)->_ptr;
+            auto& bbox = (*it)->_bbox;
+
+            if (bbox.contains(position))
+            {
+                if (ecs::Sprite::contains(obj))
+                {
+                    auto* spr = ecs::Sprite::get(obj);
+                    if (spr->pack.sprite)
+                    {
+                        if (spr->pack.is_alpha_visible(position.x - bbox.x1, position.y - bbox.y1))
+                        {
+                            return obj;
+                        }
+                    }
+                    else
+                        return obj;
+                }
+                else
+                {
+                    return obj;
+                }
+            }
+        }
         return entt::null;
     }
 
@@ -298,18 +365,40 @@ namespace fin
 
         for (auto ent : _selected)
         {
-            if (ecs::Base::contains(ent) && ecs::Isometric::contains(ent))
-            {
-                auto* base   = ecs::Base::get(ent);
-                auto* iso = ecs::Isometric::get(ent);
+            if (!ecs::Base::contains(ent))
+                continue;
 
-                if (g_settings.visible_isometric)
+            auto* base = ecs::Base::get(ent);
+
+            if (g_settings.visible_isometric && ecs::Isometric::contains(ent))
+            {
+                auto* iso = ecs::Isometric::get(ent);
+                Vec2f a = iso->_a + base->_position;
+                Vec2f b = iso->_b + base->_position;
+                dc.set_color(WHITE);
+                dc.render_line(a, b);
+
+                if (ent == _edit)
                 {
-                    Vec2f a = iso->a + base->_position;
-                    Vec2f b = iso->b + base->_position;
+                    dc.set_color(GREEN);
+                    dc.render_debug_text(a, "L");
                     dc.set_color(RED);
-                    dc.render_line(a, b);
+                    dc.render_debug_text(b, "R");
                 }
+            }
+
+            if (g_settings.visible_collision && ecs::Collider::contains(ent))
+            {
+                auto* col = ecs::Collider::get(ent);
+                dc.set_color(YELLOW);
+                dc.render_polyline(col->_points.data(), col->_points.size(), true, base->_position);
+            }
+
+            if (ent == _edit)
+            {
+                auto bb = base->get_bounding_box();
+                dc.set_color(WHITE);
+                dc.render_line_rect(bb.rect());
             }
         }
         dc.set_color(WHITE);

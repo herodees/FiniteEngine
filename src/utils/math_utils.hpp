@@ -402,7 +402,7 @@ namespace fin
         Region() : x1{}, y1{}, x2{}, y2{} {}
         Region(T X1, T Y1, T X2, T Y2) : x1{ X1 }, y1{ Y1 }, x2{ X2 }, y2{ Y2 } {}
         Region(const Rect<T>& rc) : x1{ rc.x }, y1{ rc.y }, x2{ rc.x2() }, y2{ rc.y2() } {}
-
+        Region(const Vec2<T>& minp, const Vec2<T>& maxp) : x1{minp.x}, y1{minp.y}, x2{maxp.x}, y2{maxp.y}{}
         void set_size(T w, T h) { x2 = x1 + w; y2 = y1 + h; }
         T width() const { return x2 - x1; }
         T height() const { return y2 - y1; }

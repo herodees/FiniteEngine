@@ -58,14 +58,17 @@ namespace fin
     {
         _layers.emplace_back(layer);
         layer->_parent = this;
+        layer->_index  = int32_t(_layers.size()) - 1;
         layer->resize(_size);
-        return int32_t(_layers.size()) - 1;
+        return layer->_index;
     }
 
     void Scene::delete_layer(int32_t n)
     {
         delete _layers[n];
         _layers.erase(_layers.begin() + n);
+        for (; n < _layers.size(); ++n)
+            _layers[n]->_index = (int32_t)n;
     }
 
 
@@ -262,16 +265,67 @@ namespace fin
         }
     }
 
+    void Scene::serialize(msg::Var& ar)
+    {
+        ar.set_item("version", SCENE_VERSION);
+
+        ar.set_item("width", _size.x);
+        ar.set_item("height", _size.y);
+
+        msg::Var bgclr;
+        bgclr.push_back((int)_background.r);
+        bgclr.push_back((int)_background.g);
+        bgclr.push_back((int)_background.b);
+        bgclr.push_back((int)_background.a);
+        ar.set_item("background", bgclr);
+
+        msg::Var layers;
+        for (auto lyr : _layers)
+        {
+            msg::Var layer;
+            lyr->serialize(layer);
+            layers.push_back(layer);
+        }
+        ar.set_item("layers", layers);
+    }
+
+    void Scene::deserialize(msg::Var& ar)
+    {
+        clear();
+        _size.x = ar.get_item("width").get(0);
+        _size.y = ar.get_item("height").get(0);
+        auto bg = ar.get_item("background");
+        if (bg.is_array() && bg.size() == 4)
+        {
+            _background.r = bg[0].get(0);
+            _background.g = bg[1].get(0);
+            _background.b = bg[2].get(0);
+            _background.a = bg[3].get(0);
+        }
+        auto layers = ar.get_item("layers");
+        for (auto ly : layers.elements())
+        {
+             add_layer(SceneLayer::create(ly, this));
+        }
+    }
+
     void Scene::load(std::string_view path)
     {
         _path = path;
+        auto*     txt = LoadFileText(_path.c_str());
+
+        /*
         msg::Pack pack;
-        int       size{};
-        auto*     txt = LoadFileData(_path.c_str(), &size);
         pack.data().assign(txt, txt + size);
-        UnloadFileData(txt);
         auto ar = pack.get();
         deserialize(ar);
+        */
+        msg::Var doc;
+        doc.from_string((const char*)txt);
+        deserialize(doc);
+
+        UnloadFileText(txt);
+
     }
 
     void Scene::save(std::string_view path, bool change_path)
@@ -281,6 +335,14 @@ namespace fin
         {
             _path = p;
         }
+
+        msg::Var doc;
+        serialize(doc);
+        std::string str;
+        doc.to_string(str);
+        SaveFileData(p.c_str(), str.data(), str.size());
+        return;
+
 
         msg::Pack pack;
         serialize(pack);
@@ -333,6 +395,25 @@ namespace fin
 
     void Scene::imgui_items()
     {
+        if (_show_properties)
+        { // Get main viewport
+            ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImVec2         center   = viewport->GetCenter();
+            ImVec2 win_size(400, 350);
+            ImVec2 win_pos = ImVec2(center.x - win_size.x * 0.5f, center.y - win_size.y * 0.5f);
+            ImGui::SetNextWindowPos(win_pos, ImGuiCond_Appearing);
+            ImGui::SetNextWindowSize(win_size, ImGuiCond_Appearing);
+
+            if (ImGui::Begin("Scene Properties",
+                             &_show_properties,
+                             ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse))
+            {
+                imgui_props_setup();
+            }
+            ImGui::End();
+        }
+
+
         if (_mode == Mode::Prefab)
         {
             if (ImGui::Begin("Items"))
@@ -738,6 +819,11 @@ namespace fin
         }
     }
 
+    void Scene::imgui_show_properties(bool show)
+    {
+        _show_properties = true;
+    }
+
     int32_t Scene::move_layer(int32_t layer, bool up)
     {
         if (up)
@@ -756,6 +842,8 @@ namespace fin
                 return layer - 1;
             }
         }
+        for (size_t n = 0; _layers.size(); ++n)
+            _layers[n]->_index = (int32_t)n;
         return layer;
     }
 

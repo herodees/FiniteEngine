@@ -208,7 +208,7 @@ namespace fin
             parser.parse(str);
 
         }
-    } test;
+    };
 
 
 

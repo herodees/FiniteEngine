@@ -21,6 +21,9 @@ namespace fin::ecs
         Entity  _self;
         ObjectSceneLayer* _layer{};
 
+        fin::Region<float> get_bounding_box() const;
+        bool               hit_test(Vec2f pos) const;
+
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
         static bool edit(Registry& reg, Entity self);
@@ -30,8 +33,8 @@ namespace fin::ecs
 
     struct Isometric : Component<Isometric, "iso", "Isometric">
     {
-        Vec2f a;
-        Vec2f b;
+        Vec2f _a;
+        Vec2f _b;
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
@@ -42,7 +45,7 @@ namespace fin::ecs
 
     struct Collider : Component<Collider, "cld", "Collider">
     {
-        std::vector<Vec2f> points;
+        std::vector<Vec2f> _points;
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
@@ -64,7 +67,10 @@ namespace fin::ecs
 
     struct Region : Component<Region, "reg", "Region">
     {
-        std::vector<Vec2f> points;
+        std::vector<Vec2f> _points;
+        bool               _local{};
+
+        bool hit_test(Vec2f pos) const;
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
@@ -74,7 +80,7 @@ namespace fin::ecs
 
     struct Prefab : Component<Prefab, "pfb", "Prefab">
     {
-        msg::Var data;
+        msg::Var _data;
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);

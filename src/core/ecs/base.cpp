@@ -13,6 +13,54 @@ namespace fin::ecs
         fact.register_component<Prefab>();
     }
 
+    fin::Region<float> Base::get_bounding_box() const
+    {
+        fin::Region<float> bbox{_position.x, _position.y, _position.x, _position.y};
+        if (Sprite::contains(_self))
+        {
+            auto* spr = Sprite::get(_self);
+            if (spr->pack.sprite)
+            {
+                bbox.x1 -= spr->pack.sprite->_origina.x;
+                bbox.y1 -= spr->pack.sprite->_origina.y;
+                bbox.x2 = bbox.x1 + spr->pack.sprite->_source.width;
+                bbox.y2 = bbox.y1 + spr->pack.sprite->_source.height;
+            }
+        }
+        else if (Region::contains(_self))
+        {
+            auto* reg = Region::get(_self);
+            if (!reg->_points.empty())
+            {
+                Vec2f min = reg->_points[0];
+                Vec2f max = reg->_points[0];
+                for (const auto& p : reg->_points)
+                {
+                    min.x = std::min(min.x, p.x);
+                    min.y = std::min(min.y, p.y);
+                    max.x = std::max(max.x, p.x);
+                    max.y = std::max(max.y, p.y);
+                }
+
+                // Offset by position if Region is local
+                bbox = fin::Region<float>(min + _position, max + _position);
+            }
+        }
+        return bbox;
+    }
+
+    bool Base::hit_test(Vec2f pos) const
+    {
+        if (Region::contains(_self))
+            return Region::get(_self)->hit_test(pos);
+
+        if (get_bounding_box().contains(pos))
+        {
+            return true;
+        }
+        return false;
+    }
+
     bool Base::load(ArchiveParams& ar)
     {
         auto& base       = ar.reg.get<Base>(ar.entity);
@@ -43,28 +91,28 @@ namespace fin::ecs
     bool Isometric::load(ArchiveParams& ar)
     {
         auto& iso = ar.reg.get<Isometric>(ar.entity);
-        iso.a.x   = ar.data["ax"].get(0.f);
-        iso.a.y   = ar.data["ay"].get(0.f);
-        iso.b.x   = ar.data["bx"].get(0.f);
-        iso.b.y   = ar.data["by"].get(0.f);
+        iso._a.x   = ar.data["ax"].get(0.f);
+        iso._a.y   = ar.data["ay"].get(0.f);
+        iso._b.x   = ar.data["bx"].get(0.f);
+        iso._b.y   = ar.data["by"].get(0.f);
         return true;
     }
 
     bool Isometric::save(ArchiveParams& ar)
     {
         auto& iso = ar.reg.get<Isometric>(ar.entity);
-        ar.data.set_item("ax", iso.a.x);
-        ar.data.set_item("ay", iso.a.y);
-        ar.data.set_item("bx", iso.b.x);
-        ar.data.set_item("by", iso.b.y);
+        ar.data.set_item("ax", iso._a.x);
+        ar.data.set_item("ay", iso._a.y);
+        ar.data.set_item("bx", iso._b.x);
+        ar.data.set_item("by", iso._b.y);
         return true;
     }
 
     bool Isometric::edit(Registry& reg, Entity self)
     {
         auto& base = reg.get<Isometric>(self);
-        auto  r    = ImGui::InputFloat2("A", &base.a.x);
-        r |= ImGui::InputFloat2("B", &base.b.x);
+        auto  r    = ImGui::InputFloat2("A", &base._a.x);
+        r |= ImGui::InputFloat2("B", &base._b.x);
         return r;
     }
 
@@ -72,10 +120,10 @@ namespace fin::ecs
     {
         auto& col = ar.reg.get<Collider>(ar.entity);
         auto pts = ar.data.get_item("p");
-        col.points.clear();
+        col._points.clear();
         for (size_t i = 0; i < pts.size(); i += 2)
         {
-            col.points.emplace_back(pts[i].get(0.f), pts[i + 1].get(0.f));
+            col._points.emplace_back(pts[i].get(0.f), pts[i + 1].get(0.f));
         }
         return true;
     }
@@ -84,7 +132,7 @@ namespace fin::ecs
     {
         auto& col = ar.reg.get<Collider>(ar.entity);
         msg::Var pts;
-        for (auto p : col.points)
+        for (auto p : col._points)
         {
             pts.push_back(p.x);
             pts.push_back(p.y);
@@ -96,7 +144,7 @@ namespace fin::ecs
     bool Collider::edit(Registry& reg, Entity self)
     {
         auto& base = reg.get<Collider>(self);
-        auto  r    = ImGui::PointVector("Points##cldr", &base.points, {-1, 100});
+        auto  r    = ImGui::PointVector("Points##cldr", &base._points, {-1, 100});
         return r;
     }
 
@@ -131,14 +179,35 @@ namespace fin::ecs
         return r;
     }
 
+    bool Region::hit_test(Vec2f testPoint) const
+    {
+        size_t count = _points.size();
+        if (!count)
+            return false;
+
+        bool inside = false;
+        for (size_t i = 0, j = count - 1; i < count; j = i++)
+        {
+            const Vec2f& pi = _points[i];
+            const Vec2f& pj = _points[j];
+
+            if (((pi.y > testPoint.y) != (pj.y > testPoint.y)) &&
+                (testPoint.x < (pj.x - pi.x) * (testPoint.y - pi.y) / (pj.y - pi.y) + pi.x))
+            {
+                inside = !inside;
+            }
+        }
+        return inside;
+    }
+
     bool Region::load(ArchiveParams& ar)
     {
         auto& col = ar.reg.get<Region>(ar.entity);
         auto  pts = ar.data.get_item("p");
-        col.points.clear();
+        col._points.clear();
         for (size_t i = 0; i < pts.size(); i += 2)
         {
-            col.points.emplace_back(pts[i].get(0.f), pts[i + 1].get(0.f));
+            col._points.emplace_back(pts[i].get(0.f), pts[i + 1].get(0.f));
         }
         return true;
     }
@@ -147,7 +216,7 @@ namespace fin::ecs
     {
         auto&    col = ar.reg.get<Region>(ar.entity);
         msg::Var pts;
-        for (auto p : col.points)
+        for (auto p : col._points)
         {
             pts.push_back(p.x);
             pts.push_back(p.y);
@@ -159,21 +228,21 @@ namespace fin::ecs
     bool Region::edit(Registry& reg, Entity self)
     {
         auto& base = reg.get<Region>(self);
-        auto  r    = ImGui::PointVector("Points##reg", &base.points, {-1, 100});
+        auto  r    = ImGui::PointVector("Points##reg", &base._points, {-1, 100});
         return r;
     }
 
     bool Prefab::load(ArchiveParams& ar)
     {
         auto& pf = ar.reg.get<Prefab>(ar.entity);
-        pf.data = ar.data["src"];
+        pf._data = ar.data["src"];
         return true;
     }
 
     bool Prefab::save(ArchiveParams& ar)
     {
         auto& pf = ar.reg.get<Prefab>(ar.entity);
-        ar.data.set_item("src", pf.data);
+        ar.data.set_item("src", pf._data);
         return true;
     }
 }

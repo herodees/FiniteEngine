@@ -29,6 +29,7 @@ namespace fin
             Object,
         };
 
+        static SceneLayer* create(msg::Var& ar, Scene* scene);
         static SceneLayer* create(msg::Value& ar, Scene* scene);
         static SceneLayer* create(Type t);
         static SceneLayer* create_isometric();
@@ -43,11 +44,15 @@ namespace fin
         std::string&      name();
         std::string_view& icon();
         uint32_t          color() const;
+        int32_t           index() const;
         Scene*            parent();
         const Rectf&      region() const;
         Vec2f             screen_to_view(Vec2f pos) const;
         Vec2f             view_to_screen(Vec2f pos) const;
         Vec2f             get_mouse_position() const;
+
+        virtual void serialize(msg::Var& ar);
+        virtual void deserialize(msg::Var& ar);
 
         virtual void serialize(msg::Writer& ar);
         virtual void deserialize(msg::Value& ar);
@@ -77,6 +82,7 @@ namespace fin
 
     protected:
         Scene*           _parent{};
+        int32_t          _index{-1};
         Type             _type;
         std::string      _name;
         std::string_view _icon;
@@ -107,6 +113,9 @@ namespace fin
         ObjectSceneLayer();
         ~ObjectSceneLayer() override;
 
+        void serialize(msg::Var& ar) override;
+        void deserialize(msg::Var& ar) override;
+
         void clear() override;
         void resize(Vec2f size) override;
         void activate(const Rectf& region) override;
@@ -129,7 +138,7 @@ namespace fin
 
     protected:
         entt::sparse_set        _objects;
-        entt::sparse_set  _selected;
+        entt::sparse_set        _selected;
         Vec2i                   _grid_size;
         lq::SpatialDatabase     _spatial_db;
         std::vector<IsoObject>  _iso_pool;

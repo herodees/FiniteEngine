@@ -183,6 +183,7 @@ namespace fin
         obj.set_item(Sc::Id, name);
         obj.set_item(Sc::Group, group);
         obj.set_item(Sc::Uid, std::generate_unique_id());
+        obj.set_item("_", nullptr);
         return obj;
     }
 
@@ -241,6 +242,14 @@ namespace fin
         return SaveFileText((_base_folder + GamePrefabFile).c_str(), str.c_str());
     }
 
+    void ComponentFactory::load_prefab(Entity e, msg::Var& prefab, msg::Var& diff)
+    {
+    }
+
+    void ComponentFactory::save_prefab(Entity e, msg::Var& prefab, msg::Var& diff)
+    {
+    }
+
     void ComponentFactory::imgui_show(Scene* scene)
     {
     }
@@ -255,8 +264,8 @@ namespace fin
             {
                 bool show = true;
                 if (ImGui::CollapsingHeader(component.second.label.data(),
-                                            &show,
-                                            ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_DefaultOpen))
+                                            component.first != "_" ? & show : nullptr,
+                                            ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_DefaultOpen))
                 {
                     ret |= component.second.edit(_registry, edit);
                 }

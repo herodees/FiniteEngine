@@ -20,6 +20,7 @@ namespace fin
         void render_line(float fromx, float fromy, float tox, float toy);
         void render_line_rect(const Rectf& dest);
         void render_rect(const Rectf& dest);
+        void render_polyline(const Vec2f* pont, size_t size, bool closed, Vec2f offset);
         void render_triangle(Vec2f a, Vec2f b, Vec2f c);
         void render_line_circle(Vec2f pos, float radius);
         void render_circle(Vec2f pos, float radius);

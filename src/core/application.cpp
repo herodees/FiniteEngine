@@ -426,7 +426,7 @@ namespace fin
             {
                 if (ImGui::MenuItem(ICON_FA_WRENCH " Properties", NULL))
                 {
-                    show_popup = "Scene Properties";
+                    _map.imgui_show_properties(true);
                 }
                 ImGui::EndMenu();
             }

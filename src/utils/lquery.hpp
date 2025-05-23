@@ -29,9 +29,9 @@ namespace fin
             Proxy** bin_for_location(float x, float y);
 
             template <typename CB>
-            void map_over_all_objects_in_locality(float x, float y, float radius, CB cb);
+            void map_over_all_objects_in_locality(float x, float y, float radius, CB cb) const;
             template <typename CB>
-            void map_over_all_objects_in_locality(const Rectf& rc, CB cb);
+            void map_over_all_objects_in_locality(const Rectf& rc, CB cb) const;
 
         private:
             void add_to_bin(Proxy* object, Proxy** bin);
@@ -152,7 +152,7 @@ namespace fin
         }
 
         template <typename CB>
-        inline void SpatialDatabase::map_over_all_objects_in_locality(float x, float y, float radius, CB cb)
+        inline void SpatialDatabase::map_over_all_objects_in_locality(float x, float y, float radius, CB cb) const
         {
             const bool completelyOutside = (((x + radius) < _region.x) || ((y + radius) < _region.y) ||
                                             ((x - radius) >= _region.x2()) || ((y - radius) >= _region.y2()));
@@ -223,7 +223,7 @@ namespace fin
         }
 
         template <typename CB>
-        inline void SpatialDatabase::map_over_all_objects_in_locality(const Rectf& rc, CB cb)
+        inline void SpatialDatabase::map_over_all_objects_in_locality(const Rectf& rc, CB cb) const
         {
             /* is the sphere completely outside the "super brick"? */
             if (!_region.intersects(rc))

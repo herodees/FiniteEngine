@@ -146,15 +146,18 @@ namespace fin
         bool load();
         bool save();
 
+        void load_prefab(Entity e, msg::Var& prefab, msg::Var& diff);
+        void save_prefab(Entity e, msg::Var& prefab, msg::Var& diff);
+
+        void load_prefab(Entity e, msg::Var& ar);
+        void save_prefab(Entity e, msg::Var& ar);
+
     private:
         bool load(msg::Var& ar);
         bool save(msg::Var& ar);
 
         void imgui_prefabs(Scene* scene);
         void imgui_explorer(Scene* scene);
-
-        void load_prefab(Entity e, msg::Var& ar);
-        void save_prefab(Entity e, msg::Var& ar);
 
         void     selet_prefab(int32_t n);
         void     generate_prefab_map();
@@ -172,5 +175,8 @@ namespace fin
         Entity                                                                               _edit{entt::null};
         bool                                                                                 _prefab_explorer{};
     };
+
+
+
 
 } // namespace fin
