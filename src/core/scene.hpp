@@ -42,6 +42,13 @@ namespace fin
         Vec2i size;
     };
 
+    enum class SceneMode
+    {
+        Play,
+        Scene,
+        Prefab,
+    };
+
     class Scene
     {
         friend class SpriteSceneObject;
@@ -84,8 +91,10 @@ namespace fin
         void load(std::string_view path);
         void save(std::string_view path, bool change_path = true);
 
-        void edit_mode(bool st);
+        void set_mode(SceneMode sm);
+        SceneMode get_mode() const;
 
+        void imgui_work();
         void imgui_props();
         void imgui_items();
         void imgui_menu();
@@ -109,7 +118,7 @@ namespace fin
         bool                                                                            _show_properties{};
         bool                                                                            _edit_region{};
         bool                                                                            _edit_prefabs{};
-        bool                                                                            _editor{};
+        SceneMode                                                                       _mode{SceneMode::Play};
         Vec2f                                                                           _goto;
         float                                                                           _goto_speed{};
         Camera                                                                          _camera;

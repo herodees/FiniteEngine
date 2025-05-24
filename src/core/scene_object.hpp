@@ -19,19 +19,6 @@ namespace fin
         Area     = 1 << 3,
     };
 
-    namespace Sc
-    {
-        constexpr std::string_view Id("$id");
-        constexpr std::string_view Group("$grp");
-        constexpr std::string_view Name("$nme");
-        constexpr std::string_view Uid("$uid");
-        constexpr std::string_view Class("$cls");
-        constexpr std::string_view Flag("$fl");
-        constexpr std::string_view Atlas("atl");
-        constexpr std::string_view Sprite("spr");
-    } // namespace Sc
-
-
     struct ObjectBase
     {
         bool flag_get(SceneObjectFlag f) const;

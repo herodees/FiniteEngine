@@ -2,9 +2,26 @@
 
 #include "include.hpp"
 
+namespace ImGui
+{
+    struct CanvasParams;
+}
+
 namespace fin
 {
     class Scene;
+
+    namespace Sc
+    {
+        constexpr std::string_view Id("$id");
+        constexpr std::string_view Group("$grp");
+        constexpr std::string_view Name("$nme");
+        constexpr std::string_view Uid("$uid");
+        constexpr std::string_view Class("$cls");
+        constexpr std::string_view Flag("$fl");
+        constexpr std::string_view Atlas("atl");
+        constexpr std::string_view Sprite("spr");
+    } // namespace Sc
 
     struct ArchiveParams
     {
@@ -23,7 +40,8 @@ namespace fin
         bool (*contains)(Entity);
         bool (*load)(ArchiveParams& ar);
         bool (*save)(ArchiveParams& ar);
-        bool (*edit)(Registry&, Entity);
+        bool (*edit)(Entity);
+        bool (*edit_canvas)(ImGui::CanvasParams&, Entity);
     };
 
     template <typename C, std::string_literal ID, std::string_literal LABEL>
@@ -61,7 +79,11 @@ namespace fin
         {
             return true;
         }
-        static bool edit(Registry&, Entity)
+        static bool edit(Entity)
+        {
+            return false;
+        }
+        static bool edit_canvas(ImGui::CanvasParams&, Entity)
         {
             return false;
         }
@@ -103,6 +125,7 @@ namespace fin
             C::_s_storage.load     = &C::load;
             C::_s_storage.save     = &C::save;
             C::_s_storage.edit     = &C::edit;
+            C::_s_storage.edit_canvas = &C::edit_canvas;
             _components.insert(std::pair(C::_s_id, C::_s_storage));
         }
 
@@ -112,11 +135,10 @@ namespace fin
         Entity get_old_entity(Entity old_id);
         void clear_old_entities();
 
-        void imgui_show(Scene* scene);
+        bool imgui_menu(Scene* scene);
         void imgui_props(Scene* scene);
         void imgui_items(Scene* scene);
         bool imgui_workspace(Scene* scene);
-
         bool imgui_prefab(Scene* scene, Entity e);
 
         void set_root(const std::string& startPath);
@@ -139,6 +161,8 @@ namespace fin
         void imgui_explorer(Scene* scene);
         void selet_prefab(int32_t n);
         void edit_prefab(int32_t n);
+        void save_edit_prefab(Scene* scene);
+        void close_edit_prefab(Scene* scene);
         void generate_prefab_map();
 
         msg::Var create_empty_prefab(std::string_view name, std::string_view group = "");
@@ -153,9 +177,10 @@ namespace fin
         std::string                                                                          _base_folder;
         std::string                                                                          _buff;
         int32_t                                                                              _selected{0};
-        int32_t                                                                              _opened{-1};
-        int32_t                                                                              _selected_component{};
+        ComponentData*                                                                       _selected_component{};
         Entity                                                                               _edit{entt::null};
+        Entity                                                                               _prefab_edit{entt::null};
+        int32_t                                                                              _prefab_edit_index{-1};
         bool                                                                                 _prefab_explorer{};
     };
 

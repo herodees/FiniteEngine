@@ -17,6 +17,7 @@ namespace fin
         bool                           expanded{};
     };
 
+    ImGui::CanvasParams                                                                        canvas;
     FileDir       _s_file_dir;
     std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _s_cache;
 
@@ -164,11 +165,6 @@ namespace fin
     {
         if (_edit != entt::null)
         {
-            if ((uint32_t)_selected < _prefabs.size())
-            {
-                auto pr = _prefabs[_selected];
-                save_prefab(_edit, pr);
-            }
             _registry.destroy(_edit);
             _edit = entt::null;
         }
@@ -186,7 +182,36 @@ namespace fin
 
     void ComponentFactory::edit_prefab(int32_t n)
     {
-        _opened = n;
+        if (_prefab_edit != entt::null)
+            return;
+
+        _prefab_edit_index = n;
+        auto el            = _prefabs.get_item(n);
+        _prefab_edit       = _registry.create();
+        load_prefab(_prefab_edit, el);
+    }
+
+    void ComponentFactory::save_edit_prefab(Scene* scene)
+    {
+        if (_prefab_edit == entt::null)
+            return;
+
+        msg::Var data;
+        data.set_item(Sc::Id, _prefabs.get_item(_prefab_edit_index).get_item(Sc::Id).clone());
+        data.set_item(Sc::Group, _prefabs.get_item(_prefab_edit_index).get_item(Sc::Group).clone());
+        data.set_item(Sc::Uid, _prefabs.get_item(_prefab_edit_index).get_item(Sc::Uid));
+        save_prefab(_prefab_edit, data);
+
+        _prefabs.set_item(_prefab_edit_index, data);
+    }
+
+    void ComponentFactory::close_edit_prefab(Scene* scene)
+    {
+        if (_prefab_edit == entt::null)
+            return;
+        scene->factory().get_registry().destroy(_prefab_edit);
+        _prefab_edit = entt::null;
+        _prefab_edit_index = -1;
     }
 
     void ComponentFactory::generate_prefab_map()
@@ -273,8 +298,75 @@ namespace fin
     {
     }
 
-    void ComponentFactory::imgui_show(Scene* scene)
+    bool ComponentFactory::imgui_menu(Scene* scene)
     {
+        ImGui::LineItem(ImGui::GetID("prefab"), {-1, ImGui::GetFrameHeight()}).Space();
+
+        int32_t n = 1;
+        for (auto& cmp : _components)
+        {
+            if (cmp.second.contains(_prefab_edit))
+            {
+                ImGui::Line()
+                    .PushStyle(ImStyle_Header, n, _selected_component == &cmp.second)
+                    .Space()
+                    .Text(cmp.second.label.data())
+                    .Space()
+                    .PopStyle();
+            }
+            ++n;
+        }
+
+        ImGui::Line()
+            .Spring()
+            .PushStyle(ImStyle_Header, -5)
+            .Space()
+            .Text(ICON_FA_ARROWS_TO_CIRCLE)
+            .Space()
+            .PopStyle()
+            .PushStyle(ImStyle_Header, -4)
+            .Format("%.1f%%", canvas.zoom * 100)
+            .PopStyle()
+            .Space(16)
+            .PushStyle(ImStyle_Header, -3)
+            .Space()
+            .Text(ICON_FA_FLOPPY_DISK " Save")
+            .Space()
+            .PopStyle()
+            .PushStyle(ImStyle_Header, -2)
+            .Space()
+            .Text("Close")
+            .Space()
+            .PopStyle()
+            .Space();
+
+        if (ImGui::Line().End())
+        {
+            if (ImGui::Line().HoverId() == -5)
+            {
+                canvas.CenterOrigin();
+            }
+            else if(ImGui::Line().HoverId() == -4)
+            {
+                canvas.zoom = 1.0f;
+            }
+            else if(ImGui::Line().HoverId() < 0)
+            {
+                if (ImGui::Line().HoverId() == -3)
+                {
+                    save_edit_prefab(scene);
+                }
+                scene->set_mode(SceneMode::Scene);
+                close_edit_prefab(scene);
+            }
+            else
+            {
+                auto it = _components.begin();
+                std::advance(it, ImGui::Line().HoverId() - 1);
+                _selected_component = &it->second;
+            }
+        }
+        return true;
     }
 
     bool ComponentFactory::imgui_prefab(Scene* scene, Entity edit)
@@ -292,7 +384,7 @@ namespace fin
                                             ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_DefaultOpen))
                 {
                     ImGui::PushID(component.first.data());
-                    change = component.second.edit(_registry, edit);
+                    change = component.second.edit(edit);
                     ImGui::PopID();
                 }
 
@@ -341,12 +433,41 @@ namespace fin
 
     void ComponentFactory::imgui_props(Scene* scene)
     {
+        auto shop_prefab_names = [&](int ent)
+            {
+                auto proto = _prefabs.get_item(ent);
+                _buff      = proto.get_item(Sc::Id).str();
+
+                if (ImGui::InputText("Id", &_buff))
+                {
+                    proto.set_item(Sc::Id, _buff);
+                }
+
+                _buff = proto.get_item(Sc::Group).str();
+                if (ImGui::InputText("Group", &_buff))
+                {
+                    proto.set_item(Sc::Group, _buff);
+                    generate_prefab_map();
+                }
+            };
+    
+
+        if (_prefab_edit != entt::null)
+        {
+            shop_prefab_names(_prefab_edit_index);
+            imgui_prefab(scene, _prefab_edit);
+            return;
+        }
+
         if (!_prefab_explorer)
             return;
+
         if ((uint32_t)_selected >= _prefabs.size())
             return;
+
         if (_edit == entt::null)
             return;
+
         if (ecs::Base::contains(_edit))
         {
             auto obj = ecs::Base::get(_edit);
@@ -356,20 +477,10 @@ namespace fin
             }
         }
 
-        auto proto = _prefabs.get_item(_selected);
-        _buff      = proto.get_item(Sc::Id).str();
-        if (ImGui::InputText("Id", &_buff))
-        {
-            proto.set_item(Sc::Id, _buff);
-        }
-        _buff = proto.get_item(Sc::Group).str();
-        if (ImGui::InputText("Group", &_buff))
-        {
-            proto.set_item(Sc::Group, _buff);
-            generate_prefab_map();
-        }
-
+        shop_prefab_names(_selected);
+        ImGui::BeginDisabled(true);
         imgui_prefab(scene, _edit);
+        ImGui::EndDisabled();
     }
 
     void ComponentFactory::imgui_prefabs(Scene* scene)
@@ -392,6 +503,7 @@ namespace fin
 
                     if (ImGui::IsMouseDoubleClicked(0) && ImGui::IsItemHovered())
                     {
+                        scene->set_mode(SceneMode::Prefab);
                         edit_prefab(n);
                     }
 
@@ -618,11 +730,14 @@ namespace fin
                 {
                     if ((uint32_t)_selected < _prefabs.size())
                     {
-                        auto t = _selected;
-                        selet_prefab(-1);
-                        _prefabs.erase(t);
-                        selet_prefab(t);
-                        generate_prefab_map();
+                        if (_prefab_edit == entt::null)
+                        {
+                            auto t = _selected;
+                            selet_prefab(-1);
+                            _prefabs.erase(t);
+                            selet_prefab(t);
+                            generate_prefab_map();
+                        }
                     }
                 }
                     break;
@@ -646,29 +761,62 @@ namespace fin
 
     bool ComponentFactory::imgui_workspace(Scene* scene)
     {
-        if ((uint32_t)_opened >= _prefabs.size())
-            return false;
+        static bool init_canvas = true;
 
-        ImGui::LineItem(ImGui::GetID("prefab"), {-1, ImGui::GetFrameHeight()}).Space();
-
-        int n = 1;
-        for (auto& cmp : _components)
+        if (ImGui::BeginCanvas("SceneCanvas", ImVec2(0, 0), canvas))
         {
-            if (cmp.second.contains(_edit))
+            if (init_canvas)
             {
-                ImGui::Line()
-                    .PushStyle(ImStyle_Button, n, _selected_component == n)
-                    .Space()
-                    .Text(cmp.second.label.data())
-                    .Space()
-                    .PopStyle();
+                canvas.CenterOrigin();
+                init_canvas = false;
             }
-            ++n;
+
+            ImGui::DrawGrid(canvas);
+            ImGui::DrawOrigin(canvas, -1);
+
+            if (_prefab_edit != entt::null && ecs::Base::contains(_prefab_edit))
+            {
+                auto* base = ecs::Base::get(_prefab_edit);
+                if (ecs::Sprite::contains(_prefab_edit))
+                {
+                    auto& spr = ecs::Sprite::get(_prefab_edit)->pack;
+                    if (spr.sprite)
+                    {
+                        Region<float> reg( -spr.sprite->_origina.x,
+                                           -spr.sprite->_origina.y,
+                                           spr.sprite->_source.width - spr.sprite->_origina.x,
+                                           spr.sprite->_source.height - spr.sprite->_origina.y);
+
+                        ImVec2 txs(spr.sprite->_texture->width, spr.sprite->_texture->height);
+
+                        ImGui::DrawTexture(canvas,
+                                           (ImTextureID)spr.sprite->_texture,
+                                           {reg.x1, reg.y1},
+                                           {reg.x2, reg.y2},
+                                           {spr.sprite->_source.x / txs.x, spr.sprite->_source.y / txs.y},
+                                           {spr.sprite->_source.x2() / txs.x, spr.sprite->_source.y2() / txs.y}, 0xffffffff);
+
+
+                        ImGui::GetWindowDrawList()->AddRect(canvas.WorldToScreen({reg.x1, reg.y1}), canvas.WorldToScreen({reg.x2, reg.y2}),0xffffffff);
+                    }
+                }
+
+                if (_selected_component)
+                {
+                    if (_selected_component->contains(_prefab_edit))
+                    {
+                        ImGui::PushID(_selected_component);
+                        _selected_component->edit_canvas(canvas, _prefab_edit);
+                        ImGui::PopID();
+                    }
+                }
+
+            }
+
+            ImGui::DrawRuler(canvas);
+            ImGui::EndCanvas();
         }
-        if (ImGui::Line().End())
-        {
-            _selected_component = ImGui::Line().HoverId();
-        }
+
         return true;
     }
 

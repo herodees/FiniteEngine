@@ -27,7 +27,7 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
-        static bool edit(Registry& reg, Entity self);
+        static bool edit(Entity self);
     };
 
 
@@ -39,7 +39,8 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
-        static bool edit(Registry& reg, Entity self);
+        static bool edit(Entity self);
+        static bool edit_canvas(ImGui::CanvasParams& canvas, Entity self);
     };
 
 
@@ -50,7 +51,8 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
-        static bool edit(Registry& reg, Entity self);
+        static bool edit(Entity self);
+        static bool edit_canvas(ImGui::CanvasParams& canvas, Entity self);
     };
 
 
@@ -61,7 +63,7 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
-        static bool edit(Registry& reg, Entity self);
+        static bool edit(Entity self);
     };
 
 
@@ -75,7 +77,8 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
-        static bool edit(Registry& reg, Entity self);
+        static bool edit(Entity self);
+        static bool edit_canvas(ImGui::CanvasParams& canvas, Entity self);
     };
 
 
@@ -87,7 +90,7 @@ namespace fin::ecs
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);
-        static bool edit(Registry& reg, Entity self);
+        static bool edit(Entity self);
     };
 
 

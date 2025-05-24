@@ -82,9 +82,9 @@ namespace fin::ecs
         return true;
     }
 
-    bool Base::edit(Registry& reg, Entity self)
+    bool Base::edit(Entity self)
     {
-        auto& base = reg.get<Base>(self);
+        auto& base = storage().get(self);
         auto r = ImGui::InputFloat2("Position", &base._position.x);
         if (r)
         {
@@ -119,12 +119,32 @@ namespace fin::ecs
         return true;
     }
 
-    bool Isometric::edit(Registry& reg, Entity self)
+    bool Isometric::edit(Entity self)
     {
-        auto& base = reg.get<Isometric>(self);
+        auto& base = storage().get(self);
         auto  r    = ImGui::InputFloat2("A", &base._a.x);
         r |= ImGui::InputFloat2("B", &base._b.x);
         return r;
+    }
+
+    bool Isometric::edit_canvas(ImGui::CanvasParams& canvas, Entity self)
+    {
+        bool ret = false;
+        auto& base = storage().get(self);
+        ImVec2& a    = (ImVec2&)base._a;
+        ImVec2& b    = (ImVec2&)base._b;
+        ImVec2  snap{1, 1};
+        std::swap(snap, canvas.snap_grid);
+
+        ret |= canvas.DragPoint(b, &base._b, 5);
+        ret |= canvas.DragPoint(a, &base._a, 5);
+
+        ImGui::GetWindowDrawList()->AddLine(canvas.WorldToScreen(a), canvas.WorldToScreen(b), IM_COL32(255, 255, 255, 255), 2);
+        ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(a), 5, IM_COL32(0, 255, 0, 255));
+        ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(b), 5, IM_COL32(255, 0, 0, 255));
+
+        std::swap(snap, canvas.snap_grid);
+        return ret;
     }
 
     bool Collider::load(ArchiveParams& ar)
@@ -152,11 +172,32 @@ namespace fin::ecs
         return true;
     }
 
-    bool Collider::edit(Registry& reg, Entity self)
+    bool Collider::edit(Entity self)
     {
-        auto& base = reg.get<Collider>(self);
+        auto& base = storage().get(self);
         auto  r    = ImGui::PointVector("Points##cldr", &base._points, {-1, 100});
         return r;
+    }
+
+    bool Collider::edit_canvas(ImGui::CanvasParams& canvas, Entity self) 
+    {
+        bool   ret  = false;
+        auto&  base = storage().get(self);
+        ImVec2 snap{1, 1};
+        std::swap(snap, canvas.snap_grid);
+        for (size_t i = 0; i < base._points.size(); ++i)
+        {
+            auto& p1 = (ImVec2&)base._points[i];
+            auto& p2 = (ImVec2&)base._points[(i + 1) % base._points.size()];
+
+            ret |= canvas.DragPoint(p1, &base._points[i], 5);
+
+            ImGui::GetWindowDrawList()
+                ->AddLine(canvas.WorldToScreen(p1), canvas.WorldToScreen(p2), IM_COL32(255, 255, 255, 255), 2);
+            ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(p1), 5, IM_COL32(255, 255, 255, 255));
+        }
+        std::swap(snap, canvas.snap_grid);
+        return ret;
     }
 
     bool Sprite::load(ArchiveParams& ar)
@@ -182,9 +223,9 @@ namespace fin::ecs
         return true;
     }
 
-    bool Sprite::edit(Registry& reg, Entity self)
+    bool Sprite::edit(Entity self)
     {
-        auto& base = reg.get<Sprite>(self);
+        auto& base = storage().get(self);
         auto  r    = ImGui::SpriteInput("Sprite##spr", &base.pack);
 
         return r;
@@ -236,11 +277,32 @@ namespace fin::ecs
         return true;
     }
 
-    bool Region::edit(Registry& reg, Entity self)
+    bool Region::edit(Entity self)
     {
-        auto& base = reg.get<Region>(self);
+        auto& base = storage().get(self);
         auto  r    = ImGui::PointVector("Points##reg", &base._points, {-1, 100});
         return r;
+    }
+
+    bool Region::edit_canvas(ImGui::CanvasParams& canvas, Entity self)
+    {
+        bool   ret  = false;
+        auto&  base = storage().get(self);
+        ImVec2 snap{1, 1};
+        std::swap(snap, canvas.snap_grid);
+        for (size_t i = 0; i < base._points.size(); ++i)
+        {
+            auto& p1 = (ImVec2&)base._points[i];
+            auto& p2 = (ImVec2&)base._points[(i + 1) % base._points.size()];
+
+            ret |= canvas.DragPoint(p1, &base._points[i], 5);
+
+            ImGui::GetWindowDrawList()
+                ->AddLine(canvas.WorldToScreen(p1), canvas.WorldToScreen(p2), IM_COL32(255, 255, 255, 255), 2);
+            ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(p1), 5, IM_COL32(255, 255, 255, 255));
+        }
+        std::swap(snap, canvas.snap_grid);
+        return ret;
     }
 
     bool Camera::load(ArchiveParams& ar)
@@ -263,9 +325,9 @@ namespace fin::ecs
         return true;
     }
 
-    bool Camera::edit(Registry& reg, Entity self)
+    bool Camera::edit(Entity self)
     {
-        auto& base = reg.get<Camera>(self);
+        auto& base = storage().get(self);
         auto  r    = ImGui::InputFloat2("Position", &base._position.x);
         r |= ImGui::InputFloat2("Size", &base._size.x);
         return r;
@@ -274,14 +336,14 @@ namespace fin::ecs
     bool Prefab::load(ArchiveParams& ar)
     {
         auto& pf = ar.reg.get<Prefab>(ar.entity);
-        pf._data = ar.data["src"];
+        auto uid = ar.data[Sc::Uid].get(0ull);
         return true;
     }
 
     bool Prefab::save(ArchiveParams& ar)
     {
         auto& pf = ar.reg.get<Prefab>(ar.entity);
-        ar.data.set_item("src", pf._data);
+        ar.data.set_item(Sc::Uid, pf._data[Sc::Uid]);
         return true;
     }
 }

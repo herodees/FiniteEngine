@@ -7,6 +7,7 @@
 #include "GLFW/glfw3.h"
 #endif
 #include <utils/dialog_utils.hpp>
+#include <utils/imguiline.hpp>
 
 namespace fin
 {
@@ -156,23 +157,21 @@ namespace fin
         const std::filesystem::path basePath = basePathPtr;
 #endif
 
-        _factory.set_root("./assets/");
-        _factory.load_factory<SpriteSceneObject>(SpriteSceneObject::type_id, "Static");
-        _factory.load_factory<NpcSceneObject>(NpcSceneObject::type_id, "NPC");
-        _factory.load_factory<SoundObject>(SoundObject::type_id, "Sound");
-
         _map.init("./assets/");
         auto path = cmd_attribute_get("/scene");
+
+        SceneMode mode = SceneMode::Scene;
         if (!path.empty())
         {
-            _editor   = false;
+            mode = SceneMode::Play;
             TraceLog(LOG_INFO, "SCENE LOAD: %s", path.data());
             _map.activate_grid({0, 0, GetScreenWidth(), GetScreenHeight()});
             _map.load(path);
         }
 
-        _map.edit_mode(_editor);
-        if (_editor)
+        _map.set_mode(mode);
+
+        if (_map.get_mode() != SceneMode::Play)
         {
             rlImGuiSetup(true);
             imgui_init(true);
@@ -183,7 +182,7 @@ namespace fin
 
     void application::on_deinit(bool result)
     {
-        if (_editor)
+        if (_map.get_mode() != SceneMode::Play)
         {
             rlImGuiShutdown();
         }
@@ -244,7 +243,7 @@ namespace fin
 
         if (ImGui::BeginMenuBar())
         {
-            imgui_menu();
+            imgui_file_menu();
             ImGui::EndMenuBar();
         }
 
@@ -258,7 +257,7 @@ namespace fin
             ImGui::DockBuilderRemoveNode(dockspace_id); // Clear out existing layout
             ImGui::DockBuilderAddNode(dockspace_id);    // Add empty node
 
-            ImGuiID dock_main_id = dockspace_id; // This variable will track the document node, however we are not using it here as we aren't docking anything into it.
+            ImGuiID dock_main_id = dockspace_id;
             ImGuiID dock_id_list = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Left, 0.20f, NULL, &dock_main_id);
             ImGuiID dock_id_comp = ImGui::DockBuilderSplitNode(dock_id_list, ImGuiDir_Down, 0.40f, NULL, &dock_id_list);
             ImGuiID dock_id_prop = ImGui::DockBuilderSplitNode(dock_main_id, ImGuiDir_Right, 0.25f, NULL, &dock_main_id);
@@ -278,11 +277,8 @@ namespace fin
         {
             _map.imgui_items();
             _map.imgui_props();
-         //   _factory.imgui_explorer(&_map);
-
-            imgui_workspace();
-
-           //  ImGui::ShowDemoWindow();
+            _map.imgui_work();
+            //ImGui::ShowDemoWindow();
         }
 
         ImGui::End();
@@ -333,7 +329,7 @@ namespace fin
 
             // Drawing
             //----------------------------------------------------------------------------------
-            if (!_editor)
+            if (_map.get_mode() == SceneMode::Play)
             {
                 _map.activate_grid({0,0, GetScreenWidth(), GetScreenHeight()});
             }
@@ -346,7 +342,7 @@ namespace fin
 
             ClearBackground(BLACK);
 
-            if (_editor)
+            if (_map.get_mode() != SceneMode::Play)
             {
                 rlImGuiBegin(frameTime);
                 imgui();
@@ -371,7 +367,7 @@ namespace fin
         return true;
     }
 
-    void application::imgui_menu()
+    void application::imgui_file_menu()
     {
         std::string_view show_popup;
 
@@ -456,41 +452,6 @@ namespace fin
             ImGui::OpenPopup(show_popup.data());
 
         _map.imgui_filemenu();
-    }
-
-    void application::imgui_workspace()
-    {
-        if (!ImGui::Begin("Workspace"))
-        {
-            ImGui::End();
-            return;
-        }
-        if (ImGui::BeginTabBar("WorkspaceTabs", ImGuiTabBarFlags_NoTabListScrollingButtons))
-        {
-            _map.imgui_menu();
-
-            if (ImGui::TabItemButton(" " ICON_FA_PLAY " ", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
-            {
-
-                    std::string runtime_file("assets/___run___.map");
-                    _map.save(runtime_file, false);
-                    run_current_process({"/scene=\"" + runtime_file + "\""});
-                
-            }
-            ImGui::EndTabBar();
-        }
-
-        ImGui::Separator();
-
-        if (ImGui::BeginChildFrame(-1,
-                                   {-1, -1},
-                                   ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar))
-        {
-            _map.imgui_workspace();
-        }
-        ImGui::EndChildFrame();
-
-        ImGui::End();
     }
 
 } // namespace fin

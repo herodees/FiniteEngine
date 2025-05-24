@@ -176,7 +176,7 @@ namespace fin
     {
         update_camera_position(dt);
 
-        if (!_editor)
+        if (_mode == SceneMode::Play)
         {
             for (auto* el : _layers)
             {
@@ -275,9 +275,45 @@ namespace fin
         SaveFileData(p.c_str(), str.data(), str.size());
     }
 
-    void Scene::edit_mode(bool st)
+    void Scene::set_mode(SceneMode st)
     {
-        _editor = st;
+        _mode = st;
+    }
+
+    SceneMode Scene::get_mode() const
+    {
+        return _mode;
+    }
+
+    void Scene::imgui_work()
+    {
+        if (ImGui::Begin("Workspace"))
+        {
+            imgui_menu();
+
+            ImVec2 pos  = ImGui::GetCursorScreenPos();
+            ImVec2 size = ImGui::GetContentRegionAvail();
+
+            if (ImGui::BeginChildFrame(ImGui::GetID("cnvs"),
+                                       {-1, -1},
+                                       ImGuiWindowFlags_AlwaysVerticalScrollbar | ImGuiWindowFlags_AlwaysHorizontalScrollbar))
+            {
+                imgui_workspace();
+            }
+
+            ImGui::EndChildFrame();
+
+            if (auto* lyr = active_layer())
+            {
+                if (_mode == SceneMode::Scene)
+                {
+                    ImGui::GetWindowDrawList()
+                        ->AddRect(pos, ImVec2(pos.x + size.x, pos.y + size.y), lyr->color(), 0.0f, ImDrawFlags_None, 1);
+                }
+            }
+
+        }
+        ImGui::End();
     }
 
     void Scene::imgui_props()
@@ -593,7 +629,32 @@ namespace fin
 
     void Scene::imgui_menu()
     {
-        _factory.imgui_show(this);
+        if (_mode == SceneMode::Prefab)
+        {
+            _factory.imgui_menu(this);
+        }
+        else
+        {
+            if (ImGui::LineItem("WorkspaceTabs", {-1, ImGui::GetFrameHeight()})
+                    .Space()
+                    .PushStyle(ImStyle_Header, 1)
+                    .Space()
+                    .Text(ICON_FA_PLAY " Debug")
+                    .Space()
+                    .PopStyle()
+                    .Spring()
+                    .Text(get_path().c_str())
+                    .Space()
+                    .End())
+            {
+                if (ImGui::Line().HoverId() == 1)
+                {
+                    std::string runtime_file("assets/___run___.map");
+                    save(runtime_file, false);
+                    run_current_process({"/scene=\"" + runtime_file + "\""});
+                }
+            }
+        }
     }
 
     void Scene::imgui_filemenu()
@@ -620,21 +681,21 @@ namespace fin
 
     void Scene::imgui_workspace()
     {
-        if (_factory.imgui_workspace(this))
+        if (_mode == SceneMode::Prefab)
+        {
+            _factory.imgui_workspace(this);
             return;
-
-        if (_size.x && _size.y)
+        }
+        else if (_size.x && _size.y)
         {
             Params params;
             ImVec2 visible_size = ImGui::GetContentRegionAvail();
             params.pos          = ImGui::GetWindowPos();
-
-
-            auto cur     = ImGui::GetCursorPos();
-            params.dc    = ImGui::GetWindowDrawList();
-            auto mpos    = ImGui::GetMousePos();
-            params.mouse = {mpos.x - params.pos.x - cur.x + ImGui::GetScrollX(),
-                            mpos.y - params.pos.y - cur.y + ImGui::GetScrollY()};
+            auto cur            = ImGui::GetCursorPos();
+            params.dc           = ImGui::GetWindowDrawList();
+            auto mpos           = ImGui::GetMousePos();
+            params.mouse        = {mpos.x - params.pos.x - cur.x + ImGui::GetScrollX(),
+                                   mpos.y - params.pos.y - cur.y + ImGui::GetScrollY()};
 
             params.dc->AddImage((ImTextureID)&_canvas.get_texture()->texture,
                                 {cur.x + params.pos.x, cur.y + params.pos.y},
@@ -659,7 +720,7 @@ namespace fin
 
             if (auto* lyr = active_layer())
             {
-                 lyr->imgui_workspace(params, _drag);
+                lyr->imgui_workspace(params, _drag);
             }
 
             ImGui::ScrollWhenDragging({-1, -1}, ImGuiMouseButton_Right, itemid);

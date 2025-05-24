@@ -34,12 +34,10 @@ namespace fin
     private:
         void imgui_init(bool dark_theme);
         void imgui();
-        void imgui_menu();
-        void imgui_workspace();
+        void imgui_file_menu();
 
         std::span<char*>  _argv;
         Renderer          _renderer;
-        SceneFactory      _factory;
         Scene             _map;
         int32_t           _target_fps       = 60;
         float             _fixed_fps        = 30.0f;
@@ -49,6 +47,5 @@ namespace fin
         double            _max_time_step    = 1.0f / _max_fps;
         double            _current_time     = GetTime();
         double            _time_accumulator = 0.0;
-        bool              _editor{true};
     };
 } // namespace fin
