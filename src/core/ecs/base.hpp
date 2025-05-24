@@ -98,7 +98,6 @@ namespace fin::ecs
     struct Prefab : Component<Prefab, "pfb", "Prefab">
     {
         msg::Var _data;
-        msg::Var _diff;
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);

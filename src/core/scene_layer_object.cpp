@@ -76,7 +76,6 @@ namespace fin
         for (auto ent : _objects)
         {
             msg::Var obj;
-            obj.set_item(Sc::Id, (uint32_t)ent);
             fact.save_prefab(ent, obj);
             items.push_back(obj);
         }
@@ -118,6 +117,9 @@ namespace fin
 
     void ObjectSceneLayer::remove(Entity ent)
     {
+        parent()->factory().get_registry().destroy(ent);
+        _objects.erase(ent);
+
         if (!ecs::Base::contains(ent))
             return;
 
@@ -127,7 +129,6 @@ namespace fin
 
         obj->_layer = nullptr;
         _spatial_db.remove_from_bin(obj);
-        _objects.erase(ent);
     }
 
     Entity ObjectSceneLayer::find_at(Vec2f position) const

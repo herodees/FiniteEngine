@@ -220,6 +220,8 @@ namespace fin::msg
             Var              diff(const Var& other);
             void             apply(const Var& diffvar);
 
+            const void*      raw() const;
+
         private:
             void             setstr(std::string_view v);
             void             setid(std::string_view v);
@@ -1279,11 +1281,6 @@ namespace fin::msg
 
         inline Var Var::diff(const Var& modified)
         {
-            if (get_tag() != modified.get_tag())
-            {
-                return modified.clone(); // Replace entire value
-            }
-
             if (is_object())
             {
                 Var result;
@@ -1332,7 +1329,7 @@ namespace fin::msg
                 return Var();
             }
 
-            if (_u64 != modified._u64)
+            if (get(0.0) != modified.get(0.0))
             {
                 return modified; // Replace entire value
             }
@@ -1438,4 +1435,10 @@ namespace fin::msg
                 n += 2;
             }
         }
+
+        inline const void* Var::raw() const
+        {
+            return _arr;
+        }
+
 }

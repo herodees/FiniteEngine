@@ -17,6 +17,7 @@ namespace fin
         constexpr std::string_view Group("$grp");
         constexpr std::string_view Name("$nme");
         constexpr std::string_view Uid("$uid");
+        constexpr std::string_view Diff("$diff");
         constexpr std::string_view Class("$cls");
         constexpr std::string_view Flag("$fl");
         constexpr std::string_view Atlas("atl");

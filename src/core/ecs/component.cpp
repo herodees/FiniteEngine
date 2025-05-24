@@ -115,7 +115,27 @@ namespace fin
 
     void ComponentFactory::load_prefab(Entity entity, msg::Var& data)
     {
-        for (auto e : data.members())
+        msg::Var* target = &data;
+        msg::Var  load;
+
+        auto pfab = data.get_item(Sc::Uid);
+        if (!pfab.is_undefined())
+        {
+            auto uid = pfab.get(0ull);
+            auto it = _prefab_map.find(uid);
+            if (it == _prefab_map.end())
+            {
+                TraceLog(LOG_WARNING, "Prefab with UID %llu not found", uid);
+                return;
+            }
+            auto& cmp = ecs::Prefab::emplace_or_replace(entity);
+            cmp._data = it->second;
+            load      = it->second.clone();
+            load.apply(data.get_item(Sc::Diff));
+            target = &load;
+        }
+
+        for (auto e : target->members())
         {
             auto c = e.first.str();
             if (c[0] == '$')
@@ -143,20 +163,55 @@ namespace fin
 
     void ComponentFactory::save_prefab(Entity e, msg::Var& ar)
     {
-        for (auto& cmp : _components)
+        if (ecs::Prefab::contains(e))
         {
-            if (cmp.second.contains(e))
+            auto* base = ecs::Prefab::get(e);
+
+            msg::Var arr;
+            arr.set_item(Sc::Id, (uint32_t)e);
+            for (auto& cmp : _components)
             {
-                ArchiveParams ap{_registry, e};
-                if (!cmp.second.save(ap))
+                if (cmp.first == ecs::Prefab::_s_id)
+                    continue;
+
+                if (cmp.second.contains(e))
                 {
-                    TraceLog(LOG_WARNING, "Component %.*s not saved", cmp.first.size(), cmp.first.data());
+                    ArchiveParams ap{_registry, e};
+                    if (!cmp.second.save(ap))
+                    {
+                        TraceLog(LOG_WARNING, "Component %.*s not saved", cmp.first.size(), cmp.first.data());
+                    }
+                    arr.set_item(cmp.first, ap.data);
                 }
-                ar.set_item(cmp.first, ap.data);
+                else
+                {
+                    arr.erase(cmp.first);
+                }
             }
-            else
+
+            msg::Var diff = base->_data.diff(arr);
+            ar.set_item(Sc::Id, (uint32_t)e);
+            ar.set_item(Sc::Uid, base->_data.get_item(Sc::Uid));
+            ar.set_item(Sc::Diff, diff);
+        }
+        else
+        {
+            ar.set_item(Sc::Id, (uint32_t)e);
+            for (auto& cmp : _components)
             {
-                ar.erase(cmp.first);
+                if (cmp.second.contains(e))
+                {
+                    ArchiveParams ap{_registry, e};
+                    if (!cmp.second.save(ap))
+                    {
+                        TraceLog(LOG_WARNING, "Component %.*s not saved", cmp.first.size(), cmp.first.data());
+                    }
+                    ar.set_item(cmp.first, ap.data);
+                }
+                else
+                {
+                    ar.erase(cmp.first);
+                }
             }
         }
     }
@@ -196,10 +251,13 @@ namespace fin
         if (_prefab_edit == entt::null)
             return;
 
+        uint64_t uid = _prefabs.get_item(_prefab_edit_index).get_item(Sc::Uid).get(0ull);
+
         msg::Var data;
         data.set_item(Sc::Id, _prefabs.get_item(_prefab_edit_index).get_item(Sc::Id).clone());
         data.set_item(Sc::Group, _prefabs.get_item(_prefab_edit_index).get_item(Sc::Group).clone());
-        data.set_item(Sc::Uid, _prefabs.get_item(_prefab_edit_index).get_item(Sc::Uid));
+        data.set_item(Sc::Uid, uid);
+
         save_prefab(_prefab_edit, data);
 
         _prefabs.set_item(_prefab_edit_index, data);

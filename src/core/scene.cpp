@@ -230,8 +230,8 @@ namespace fin
     void Scene::deserialize(msg::Var& ar)
     {
         clear();
-        _size.x = ar.get_item("width").get(0);
-        _size.y = ar.get_item("height").get(0);
+        _size.x = ar.get_item("width").get(0.f);
+        _size.y = ar.get_item("height").get(0.f);
         auto bg = ar.get_item("background");
         if (bg.is_array() && bg.size() == 4)
         {

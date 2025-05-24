@@ -49,6 +49,7 @@ namespace fin
         if (auto* obj = create(ar["type"].str()))
         {
             obj->_parent = scene;
+            obj->resize(scene->get_scene_size());
             obj->deserialize(ar);
             return obj;
         }
