@@ -76,66 +76,63 @@ namespace fin
         _entity_map.clear();
     }
 
-    void ComponentFactory::serialize(msg::Var& ar)
+
+    void ComponentFactory::load_entity(Entity& entity, msg::Var& data)
     {
-        auto& reg = _registry;
-        auto& cmp = _components;
-
-        _registry.each(
-            [&ar, &cmp, &reg](auto entity)
-            {
-                msg::Var data;
-                data.set_item("$id", static_cast<uint32_t>(entity));
-                for (auto& [key, value] : cmp)
-                {
-                    ArchiveParams ap{reg, entity};
-                    if (!value.save(ap))
-                    {
-                        TraceLog(LOG_WARNING, "Component %.*s not saved", key.size(), key.data());
-                    }
-                    data.set_item(key, ap.data);
-                }
-                ar.push_back(data);
-            });
-    }
-
-    void ComponentFactory::deserialize(msg::Var& ar)
-    {
-        _registry.clear();
-        _entity_map.clear();
-
-        for (auto& data : ar.elements())
+        auto old_entity = (Entity)data[Sc::Id].get((uint32_t)entt::null); // Ensure Id is present
+        entity          = get_old_entity(old_entity);
+        if (entity == entt::null)
         {
-            auto id     = static_cast<Entity>(data["$id"].get(static_cast<uint32_t>(entt::null)));
-            auto entity = get_old_entity(id);
-
-            load_prefab(entity, data);
+            return; // If the entity is null, we cannot load it
         }
-    }
 
-    void ComponentFactory::load_prefab(Entity entity, msg::Var& data)
-    {
-        msg::Var* target = &data;
-        msg::Var  load;
+        auto uid = data[Sc::Uid];
+        auto cls = data[Sc::Class];
 
-        auto pfab = data.get_item(Sc::Uid);
-        if (!pfab.is_undefined())
+        if (!uid.is_undefined())
         {
-            auto uid = pfab.get(0ull);
-            auto it = _prefab_map.find(uid);
+            auto nuid = uid.get(0ull);
+            auto it   = _prefab_map.find(nuid);
             if (it == _prefab_map.end())
             {
-                TraceLog(LOG_WARNING, "Prefab with UID %llu not found", uid);
+                TraceLog(LOG_WARNING, "Prefab with UID %llu not found", nuid);
                 return;
             }
             auto& cmp = ecs::Prefab::emplace_or_replace(entity);
-            cmp._data = it->second;
-            load      = it->second.clone();
-            load.apply(data.get_item(Sc::Diff));
-            target = &load;
+            cmp._data = it->second;                             // Store the prefab data in the component
+            auto load = it->second.get_item(Sc::Class).clone(); // Clone the prefab data
+            load.apply(cls);                                    // Apply the class data to the cloned prefab data
+            load_prefab_components(entity, load);               // Load the components from the class data
         }
+        else
+        {
+            load_prefab_components(entity, cls); // Load the components from the class data
+        }
+    }
 
-        for (auto e : target->members())
+    void ComponentFactory::save_entity(Entity entity, msg::Var& data)
+    {
+        data.set_item(Sc::Id, (uint32_t)entity);
+        msg::Var cls;
+        if (ecs::Prefab::contains(entity))
+        {
+            auto* base = ecs::Prefab::get(entity);
+            save_prefab_components(entity, cls);
+
+            msg::Var diff = base->_data.get_item(Sc::Class).diff(cls);
+            data.set_item(Sc::Uid, base->_data.get_item(Sc::Uid));
+            data.set_item(Sc::Class, diff);
+        }
+        else
+        {
+            save_prefab_components(entity, cls);
+            data.set_item(Sc::Class, cls);
+        }
+    }
+
+    void ComponentFactory::load_prefab_components(Entity entity, msg::Var& data)
+    {
+        for (auto e : data.members())
         {
             auto c = e.first.str();
             if (c[0] == '$')
@@ -161,57 +158,20 @@ namespace fin
         }
     }
 
-    void ComponentFactory::save_prefab(Entity e, msg::Var& ar)
+    void ComponentFactory::save_prefab_components(Entity entity, msg::Var& data)
     {
-        if (ecs::Prefab::contains(e))
+        data.make_object(_components.size());
+        data.erase();
+        for (auto& cmp : _components)
         {
-            auto* base = ecs::Prefab::get(e);
-
-            msg::Var arr;
-            arr.set_item(Sc::Id, (uint32_t)e);
-            for (auto& cmp : _components)
+            if (cmp.second.contains(entity))
             {
-                if (cmp.first == ecs::Prefab::_s_id)
-                    continue;
-
-                if (cmp.second.contains(e))
+                ArchiveParams ap{_registry, entity};
+                if (!cmp.second.save(ap))
                 {
-                    ArchiveParams ap{_registry, e};
-                    if (!cmp.second.save(ap))
-                    {
-                        TraceLog(LOG_WARNING, "Component %.*s not saved", cmp.first.size(), cmp.first.data());
-                    }
-                    arr.set_item(cmp.first, ap.data);
+                    TraceLog(LOG_WARNING, "Component %.*s not saved", cmp.first.size(), cmp.first.data());
                 }
-                else
-                {
-                    arr.erase(cmp.first);
-                }
-            }
-
-            msg::Var diff = base->_data.diff(arr);
-            ar.set_item(Sc::Id, (uint32_t)e);
-            ar.set_item(Sc::Uid, base->_data.get_item(Sc::Uid));
-            ar.set_item(Sc::Diff, diff);
-        }
-        else
-        {
-            ar.set_item(Sc::Id, (uint32_t)e);
-            for (auto& cmp : _components)
-            {
-                if (cmp.second.contains(e))
-                {
-                    ArchiveParams ap{_registry, e};
-                    if (!cmp.second.save(ap))
-                    {
-                        TraceLog(LOG_WARNING, "Component %.*s not saved", cmp.first.size(), cmp.first.data());
-                    }
-                    ar.set_item(cmp.first, ap.data);
-                }
-                else
-                {
-                    ar.erase(cmp.first);
-                }
+                data.set_item(cmp.first, ap.data);
             }
         }
     }
@@ -229,7 +189,8 @@ namespace fin
 
         _edit = _registry.create();
         auto el = _prefabs.get_item(n);
-        load_prefab(_edit, el);
+        auto cls = el.get_item(Sc::Class);
+        load_prefab_components(_edit, cls);
 
         auto& prefab = ecs::Prefab::emplace_or_replace(_edit);
         prefab._data = el;
@@ -242,8 +203,9 @@ namespace fin
 
         _prefab_edit_index = n;
         auto el            = _prefabs.get_item(n);
+        auto cls           = el.get_item(Sc::Class);
         _prefab_edit       = _registry.create();
-        load_prefab(_prefab_edit, el);
+        load_prefab_components(_prefab_edit, cls);
     }
 
     void ComponentFactory::save_edit_prefab(Scene* scene)
@@ -251,16 +213,10 @@ namespace fin
         if (_prefab_edit == entt::null)
             return;
 
-        uint64_t uid = _prefabs.get_item(_prefab_edit_index).get_item(Sc::Uid).get(0ull);
+        auto prefab = _prefabs.get_item(_prefab_edit_index);
+        auto cls = prefab.get_item(Sc::Class);
+        save_prefab_components(_prefab_edit, cls);
 
-        msg::Var data;
-        data.set_item(Sc::Id, _prefabs.get_item(_prefab_edit_index).get_item(Sc::Id).clone());
-        data.set_item(Sc::Group, _prefabs.get_item(_prefab_edit_index).get_item(Sc::Group).clone());
-        data.set_item(Sc::Uid, uid);
-
-        save_prefab(_prefab_edit, data);
-
-        _prefabs.set_item(_prefab_edit_index, data);
     }
 
     void ComponentFactory::close_edit_prefab(Scene* scene)
@@ -286,10 +242,12 @@ namespace fin
     msg::Var ComponentFactory::create_empty_prefab(std::string_view name, std::string_view group)
     {
         msg::Var obj;
+        msg::Var cls;
+        cls.set_item("_", nullptr);
+        obj.set_item(Sc::Uid, std::generate_unique_id());
         obj.set_item(Sc::Id, name);
         obj.set_item(Sc::Group, group);
-        obj.set_item(Sc::Uid, std::generate_unique_id());
-        obj.set_item("_", nullptr);
+        obj.set_item(Sc::Class, cls);
         return obj;
     }
 
@@ -346,14 +304,6 @@ namespace fin
         std::string str;
         doc.to_string(str);
         return SaveFileText((_base_folder + GamePrefabFile).c_str(), str.c_str());
-    }
-
-    void ComponentFactory::load_prefab(Entity e, msg::Var& prefab, msg::Var& diff)
-    {
-    }
-
-    void ComponentFactory::save_prefab(Entity e, msg::Var& prefab, msg::Var& diff)
-    {
     }
 
     bool ComponentFactory::imgui_menu(Scene* scene)
@@ -578,7 +528,7 @@ namespace fin
                             ImGui::EndDragDropSource();
                         }
 
-                        auto spr  = val.get_item(ecs::Sprite::_s_id);
+                        auto spr  = val.get_item(Sc::Class).get_item(ecs::Sprite::_s_id);
                         auto pack = load_atlas(spr);
                         if (pack.sprite)
                         {

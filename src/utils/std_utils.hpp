@@ -43,6 +43,109 @@ namespace std
         }
     };
 
+    inline uint64_t from_hex(std::string_view str, bool* success = nullptr)
+    {
+        static constexpr uint8_t lut[103] =
+            {// '0'-'9'
+             0,
+             1,
+             2,
+             3,
+             4,
+             5,
+             6,
+             7,
+             8,
+             9,
+             // ':' - '@' (invalid)
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             // 'A'-'F'
+             10,
+             11,
+             12,
+             13,
+             14,
+             15,
+             // 'G'-'`' (invalid)
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             0xFF,
+             // 'a'-'f'
+             10,
+             11,
+             12,
+             13,
+             14,
+             15};
+
+        uint64_t result = 0;
+        if (success)
+            *success = true;
+
+        for (char c : str)
+        {
+            uint8_t index = static_cast<uint8_t>(c) - '0';
+            if (index >= sizeof(lut) || lut[index] == 0xFF)
+            {
+                if (success)
+                    *success = false;
+                break;
+            }
+
+            result = (result << 4) | lut[index];
+        }
+
+        return result;
+    }
+
+    inline std::string to_hex(uint64_t val)
+    {
+        static constexpr char lut[] = "0123456789ABCDEF";
+        char                  buf[16]; // Max 16 hex digits for uint64_t
+        int                   i = 15;
+
+        if (val == 0)
+        {
+            return "0";
+        }
+
+        while (val > 0 && i >= 0)
+        {
+            buf[i--] = lut[val & 0xF];
+            val >>= 4;
+        }
+
+        return std::string(&buf[i + 1], &buf[16]);
+    }
+
     inline uint32_t hex_char_to_uint(char c)
     {
         if (c >= '0' && c <= '9')

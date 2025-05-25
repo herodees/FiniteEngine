@@ -11,8 +11,8 @@ namespace fin::ecs
         fact.register_component<Collider>();
         fact.register_component<Sprite>();
         fact.register_component<Region>();
-        fact.register_component<Prefab>();
         fact.register_component<Camera>();
+        fact.register_component<Prefab>(false);
     }
 
     fin::Region<float> Base::get_bounding_box() const

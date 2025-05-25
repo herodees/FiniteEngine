@@ -115,23 +115,24 @@ namespace fin
         ~ComponentFactory() = default;
 
         template <typename C>
-        void register_component()
+        void register_component(bool public_class = true)
         {
-            C::_s_storage.storage = &_registry.storage<C>();
-            C::_s_storage.id       = C::_s_id;
-            C::_s_storage.label    = C::_s_label;
-            C::_s_storage.emplace  = &C::emplace;
-            C::_s_storage.remove   = &C::remove;
-            C::_s_storage.contains = &C::contains;
-            C::_s_storage.load     = &C::load;
-            C::_s_storage.save     = &C::save;
-            C::_s_storage.edit     = &C::edit;
+            C::_s_storage.storage     = &_registry.storage<C>();
+            C::_s_storage.id          = C::_s_id;
+            C::_s_storage.label       = C::_s_label;
+            C::_s_storage.emplace     = &C::emplace;
+            C::_s_storage.remove      = &C::remove;
+            C::_s_storage.contains    = &C::contains;
+            C::_s_storage.load        = &C::load;
+            C::_s_storage.save        = &C::save;
+            C::_s_storage.edit        = &C::edit;
             C::_s_storage.edit_canvas = &C::edit_canvas;
-            _components.insert(std::pair(C::_s_id, C::_s_storage));
+            if (public_class)
+                _components.insert(std::pair(C::_s_id, C::_s_storage));
         }
 
         Registry& get_registry();
-        Map& get_components();
+        Map&      get_components();
 
         Entity get_old_entity(Entity old_id);
         void clear_old_entities();
@@ -140,31 +141,32 @@ namespace fin
         void imgui_props(Scene* scene);
         void imgui_items(Scene* scene);
         bool imgui_workspace(Scene* scene);
-        bool imgui_prefab(Scene* scene, Entity e);
+        bool imgui_prefab(Scene* scene, Entity entity);
 
         void set_root(const std::string& startPath);
 
         bool load();
         bool save();
 
-        void load_prefab(Entity e, msg::Var& prefab, msg::Var& diff);
-        void save_prefab(Entity e, msg::Var& prefab, msg::Var& diff);
-
-        void load_prefab(Entity e, msg::Var& ar);
-        void save_prefab(Entity e, msg::Var& ar);
+        void load_entity(Entity& entity, msg::Var& ar);
+        void save_entity(Entity entity, msg::Var& ar);
 
     private:
+        void generate_prefab_map();
+
+        void load_prefab_components(Entity entity, msg::Var& ar);
+        void save_prefab_components(Entity entity, msg::Var& ar);
+
         bool load(msg::Var& ar);
         bool save(msg::Var& ar);
-        void serialize(msg::Var& ar);
-        void deserialize(msg::Var& ar);
+
         void imgui_prefabs(Scene* scene);
         void imgui_explorer(Scene* scene);
+
         void selet_prefab(int32_t n);
         void edit_prefab(int32_t n);
         void save_edit_prefab(Scene* scene);
         void close_edit_prefab(Scene* scene);
-        void generate_prefab_map();
 
         msg::Var create_empty_prefab(std::string_view name, std::string_view group = "");
 

@@ -76,7 +76,7 @@ namespace fin
         for (auto ent : _objects)
         {
             msg::Var obj;
-            fact.save_prefab(ent, obj);
+            fact.save_entity(ent, obj);
             items.push_back(obj);
         }
 
@@ -92,9 +92,10 @@ namespace fin
         auto items = ar.get_item("items");
         for (auto& obj : items.elements())
         {
-            auto ent = fact.get_old_entity((Entity)obj[Sc::Id].get(0));
-            fact.load_prefab(ent, obj);
-            insert(ent);
+            Entity ent{entt::null};
+            fact.load_entity(ent, obj);
+            if (ent != entt::null)
+                insert(ent);
         }
     }
 
@@ -117,18 +118,16 @@ namespace fin
 
     void ObjectSceneLayer::remove(Entity ent)
     {
+        if (ecs::Base::contains(ent))
+        {
+            auto* obj = ecs::Base::get(ent);
+            if (obj->_layer)
+            {
+                obj->_layer->_spatial_db.remove_from_bin(obj);
+                obj->_layer->_objects.erase(ent);
+            }
+        }
         parent()->factory().get_registry().destroy(ent);
-        _objects.erase(ent);
-
-        if (!ecs::Base::contains(ent))
-            return;
-
-        auto* obj = ecs::Base::get(ent);
-        if (obj->_layer != this)
-            return;
-
-        obj->_layer = nullptr;
-        _spatial_db.remove_from_bin(obj);
     }
 
     Entity ObjectSceneLayer::find_at(Vec2f position) const
