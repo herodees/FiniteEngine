@@ -6,7 +6,7 @@
 
 namespace fin
 {
-    static ImGui::CanvasParams _s_canvas;
+    ImGui::CanvasParams _s_canvas;
 
     Scene::Scene()
     {
@@ -156,7 +156,10 @@ namespace fin
         ClearBackground(_background);
 
 
-        dc.set_origin({(float)_camera.position.x, (float)_camera.position.y});
+        //dc.set_origin({(float)_camera.position.x, (float)_camera.position.y});
+        dc._camera.target.x = _camera.position.x;
+        dc._camera.target.y = _camera.position.y;
+        dc._camera.zoom = _camera.zoom;
         BeginMode2D(dc._camera);
 
         for (auto* el : _layers)
@@ -622,7 +625,7 @@ namespace fin
             }
         }
 
-        Rectf screen(_camera.position.x, _camera.position.y, _camera.size.x, _camera.size.y);
+        Rectf screen(_camera.position.x, _camera.position.y, _camera.size.x / _camera.zoom, _camera.size.y / _camera.zoom);
         for (auto* ly : _layers)
         {
             ly->activate(screen);
@@ -688,13 +691,24 @@ namespace fin
             _factory.imgui_workspace(this);
             return;
         }
-        else if (0)
+        else if (true)
         {
             if (ImGui::BeginCanvas("SceneCanvas", ImVec2(-1, -1), _s_canvas))
             {
+                activate_grid(Recti(0, 0, _s_canvas.canvas_size.x, _s_canvas.canvas_size.y));
+                _camera.position = _s_canvas.ScreenToWorld(_s_canvas.canvas_pos);
+                _camera.zoom     = _s_canvas.zoom;
+
+                ImGui::GetWindowDrawList()->AddImage((ImTextureID)&_canvas.get_texture()->texture,
+                                                     {_s_canvas.canvas_pos.x, _s_canvas.canvas_pos.y},
+                                                     {_s_canvas.canvas_pos.x + _s_canvas.canvas_size.x,
+                                                      _s_canvas.canvas_pos.y + _s_canvas.canvas_size.y},
+                                                     {0, 1},
+                                                     {1, 0});
+
+
                 ImGui::DrawGrid(_s_canvas, {128, 128});
                 ImGui::DrawOrigin(_s_canvas, -1);
-
                 ImGui::DrawRuler(_s_canvas, {128, 128});
                 ImGui::EndCanvas();
             }

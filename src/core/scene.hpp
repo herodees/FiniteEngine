@@ -40,6 +40,7 @@ namespace fin
     {
         Vec2f position;
         Vec2i size;
+        float zoom{1.f};
     };
 
     enum class SceneMode
