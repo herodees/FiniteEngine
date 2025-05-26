@@ -95,7 +95,7 @@ bool LineConstructor::End()
 
     if (m_return)
     {
-        if (m_expanded)
+        if (m_hoverId == 0 && m_expanded)
         {
             if (*m_expanded)
                 *m_expanded = 0;

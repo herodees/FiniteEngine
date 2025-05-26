@@ -88,6 +88,27 @@ namespace fin
 #endif
     }
 
+    int messagebox_yes_no(const std::string& title, const std::string& message)
+    {
+        pfd::message dialog(title, message, pfd::choice::yes_no, pfd::icon::question);
+        auto res = dialog.result();
+        return (int)res;
+    }
+
+    int messagebox_yes_no_cancel(const std::string& title, const std::string& message)
+    {
+        pfd::message dialog(title, message, pfd::choice::yes_no_cancel, pfd::icon::question);
+        auto         res = dialog.result();
+        return (int)res;
+    }
+
+    int messagebox_ok(const std::string& title, const std::string& message)
+    {
+        pfd::message dialog(title, message, pfd::choice::ok, pfd::icon::info);
+        auto         res = dialog.result();
+        return (int)res;
+    }
+
     std::vector<std::string> create_file_filter(const std::string& str)
     {
         std::vector<std::string> result;

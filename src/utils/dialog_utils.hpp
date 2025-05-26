@@ -19,4 +19,8 @@ std::vector<std::string> create_file_filter(const std::string &str);
 
 void run_current_process(const std::vector<std::string>& args);
 
+int messagebox_yes_no(const std::string& title, const std::string& message);
+int messagebox_yes_no_cancel(const std::string& title, const std::string& message);
+int messagebox_ok(const std::string& title, const std::string& message);
+
 } // namespace fin

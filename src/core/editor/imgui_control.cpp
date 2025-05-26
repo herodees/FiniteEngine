@@ -337,25 +337,6 @@ namespace ImGui
     }
 
 
-    bool CollapsingComponentHeader(const char* label, bool* close, bool default_expand)
-    {
-        ImGui::Separator();
-        if (ImGui::LineItem(label, {-1, ImGui::GetFrameHeightWithSpacing()})
-                .Expandable(default_expand)
-                .Space()
-                .Text(ICON_FA_CARET_DOWN " ")
-                .Text(label)
-                .Spring()
-                .Text(ICON_FA_GEAR)
-                .Space()
-                .End())
-        {
-        }
-
-        return ImGui::Line().Expanded();
-    }
-
-
     const char* FormatStr(const char* fmt, ...)
     {
         static char buf[512];

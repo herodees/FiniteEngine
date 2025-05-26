@@ -152,6 +152,8 @@ namespace fin
         void save_entity(Entity entity, msg::Var& ar);
 
     private:
+        bool imgui_component(Scene* scene, ComponentData* comp, Entity entity);
+
         void generate_prefab_map();
 
         void load_prefab_components(Entity entity, msg::Var& ar);
@@ -163,8 +165,8 @@ namespace fin
         void imgui_prefabs(Scene* scene);
         void imgui_explorer(Scene* scene);
 
-        void selet_prefab(int32_t n);
-        void edit_prefab(int32_t n);
+        void selet_prefab(Scene* scene, int32_t n);
+        void edit_prefab(Scene* scene, int32_t n);
         void save_edit_prefab(Scene* scene);
         void close_edit_prefab(Scene* scene);
 
@@ -184,6 +186,7 @@ namespace fin
         Entity                                                                               _edit{entt::null};
         Entity                                                                               _prefab_edit{entt::null};
         int32_t                                                                              _prefab_edit_index{-1};
+        bool                                                                                 _prefab_changed{false};
         bool                                                                                 _prefab_explorer{};
     };
 

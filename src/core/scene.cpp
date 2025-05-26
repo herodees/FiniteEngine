@@ -6,6 +6,8 @@
 
 namespace fin
 {
+    static ImGui::CanvasParams _s_canvas;
+
     Scene::Scene()
     {
 
@@ -685,6 +687,17 @@ namespace fin
         {
             _factory.imgui_workspace(this);
             return;
+        }
+        else if (0)
+        {
+            if (ImGui::BeginCanvas("SceneCanvas", ImVec2(-1, -1), _s_canvas))
+            {
+                ImGui::DrawGrid(_s_canvas, {128, 128});
+                ImGui::DrawOrigin(_s_canvas, -1);
+
+                ImGui::DrawRuler(_s_canvas, {128, 128});
+                ImGui::EndCanvas();
+            }
         }
         else if (_size.x && _size.y)
         {
