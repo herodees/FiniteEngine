@@ -2,7 +2,7 @@
 #include "extras/IconsFontAwesome6.h"
 #include "misc/cpp/imgui_stdlib.cpp"
 #include "utils/dialog_utils.hpp"
-
+#include "utils/imguiline.hpp"
 #include <raylib.h>
 #include <imgui_internal.h>
 
@@ -334,6 +334,25 @@ namespace ImGui
                      size,
                      {spr->_source.x / spr->_texture->width, spr->_source.y / spr->_texture->height},
                      {spr->_source.x2() / spr->_texture->width, spr->_source.y2() / spr->_texture->height});
+    }
+
+
+    bool CollapsingComponentHeader(const char* label, bool* close, bool default_expand)
+    {
+        ImGui::Separator();
+        if (ImGui::LineItem(label, {-1, ImGui::GetFrameHeightWithSpacing()})
+                .Expandable(default_expand)
+                .Space()
+                .Text(ICON_FA_CARET_DOWN " ")
+                .Text(label)
+                .Spring()
+                .Text(ICON_FA_GEAR)
+                .Space()
+                .End())
+        {
+        }
+
+        return ImGui::Line().Expanded();
     }
 
 

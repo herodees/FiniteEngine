@@ -53,6 +53,7 @@ public:
     bool End();
 
     LineConstructor& Selected(bool s);
+    LineConstructor& Expandable(bool default_expand);
 
     template<typename STR>
     LineConstructor& Text(const STR& str);
@@ -76,6 +77,7 @@ public:
 
     int HoverId() const;
     bool Return() const;
+    bool Expanded() const;
 
     ImRect GetStyleRect(int id) const;
 
@@ -94,6 +96,7 @@ private:
     bool m_selectable;
     bool m_return;
     int m_hoverId;
+    int* m_expanded = nullptr;
 
     friend LineConstructor& Create(const ImVec2& from, const ImVec2& to, bool visible, bool hover, bool ret);
 };

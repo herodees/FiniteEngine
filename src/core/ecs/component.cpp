@@ -387,9 +387,9 @@ namespace fin
             {
                 bool show = true;
                 bool change = false;
-                if (ImGui::CollapsingHeader(component.second.label.data(),
+                if (ImGui::CollapsingComponentHeader(component.second.label.data(),
                                             component.first != "_" ? & show : nullptr,
-                                            ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_DefaultOpen))
+                                            true))
                 {
                     ImGui::PushID(component.first.data());
                     change = component.second.edit(edit);

@@ -15,6 +15,8 @@ namespace ImGui
     bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit = false);
     void SpriteImage(fin::Atlas::Sprite* spr, ImVec2 size);
 
+    bool CollapsingComponentHeader(const char* label, bool* close, bool default_expand);
+
     struct CanvasParams
     {
         ImVec2 origin   = ImVec2(0, 0); // pan offset

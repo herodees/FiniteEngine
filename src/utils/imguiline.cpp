@@ -93,6 +93,16 @@ bool LineConstructor::End()
     Precalculate();
     Render();
 
+    if (m_return)
+    {
+        if (m_expanded)
+        {
+            if (*m_expanded)
+                *m_expanded = 0;
+            else
+                *m_expanded = 1;
+        }
+    }
     return m_return;
 }
 
@@ -100,6 +110,12 @@ LineConstructor& LineConstructor::Selected(bool s)
 {
     m_selected = s;
     m_selectable = true;
+    return *this;
+}
+
+LineConstructor& LineConstructor::Expandable(bool default_expand)
+{
+    m_expanded = ImGui::GetCurrentWindow()->StateStorage.GetIntRef(ImGui::GetItemID(), default_expand);
     return *this;
 }
 
@@ -261,6 +277,11 @@ int LineConstructor::HoverId() const
 bool LineConstructor::Return() const
 {
     return m_return;
+}
+
+bool LineConstructor::Expanded() const
+{
+    return m_expanded ? *m_expanded : 0;
 }
 
 ImRect LineConstructor::GetStyleRect(int id) const
