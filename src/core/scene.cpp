@@ -113,39 +113,6 @@ namespace fin
         return _camera;
     }
 
-    void Scene::name_object(ObjectBase* obj, std::string_view name)
-    {
-        if (!obj)
-            return;
-
-        if (obj->is_named())
-        {
-            auto it = _named_object.find(obj->_name);
-            if (it != _named_object.end())
-            {
-                _named_object.erase(it);
-            }
-            obj->_name = nullptr;
-        }
-
-        if (!name.empty())
-        {
-            auto [it, inserted] = _named_object.try_emplace(std::string(name), obj);
-            if (inserted)
-            {
-                obj->_name = it->first.c_str();
-            }
-        }
-    }
-
-    ObjectBase* Scene::find_object_by_name(std::string_view name)
-    {
-        auto it = _named_object.find(name);
-        if (it == _named_object.end())
-            return nullptr;
-        return it->second;
-    }
-
     void Scene::render(Renderer& dc)
     {
         if (!_canvas)
@@ -706,6 +673,10 @@ namespace fin
                                                      {0, 1},
                                                      {1, 0});
 
+                if (auto* lyr = active_layer())
+                {
+                    lyr->imgui_workspace(_s_canvas);
+                }
 
                 ImGui::DrawGrid(_s_canvas, {128, 128});
                 ImGui::DrawOrigin(_s_canvas, -1);

@@ -3,7 +3,6 @@
 #include "renderer.hpp"
 #include "scene.hpp"
 #include "scene_layer.hpp"
-#include "scene_object.hpp"
 #include "utils/imguiline.hpp"
 #include "utils/lquadtree.hpp"
 #include "utils/lquery.hpp"
@@ -81,28 +80,6 @@ namespace fin
             if (_edit._sprite.sprite)
             {
                 dc.render_texture(_edit._sprite.sprite->_texture, _edit._sprite.sprite->_source, _edit._bbox);
-            }
-        }
-
-        void render_edit(Renderer& dc) override
-        {
-            if (uint32_t(_select) < (uint32_t)_spatial.size())
-            {
-                auto& nde = _spatial[_select];
-
-                dc.set_color({255, 255, 255, 255});
-                dc.render_line_rect(nde._bbox);
-            }
-
-            if (g_settings.visible_grid)
-            {
-                Color clr{255, 255, 0, 190};
-                dc.set_color(clr);
-
-                auto cb = [&dc](const Rectf& rc) { dc.render_line_rect(rc); };
-                _spatial.for_each_node(cb);
-
-                //  SceneLayer::render_grid(dc);
             }
         }
 
@@ -188,25 +165,35 @@ namespace fin
             }
         }
 
-        void imgui_workspace(Params& params, DragData& drag) override
+        void imgui_workspace(ImGui::CanvasParams& canvas) override
         {
             _edit._sprite = {};
 
             if (is_hidden())
                 return;
 
+            ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
             if (ImGui::IsItemClicked(0))
             {
-                _select = find_active(params.mouse);
+                _select = find_active(mouse_pos);
+                if (_select != -1)
+                {
+                    ImVec2 pos{_spatial[_select]._bbox.x, _spatial[_select]._bbox.y};
+                    canvas.BeginDrag(pos, (void*)(size_t)_select);
+                }
             }
             if (ImGui::IsItemClicked(1))
             {
                 _select = -1;
             }
 
-            if (drag._active && _select >= 0)
+            if (_select >= 0)
             {
-                moveto(_select, drag._delta + _spatial[_select]._bbox.top_left());
+                ImVec2 pos{_spatial[_select]._bbox.x, _spatial[_select]._bbox.y};
+                if (canvas.EndDrag(pos, (void*)(size_t)_select))
+                {
+                    moveto(_select, pos);
+                }
             }
 
             if (ImGui::BeginDragDropTarget())
@@ -220,8 +207,8 @@ namespace fin
                         _edit._sprite      = *object;
                         _edit._bbox.width  = _edit._sprite.sprite->_source.width;
                         _edit._bbox.height = _edit._sprite.sprite->_source.height;
-                        _edit._bbox.x      = params.mouse.x;
-                        _edit._bbox.y      = params.mouse.y;
+                        _edit._bbox.x      = mouse_pos.x;
+                        _edit._bbox.y      = mouse_pos.y;
                         _edit._index       = _max_index;
                     }
                 }
@@ -233,8 +220,8 @@ namespace fin
                         _edit._sprite      = *object;
                         _edit._bbox.width  = _edit._sprite.sprite->_source.width;
                         _edit._bbox.height = _edit._sprite.sprite->_source.height;
-                        _edit._bbox.x      = params.mouse.x;
-                        _edit._bbox.y      = params.mouse.y;
+                        _edit._bbox.x      = mouse_pos.x;
+                        _edit._bbox.y      = mouse_pos.y;
                         _edit._index       = _max_index;
                         ++_max_index;
                         _spatial.insert(_edit);
@@ -242,6 +229,38 @@ namespace fin
                 }
 
                 ImGui::EndDragDropTarget();
+            }
+
+
+            if (uint32_t(_select) < (uint32_t)_spatial.size())
+            {
+                auto* dc  = ImGui::GetWindowDrawList();
+                auto& nde = _spatial[_select];
+                ImVec2 min{nde._bbox.x, nde._bbox.y};
+                ImVec2 max{nde._bbox.x2(), nde._bbox.y2()};
+                dc->AddRect(canvas.WorldToScreen(min),
+                            canvas.WorldToScreen(max),
+                            IM_COL32(255, 255, 255, 255),
+                            0,
+                            ImDrawFlags_Closed,
+                            1.0f);
+            }
+
+            if (g_settings.visible_grid)
+            {
+                auto* dc = ImGui::GetWindowDrawList();
+                auto cb = [&dc, &canvas](const Rectf& rc)
+                {
+                    ImVec2 min{rc.x, rc.y};
+                    ImVec2 max{rc.x2(), rc.y2()};
+                    dc->AddRect(canvas.WorldToScreen(min),
+                                canvas.WorldToScreen(max),
+                                IM_COL32(255, 255, 0, 190),
+                                0,
+                                ImDrawFlags_Closed,
+                                1.0f);
+                };
+                _spatial.for_each_node(cb);
             }
         }
 

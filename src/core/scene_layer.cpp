@@ -2,7 +2,6 @@
 #include "renderer.hpp"
 #include "scene.hpp"
 #include "application.hpp"
-#include "scene_object.hpp"
 #include "utils/lquadtree.hpp"
 #include "utils/lquery.hpp"
 #include "utils/imguiline.hpp"
@@ -192,6 +191,10 @@ namespace fin
     }
 
     void SceneLayer::imgui_workspace(Params& params, DragData& drag)
+    {
+    }
+
+    void SceneLayer::imgui_workspace(ImGui::CanvasParams& canvas)
     {
     }
 

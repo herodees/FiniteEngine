@@ -77,6 +77,7 @@ namespace fin
             std::swap(active, other.active);
             std::swap(rootIndex, other.rootIndex);
             std::swap(nodeFreeListHead, other.nodeFreeListHead);
+            std::swap(objectFreeListHead, other.objectFreeListHead);
         }
 
         void clear()

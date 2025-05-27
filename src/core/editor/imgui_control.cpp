@@ -782,10 +782,9 @@ namespace ImGui
 
     bool CanvasParams::DragPoint(ImVec2& pt, void* user_data, float radius_screen)
     {
-        ImVec2 mouse_pos = ImGui::GetIO().MousePos;
-
         if (!dragging)
         {
+            ImVec2      mouse_pos = ImGui::GetIO().MousePos;
             ImVec2      pt_screen = WorldToScreen(pt);
             const float dx        = mouse_pos.x - pt_screen.x;
             const float dy        = mouse_pos.y - pt_screen.y;
@@ -805,8 +804,35 @@ namespace ImGui
             }
         }
 
+        return EndDrag(pt, user_data);
+    }
+
+    bool CanvasParams::BeginDrag(ImVec2& pt, void* user_data)
+    {
+        if (!dragging)
+        {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            {
+                dragging           = true;
+                dragging_user_data = user_data;
+
+                ImVec2 mouse_world = ScreenToWorld(ImGui::GetIO().MousePos);
+                drag_offset_world  = pt - mouse_world;
+
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool CanvasParams::EndDrag(ImVec2& pt, void* user_data)
+    {
         if (dragging && dragging_user_data == user_data)
         {
+            ImVec2 mouse_pos = ImGui::GetIO().MousePos;
+
             if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
             {
                 ImVec2 mouse_world = ScreenToWorld(mouse_pos);
@@ -819,7 +845,6 @@ namespace ImGui
                 dragging_user_data = nullptr;
             }
         }
-
         return false;
     }
 

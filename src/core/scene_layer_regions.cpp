@@ -3,7 +3,6 @@
 #include "renderer.hpp"
 #include "scene.hpp"
 #include "scene_layer.hpp"
-#include "scene_object.hpp"
 #include "utils/imguiline.hpp"
 #include "utils/lquadtree.hpp"
 #include "utils/lquery.hpp"
@@ -350,8 +349,9 @@ namespace fin
             }
         }
 
-        void imgui_workspace(Params& params, DragData& drag) override
+        void imgui_workspace(ImGui::CanvasParams& canvas) override
         {
+            ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
             // Edit region points
             if (_edit_region)
             {
@@ -359,7 +359,9 @@ namespace fin
                 {
                     if (ImGui::IsItemClicked(0))
                     {
-                        _active_point = reg->find(params.mouse, 5);
+                        _active_point = reg->find(mouse_pos, 5);
+                        ImVec2 pt     = {reg->get_point(_active_point).x, reg->get_point(_active_point).y};
+                        canvas.BeginDrag(pt, (void*)(size_t)_active_point);
                     }
                     if (ImGui::IsItemClicked(1))
                     {
@@ -368,19 +370,22 @@ namespace fin
                 }
                 else if (ImGui::IsItemClicked(0))
                 {
-                    _selected = find_at(params.mouse);
+                    _selected = find_at(mouse_pos);
                 }
 
-                if (drag._active && _active_point != -1)
+                if (_active_point != -1)
                 {
                     if (auto* reg = selected_region())
                     {
-                        auto obj = *reg;
-                        _spatial.remove(*selected_region());
-                        auto pt = obj.get_point(_active_point) + drag._delta;
-                        obj.set_point(_active_point, pt);
-                        obj.update();
-                        _spatial.insert(obj);
+                        ImVec2 pt = {reg->get_point(_active_point).x, reg->get_point(_active_point).y};
+                        if (canvas.EndDrag(pt, (void*)(size_t)_active_point))
+                        {
+                            auto obj = *reg;
+                            _spatial.remove(*selected_region());
+                            obj.set_point(_active_point, pt);
+                            obj.update();
+                            _spatial.insert(obj);
+                        }
                     }
                 }
             }
@@ -393,7 +398,7 @@ namespace fin
                     {
                         auto obj = *reg;
                         _spatial.remove(*reg);
-                        obj.insert(params.mouse, _active_point + 1);
+                        obj.insert(mouse_pos, _active_point + 1);
                         obj.update();
                         _spatial.insert(obj);
                         _active_point = _active_point + 1;
@@ -401,7 +406,7 @@ namespace fin
                     else
                     {
                         Node obj;
-                        obj.insert(params.mouse, 0);
+                        obj.insert(mouse_pos, 0);
                         obj.update();
                         _selected     = _spatial.insert(obj);
                         _active_point = 0;

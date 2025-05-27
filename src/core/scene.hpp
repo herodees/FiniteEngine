@@ -1,13 +1,11 @@
 #pragma once
 
+#include "ecs/component.hpp"
 #include "include.hpp"
 #include "path_finder.h"
 #include "renderer.hpp"
 #include "scene_layer.hpp"
-#include "scene_object.hpp"
-#include "scene_npc.hpp"
 #include "shared_resource.hpp"
-#include "ecs/component.hpp"
 
 namespace fin
 {
@@ -55,7 +53,6 @@ namespace fin
         friend class SpriteSceneObject;
 
     public:
-
         Scene();
         ~Scene();
 
@@ -77,13 +74,10 @@ namespace fin
         Vec2f         get_camera_center() const;
         const Camera& get_camera() const;
 
-        void        name_object(ObjectBase* obj, std::string_view name);
-        ObjectBase* find_object_by_name(std::string_view name);
-
-        void             render(Renderer& dc);
-        void             update(float dt);
-        void             clear();
-        RenderTexture2D& canvas();
+        void              render(Renderer& dc);
+        void              update(float dt);
+        void              clear();
+        RenderTexture2D&  canvas();
         ComponentFactory& factory();
 
         void serialize(msg::Var& ar);
@@ -92,7 +86,7 @@ namespace fin
         void load(std::string_view path);
         void save(std::string_view path, bool change_path = true);
 
-        void set_mode(SceneMode sm);
+        void      set_mode(SceneMode sm);
         SceneMode get_mode() const;
 
         void imgui_work();
@@ -111,22 +105,21 @@ namespace fin
         void imgui_props_setup();
         void update_camera_position(float dt);
 
-        ComponentFactory                                                                _factory;
-        std::vector<SceneLayer*>                                                        _layers;
-        std::unordered_map<std::string, ObjectBase*, std::string_hash, std::equal_to<>> _named_object;
-        DragData                                                                        _drag{};
-        int32_t                                                                         _active_layer{0};
-        bool                                                                            _show_properties{};
-        bool                                                                            _edit_region{};
-        bool                                                                            _edit_prefabs{};
-        SceneMode                                                                       _mode{SceneMode::Play};
-        Vec2f                                                                           _goto;
-        float                                                                           _goto_speed{};
-        Camera                                                                          _camera;
-        RenderTexture2D                                                                 _canvas;
-        std::string                                                                     _path;
-        Vec2f                                                                           _size{1024,1024};
-        Color                                                                           _background{BLACK};
+        ComponentFactory         _factory;
+        std::vector<SceneLayer*> _layers;
+        DragData                 _drag{};
+        int32_t                  _active_layer{0};
+        bool                     _show_properties{};
+        bool                     _edit_region{};
+        bool                     _edit_prefabs{};
+        SceneMode                _mode{SceneMode::Play};
+        Vec2f                    _goto;
+        float                    _goto_speed{};
+        Camera                   _camera;
+        RenderTexture2D          _canvas;
+        std::string              _path;
+        Vec2f                    _size{1024, 1024};
+        Color                    _background{BLACK};
     };
 
 

@@ -3,6 +3,11 @@
 #include "include.hpp"
 #include "utils/lquery.hpp"
 
+namespace ImGui
+{
+    struct CanvasParams;
+}
+
 namespace fin
 {
     class Renderer;
@@ -64,6 +69,7 @@ namespace fin
         virtual void imgui_update(bool items);
         virtual void imgui_setup();
         virtual void imgui_workspace(Params& params, DragData& drag);
+        virtual void imgui_workspace(ImGui::CanvasParams& canvas);
         virtual void imgui_workspace_menu();
 
         bool is_hidden() const;
@@ -123,10 +129,8 @@ namespace fin
 
         void update(float dt) override;
         void render(Renderer& dc) override;
-        void render_edit(Renderer& dc) override;
-        void render_grid(Renderer& dc);
 
-        void imgui_workspace(Params& params, DragData& drag) override;
+        void imgui_workspace(ImGui::CanvasParams& canvas) override;
         void imgui_workspace_menu() override;
         void imgui_update(bool items) override;
 

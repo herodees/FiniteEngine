@@ -52,6 +52,8 @@ namespace ImGui
             origin = canvas_size * 0.5f;
         }
         bool DragPoint(ImVec2& pt, void* user_data, float radius_screen);
+        bool BeginDrag(ImVec2& pt, void* user_data);
+        bool EndDrag(ImVec2& pt, void* user_data);
     };
     bool BeginCanvas(const char* id, ImVec2 size, CanvasParams& params);
     void EndCanvas();

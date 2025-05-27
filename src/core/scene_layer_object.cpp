@@ -361,91 +361,26 @@ namespace fin
         }
     }
 
-    void ObjectSceneLayer::render_edit(Renderer& dc)
-    {
-        dc.set_color(WHITE);
-
-        for (auto ent : _selected)
-        {
-            if (!ecs::Base::contains(ent))
-                continue;
-
-            auto* base = ecs::Base::get(ent);
-
-            if (g_settings.visible_isometric && ecs::Isometric::contains(ent))
-            {
-                auto* iso = ecs::Isometric::get(ent);
-                Vec2f a = iso->_a + base->_position;
-                Vec2f b = iso->_b + base->_position;
-                dc.set_color(WHITE);
-                dc.render_line(a, b);
-
-                if (ent == _edit)
-                {
-                    dc.set_color(GREEN);
-                    dc.render_debug_text(a, "L");
-                    dc.set_color(RED);
-                    dc.render_debug_text(b, "R");
-                }
-            }
-
-            if (g_settings.visible_collision && ecs::Collider::contains(ent))
-            {
-                auto* col = ecs::Collider::get(ent);
-                dc.set_color(YELLOW);
-                dc.render_polyline(col->_points.data(), col->_points.size(), true, base->_position);
-            }
-
-            if (ent == _edit)
-            {
-                auto bb = base->get_bounding_box();
-                dc.set_color(WHITE);
-                dc.render_line_rect(bb.rect());
-            }
-        }
-
-        if (g_settings.visible_grid)
-            render_grid(dc);
-
-        dc.set_color(WHITE);
-    }
-
-    void ObjectSceneLayer::render_grid(Renderer& dc)
-    {
-        const int startX = std::max(0.f, _region.x / tile_size);
-        const int startY = std::max(0.f, _region.y / tile_size);
-
-        const int endX = (_region.x2() / tile_size) + 2;
-        const int endY = (_region.y2() / tile_size) + 2;
-
-        auto minpos = Vec2i{startX, startY};
-        auto maxpos = Vec2i{endX, endY};
-
-        Color clr{255, 255, 0, 190};
-        dc.set_color(clr);
-
-        for (int y = minpos.y; y < maxpos.y; ++y)
-        {
-            dc.render_line((float)minpos.x * tile_size, (float)y * tile_size, (float)maxpos.x * tile_size, (float)y * tile_size);
-        }
-
-        for (int x = minpos.x; x < maxpos.x; ++x)
-        {
-            dc.render_line((float)x * tile_size, (float)minpos.y * tile_size, (float)x * tile_size, (float)maxpos.y * tile_size);
-        }
-    }
-
-    void ObjectSceneLayer::imgui_workspace(Params& params, DragData& drag)
+    void ObjectSceneLayer::imgui_workspace(ImGui::CanvasParams& canvas)
     {
         _drop = entt::null;
 
         if (is_hidden())
             return;
 
+        ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
+
         if (ImGui::IsItemClicked(0))
         {
-            auto el = find_active_at(params.mouse);
+            auto el = find_active_at(mouse_pos);
             select_edit(el);
+
+            if (ecs::Base::contains(_edit))
+            {
+                auto*  base = ecs::Base::get(_edit);
+                ImVec2 pos{base->_position.x, base->_position.y};
+                canvas.BeginDrag(pos, base);
+            }
         }
 
         if (ImGui::IsItemClicked(1))
@@ -453,11 +388,16 @@ namespace fin
             select_edit(entt::null);
         }
 
-        if (drag._active && ecs::Base::contains(_edit))
+        if (ecs::Base::contains(_edit))
         {
-            move(_edit, drag._delta);
+            auto*   base = ecs::Base::get(_edit);
+            ImVec2 pos{base->_position.x, base->_position.y};
+            if (canvas.EndDrag(pos, base))
+            {
+                moveto(_edit, pos);
+            }
         }
-
+   
         if (ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY",
@@ -468,8 +408,8 @@ namespace fin
                 _drop = *(const Entity*)payload->Data;
                 if (ecs::Base::contains(_drop))
                 {
-                    auto* obj = ecs::Base::get(_drop);
-                    obj->_position = {params.mouse.x, params.mouse.y};
+                    auto* obj      = ecs::Base::get(_drop);
+                    obj->_position = {mouse_pos.x, mouse_pos.y};
                 }
                 else
                 {
@@ -483,15 +423,60 @@ namespace fin
                 if (ecs::Base::contains(_drop))
                 {
                     auto* obj      = ecs::Base::get(_drop);
-                    obj->_position = {params.mouse.x, params.mouse.y};
+                    obj->_position = {mouse_pos.x, mouse_pos.y};
                     insert(_drop);
                 }
 
                 _drop = entt::null;
-                
             }
 
             ImGui::EndDragDropTarget();
+        }
+
+        auto* dc = ImGui::GetWindowDrawList();
+        for (auto ent : _selected)
+        {
+            if (!ecs::Base::contains(ent))
+                continue;
+
+            auto* base = ecs::Base::get(ent);
+
+            if (g_settings.visible_isometric && ecs::Isometric::contains(ent))
+            {
+                auto* iso = ecs::Isometric::get(ent);
+                auto  a   = iso->_a + base->_position;
+                auto  b   = iso->_b + base->_position;
+                auto  aa  = canvas.WorldToScreen({a.x, a.y});
+                auto  bb  = canvas.WorldToScreen({b.x, b.y});
+                dc->AddLine(aa, bb, IM_COL32(255, 255, 255, 255), 2);
+
+                if (ent == _edit)
+                {
+                    dc->AddText(aa, IM_COL32(0, 255, 0, 255), "L");
+                    dc->AddText(bb, IM_COL32(255, 0, 0, 255), "R");
+                }
+            }
+
+            if (g_settings.visible_collision && ecs::Collider::contains(ent))
+            {
+                auto* col = ecs::Collider::get(ent);
+            }
+
+            if (ent == _edit)
+            {
+                auto bb = base->get_bounding_box();
+                dc->AddRect(canvas.WorldToScreen({bb.x1, bb.y1}),
+                            canvas.WorldToScreen({bb.x2, bb.y2}),
+                            IM_COL32(255, 255, 255, 255),
+                            0.0f,
+                            ImDrawFlags_Closed,
+                            1.0f);
+            }
+        }
+
+        if (g_settings.visible_grid)
+        {
+
         }
     }
 
