@@ -13,6 +13,7 @@ namespace fin
         bool        visible_grid{0};
         bool        visible_isometric{0};
         bool        visible_collision{0};
+        bool        visible_navgrid{0};
         bool        list_visible_items{};
     };
 

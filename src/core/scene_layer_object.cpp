@@ -53,7 +53,7 @@ namespace fin
     }
 
 
-    ObjectSceneLayer::ObjectSceneLayer() : SceneLayer(LayerType::Object)
+    ObjectSceneLayer::ObjectSceneLayer() : SceneLayer(LayerType::Object), _navmesh(0, 0, _cell_size.x, _cell_size.y)
     {
         name() = "ObjectLayer";
         icon() = ICON_FA_MAP_PIN;
@@ -81,6 +81,8 @@ namespace fin
         }
 
         ar.set_item("items", items);
+        ar.set_item("cw", _cell_size.x);
+        ar.set_item("ch", _cell_size.y);
     }
 
     void ObjectSceneLayer::deserialize(msg::Var& ar)
@@ -88,7 +90,8 @@ namespace fin
         SceneLayer::deserialize(ar);
 
         auto& fact  = parent()->factory();
-
+        _cell_size.x = ar.get_item("cw").get(16);
+        _cell_size.y = ar.get_item("ch").get(8);
         auto items = ar.get_item("items");
         for (auto& obj : items.elements())
         {
@@ -97,6 +100,7 @@ namespace fin
             if (ent != entt::null)
                 insert(ent);
         }
+        update_navmesh();
     }
 
     void ObjectSceneLayer::insert(Entity ent)
@@ -112,6 +116,7 @@ namespace fin
 
             obj->_layer = this;
             _spatial_db.update_for_new_location(obj);
+            _dirty_navmesh = true;
         }
         _objects.emplace(ent);
     }
@@ -126,6 +131,7 @@ namespace fin
                 obj->_layer->_spatial_db.remove_from_bin(obj);
                 obj->_layer->_objects.erase(ent);
             }
+            _dirty_navmesh = true;
         }
         parent()->factory().get_registry().destroy(ent);
     }
@@ -197,6 +203,7 @@ namespace fin
         auto* obj      = ecs::Base::get(ent);
         obj->_position = pos;
         update(obj);
+        _dirty_navmesh = true;
     }
 
     void ObjectSceneLayer::move(Entity ent, Vec2f pos)
@@ -204,6 +211,7 @@ namespace fin
         auto* obj      = ecs::Base::get(ent);
         obj->_position += pos;
         update(obj);
+        _dirty_navmesh = true;
     }
 
     void ObjectSceneLayer::update(void* obj)
@@ -226,6 +234,7 @@ namespace fin
 
     void ObjectSceneLayer::resize(Vec2f size)
     {
+        _size        = size;
         _grid_size.x = (size.width + (tile_size - 1)) / tile_size; // Round up division
         _grid_size.y = (size.height + (tile_size - 1)) / tile_size;
         _spatial_db.init({0, 0, (float)_grid_size.x * tile_size, (float)_grid_size.y * tile_size},
@@ -243,6 +252,7 @@ namespace fin
                 _spatial_db.update_for_new_location(obj);
             }
         }
+        _dirty_navmesh = true;
     }
 
     void ObjectSceneLayer::activate(const Rectf& region)
@@ -434,6 +444,20 @@ namespace fin
         }
 
         auto* dc = ImGui::GetWindowDrawList();
+
+        if (g_settings.visible_navgrid)
+        {
+            update_navmesh();
+            auto& txt = _navmesh.getDebugTexture();
+            ImGui::DrawTexture(canvas,
+                               (ImTextureID)txt.get_texture(),
+                               {0, 0},
+                               {(float)_navmesh.worldSize().x, (float)_navmesh.worldSize().y},
+                               {0, 0},
+                               {1.f, 1.f},
+                               IM_COL32(255, 255, 255, 180));
+        }
+
         for (auto ent : _selected)
         {
             if (!ecs::Base::contains(ent))
@@ -482,6 +506,16 @@ namespace fin
 
     void ObjectSceneLayer::imgui_workspace_menu()
     {
+    }
+
+    void ObjectSceneLayer::imgui_setup()
+    {
+        SceneLayer::imgui_setup();
+
+        if (ImGui::InputInt2("Navmesh grid", &_cell_size.x))
+        {
+            _dirty_navmesh = true;
+        }
     }
 
     void ObjectSceneLayer::imgui_update(bool items)
@@ -561,6 +595,35 @@ namespace fin
         {
             parent()->factory().imgui_prefab(parent(), _edit);
         }
+    }
+
+    void ObjectSceneLayer::update_navmesh()
+    {
+        if (!_dirty_navmesh)
+            return;
+        _dirty_navmesh = false;
+        _navmesh.resize(_size.x, _size.y, _cell_size.x, _cell_size.y);
+        _navmesh.resetTerrain();
+        std::vector<Vec2f> points;
+        for (Entity et : _objects)
+        {
+            if (ecs::Base::contains(et) && ecs::Collider::contains(et))
+            {
+                auto* obj = ecs::Base::get(et);
+                auto* col = ecs::Collider::get(et);
+                points.clear();
+                std::for_each(col->_points.begin(),
+                              col->_points.end(),
+                              [&points, obj](const Vec2f& pt) { points.push_back(pt + obj->_position); });
+
+                _navmesh.applyTerrain(points, TERRAIN_BLOCKED, true);
+            }
+        }
+    }
+
+    bool ObjectSceneLayer::find_path(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const
+    {
+        return _navmesh.findPath(from, to, path);
     }
 
     SceneLayer* SceneLayer::create_object()

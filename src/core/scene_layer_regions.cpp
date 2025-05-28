@@ -207,43 +207,6 @@ namespace fin
             _spatial.insert(o);
         }
 
-        void render_edit(Renderer& dc) override
-        {
-            dc.set_color(WHITE);
-
-            for (auto n : _spatial.get_active())
-            {
-                auto& nde = _spatial[n];
-
-                auto sze = nde.size();
-                for (auto idx = 0; idx < sze; ++idx)
-                {
-                    dc.render_line(nde.get_point(idx), nde.get_point((idx + 1) % sze));
-                }
-            }
-
-
-            if (auto* reg = selected_region())
-            {
-                dc.set_color({255, 255, 0, 255});
-                dc.render_line_rect(reg->_bbox);
-
-                for (auto n = 0; n < reg->size(); ++n)
-                {
-                    auto pt = reg->get_point(n);
-                    if (_active_point == n)
-                        dc.render_circle(pt, 3);
-                    else
-                        dc.render_line_circle(pt, 3);
-                }
-            }
-
-            if (g_settings.visible_grid)
-            {
-                render_grid(dc);
-            }
-        }
-
         void render_grid(Renderer& dc)
         {
             const int startX = std::max(0.f, _region.x / tile_size);

@@ -168,19 +168,6 @@ namespace fin
     {
     }
 
-    void SceneLayer::render_edit(Renderer& dc)
-    {
-    }
-
-    std::span<const Vec2i> SceneLayer::find_path(const IsoSceneObject* obj, Vec2i target)
-    {
-        return std::span<const Vec2i>();
-    }
-
-    void SceneLayer::moveto(IsoSceneObject* obj, Vec2f pos)
-    {
-    }
-
     void SceneLayer::imgui_update(bool items)
     {
     }

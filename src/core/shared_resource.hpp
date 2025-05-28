@@ -72,6 +72,7 @@ namespace fin
 
         bool load_from_file(const std::filesystem::path& filePath);
         bool load_from_surface(const Surface& loadedSurface);
+        bool load_from_image(const Image& loadedSurface);
         bool update_texture_data(const void* pixels);
         bool update_texture_data(const void* pixels, const Rectf& rc);
         void set_repeat(bool r);

@@ -172,6 +172,21 @@ namespace fin
         return true;
     }
 
+    bool Texture2D::load_from_image(const Image& loadedSurface)
+    {
+        clear(); // Free existing texture if any
+
+        texture = LoadTextureFromImage(loadedSurface);
+        generate_alpha_mask(loadedSurface, 0.5f);
+
+        if (!texture.id)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     bool Texture2D::update_texture_data(const void* pixels)
     {
         if (!texture.id)

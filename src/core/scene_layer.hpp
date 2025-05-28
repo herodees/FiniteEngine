@@ -2,6 +2,7 @@
 
 #include "include.hpp"
 #include "utils/lquery.hpp"
+#include "navmesh.hpp"
 
 namespace ImGui
 {
@@ -52,20 +53,13 @@ namespace fin
 
         virtual void serialize(msg::Var& ar);
         virtual void deserialize(msg::Var& ar);
-
         virtual void resize(Vec2f size);
         virtual void clear();
-
         virtual void init();
         virtual void deinit();
         virtual void activate(const Rectf& region);
         virtual void update(float dt);
         virtual void render(Renderer& dc);
-        virtual void render_edit(Renderer& dc);
-
-        virtual std::span<const Vec2i> find_path(const IsoSceneObject* obj, Vec2i target);
-        virtual void moveto(IsoSceneObject* obj, Vec2f pos);
-
         virtual void imgui_update(bool items);
         virtual void imgui_setup();
         virtual void imgui_workspace(Params& params, DragData& drag);
@@ -111,13 +105,11 @@ namespace fin
         ObjectSceneLayer();
         ~ObjectSceneLayer() override;
 
-        void serialize(msg::Var& ar) override;
-        void deserialize(msg::Var& ar) override;
-
-        void clear() override;
-        void resize(Vec2f size) override;
-        void activate(const Rectf& region) override;
-
+        void   serialize(msg::Var& ar) override;
+        void   deserialize(msg::Var& ar) override;
+        void   clear() override;
+        void   resize(Vec2f size) override;
+        void   activate(const Rectf& region) override;
         void   insert(Entity ent);
         void   remove(Entity ent);
         void   moveto(Entity ent, Vec2f pos);
@@ -125,26 +117,32 @@ namespace fin
         void   update(void* obj);
         Entity find_at(Vec2f position) const;
         Entity find_active_at(Vec2f position) const;
+        bool   find_path(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const;
         void   select_edit(Entity ent);
-
-        void update(float dt) override;
-        void render(Renderer& dc) override;
-
-        void imgui_workspace(ImGui::CanvasParams& canvas) override;
-        void imgui_workspace_menu() override;
-        void imgui_update(bool items) override;
+        void   update(float dt) override;
+        void   render(Renderer& dc) override;
+        void   imgui_workspace(ImGui::CanvasParams& canvas) override;
+        void   imgui_workspace_menu() override;
+        void   imgui_setup() override;
+        void   imgui_update(bool items) override;
 
     protected:
+        void update_navmesh();
+
         entt::sparse_set        _objects;
         entt::sparse_set        _selected;
-        Vec2i                   _grid_size;
+        Vec2i                   _grid_size{0,0};
+        Vec2i                   _cell_size{16, 8};
+        Vec2f                   _size;
         lq::SpatialDatabase     _spatial_db;
         std::vector<IsoObject>  _iso_pool;
         std::vector<IsoObject*> _iso;
+        Navmesh                 _navmesh;
         uint32_t                _iso_pool_size{};
         int32_t                 _inflate{};
         Entity                  _edit{entt::null};
         Entity                  _drop{entt::null};
+        bool                    _dirty_navmesh{};
     };
 
     void BeginDefaultMenu(const char* id);

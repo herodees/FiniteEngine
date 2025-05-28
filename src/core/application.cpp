@@ -441,7 +441,10 @@ namespace fin
                 {
                     g_settings.visible_collision = !g_settings.visible_collision;
                 }
-
+                if (ImGui::MenuItem(ICON_FA_MAP " Visible navigation grid", NULL, g_settings.visible_navgrid))
+                {
+                    g_settings.visible_navgrid = !g_settings.visible_navgrid;
+                }
                 ImGui::EndMenu();
             }
 

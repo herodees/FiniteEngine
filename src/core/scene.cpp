@@ -134,11 +134,6 @@ namespace fin
             el->render(dc);
         }
 
-        if (auto* lyr = active_layer())
-        {
-            lyr->render_edit(dc);
-        }
-
         EndMode2D();
         EndTextureMode();
 
@@ -542,7 +537,7 @@ namespace fin
                 ImGui::EndPopup();
             }
 
-            if (ImGui::BeginChildFrame(-2, {-1, 100}))
+            if (ImGui::BeginChildFrame(ImGui::GetID("lyrs"), {-1, 100}))
             {
                 int n = 0;
                 for (auto* ly : _layers)
