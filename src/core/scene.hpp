@@ -11,29 +11,6 @@ namespace fin
 {
     constexpr int32_t SCENE_VERSION = 1;
 
-    struct Params
-    {
-        ImDrawList* dc;
-        ImVec2      mouse;
-        ImVec2      pos;
-        ImVec2      scroll;
-        float       mouse_distance2(ImVec2 pos) const
-        {
-            auto dx = mouse.x - pos.x;
-            auto dy = mouse.y - pos.y;
-            return dx * dx + dy * dy;
-        }
-    };
-
-    struct DragData
-    {
-        Vec2f _begin;
-        Vec2f _delta;
-        bool  _active{};
-
-        void update(float x, float y);
-    };
-
     struct Camera
     {
         Vec2f position;
@@ -107,7 +84,6 @@ namespace fin
 
         ComponentFactory         _factory;
         std::vector<SceneLayer*> _layers;
-        DragData                 _drag{};
         int32_t                  _active_layer{0};
         bool                     _show_properties{};
         bool                     _edit_region{};

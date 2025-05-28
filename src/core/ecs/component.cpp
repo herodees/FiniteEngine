@@ -324,7 +324,7 @@ namespace fin
         int32_t n = 1;
         for (auto& cmp : _components)
         {
-            if (cmp.second.contains(_prefab_edit))
+            if (cmp.second.HasWorkspaceEditor() && cmp.second.contains(_prefab_edit))
             {
                 ImGui::Line()
                     .PushStyle(ImStyle_Header, n, _selected_component == &cmp.second)
@@ -392,7 +392,6 @@ namespace fin
     {
         bool ret = false;
 
-
         ImGui::LineItem(comp->id.data(), {-1, ImGui::GetFrameHeightWithSpacing()}).Expandable(true).Space();
 
         ImGui::PushID(comp->id.data());
@@ -401,8 +400,15 @@ namespace fin
             .Text(ImGui::Line().Expanded() ? ICON_FA_CARET_DOWN " " : ICON_FA_CARET_RIGHT " ")
             .Text(comp->label.data())
             .PopStyleColor()
-            .Spring()
-            .PushStyle(ImStyle_InvisibleButton, 1)
+            .Spring();
+
+        if (comp->HasWorkspaceEditor())
+        {
+            ImGui::Line().PushStyle(ImStyle_Button, 2, _selected_component == comp).Space().Text(ICON_FA_PEN).Space().PopStyle();
+        }
+
+        ImGui::Line()
+            .PushStyle(ImStyle_Button, 1)
             .Space()
             .Text(ICON_FA_GEAR)
             .Space()
@@ -412,6 +418,8 @@ namespace fin
         {
             if (ImGui::Line().HoverId() == 1)
                 ImGui::OpenPopup("##settings_popup");
+            else if (ImGui::Line().HoverId() == 2)
+                _selected_component = comp; // Set the selected component for editing in the workspace
         }
 
         if (ImGui::BeginPopup("##settings_popup"))
@@ -518,7 +526,7 @@ namespace fin
 
     void ComponentFactory::imgui_props(Scene* scene)
     {
-        auto shop_prefab_names = [&](int ent)
+        auto show_prefab_names = [&](int ent)
             {
                 auto proto = _prefabs.get_item(ent);
                 _buff      = proto.get_item(Sc::Id).str();
@@ -539,7 +547,7 @@ namespace fin
 
         if (_prefab_edit != entt::null)
         {
-            shop_prefab_names(_prefab_edit_index);
+            show_prefab_names(_prefab_edit_index);
             if (imgui_prefab(scene, _prefab_edit))
             {
                 _prefab_changed = true;
@@ -565,7 +573,7 @@ namespace fin
             }
         }
 
-        shop_prefab_names(_selected);
+        show_prefab_names(_selected);
         ImGui::BeginDisabled(true);
         imgui_prefab(scene, _edit);
         ImGui::EndDisabled();
@@ -891,7 +899,7 @@ namespace fin
                     }
                 }
 
-                if (_selected_component)
+                if (_selected_component && _selected_component->HasWorkspaceEditor())
                 {
                     if (_selected_component->contains(_prefab_edit))
                     {

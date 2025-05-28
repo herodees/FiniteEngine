@@ -327,14 +327,13 @@ namespace fin
             {
                 _edit_prefabs = true;
             }
-
             _factory.imgui_items(this);
         }
         ImGui::End();
 
         if (ImGui::Begin("Scene"))
         {
-            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+            if (_mode != SceneMode::Prefab && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             {
                 _edit_prefabs = false;
             }
@@ -653,7 +652,7 @@ namespace fin
             _factory.imgui_workspace(this);
             return;
         }
-        else if (true)
+        else
         {
             if (ImGui::BeginCanvas("SceneCanvas", ImVec2(-1, -1), _s_canvas))
             {
@@ -678,45 +677,6 @@ namespace fin
                 ImGui::DrawRuler(_s_canvas, {128, 128});
                 ImGui::EndCanvas();
             }
-        }
-        else if (_size.x && _size.y)
-        {
-            Params params;
-            ImVec2 visible_size = ImGui::GetContentRegionAvail();
-            params.pos          = ImGui::GetWindowPos();
-            auto cur            = ImGui::GetCursorPos();
-            params.dc           = ImGui::GetWindowDrawList();
-            auto mpos           = ImGui::GetMousePos();
-            params.mouse        = {mpos.x - params.pos.x - cur.x + ImGui::GetScrollX(),
-                                   mpos.y - params.pos.y - cur.y + ImGui::GetScrollY()};
-
-            params.dc->AddImage((ImTextureID)&_canvas.get_texture()->texture,
-                                {cur.x + params.pos.x, cur.y + params.pos.y},
-                                {cur.x + params.pos.x + _canvas.get_width(), cur.y + params.pos.y + _canvas.get_height()},
-                                {0, 1},
-                                {1, 0});
-
-            params.scroll = {ImGui::GetScrollX(), ImGui::GetScrollY()};
-            params.pos.x -= ImGui::GetScrollX();
-            params.pos.y -= ImGui::GetScrollY();
-
-
-            ImGui::InvisibleButton("Canvas", ImVec2(_size.x, _size.y));
-            auto itemid = ImGui::GetItemID();
-
-            activate_grid(Recti(0, 0, visible_size.x, visible_size.y));
-            if (get_camera().position.x != params.scroll.x || get_camera().position.y != params.scroll.y)
-            {
-                set_camera_position({params.scroll.x, params.scroll.y});
-            }
-            _drag.update(params.mouse.x, params.mouse.y);
-
-            if (auto* lyr = active_layer())
-            {
-                lyr->imgui_workspace(params, _drag);
-            }
-
-            ImGui::ScrollWhenDragging({-1, -1}, ImGuiMouseButton_Right, itemid);
         }
     }
 
@@ -765,27 +725,6 @@ namespace fin
         return nullptr;
     }
 
-
-    void DragData::update(float x, float y)
-    {
-        if (ImGui::IsItemClicked(0) || ImGui::IsItemClicked(1))
-        {
-            _active = true;
-            _begin  = {x, y};
-            _delta  = {};
-        }
-
-        if (_active && (ImGui::IsMouseDown(0) || ImGui::IsMouseDown(1)))
-        {
-            _delta.x = x - _begin.x;
-            _delta.y = y - _begin.y;
-            _begin   = {x, y};
-        }
-        else
-        {
-            _active = false;
-        }
-    }
 
 
 

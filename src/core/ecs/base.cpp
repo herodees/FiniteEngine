@@ -6,13 +6,13 @@ namespace fin::ecs
 {
     void register_base_components(ComponentFactory& fact)
     {
-        fact.register_component<Base>();
+        fact.register_component<Base>(ComponentFlags_NoWorkspaceEditor);
         fact.register_component<Isometric>();
         fact.register_component<Collider>();
-        fact.register_component<Sprite>();
+        fact.register_component<Sprite>(ComponentFlags_NoWorkspaceEditor);
         fact.register_component<Region>();
-        fact.register_component<Camera>(); 
-        fact.register_component<Prefab>(false); // Prefab is not editable in the editor
+        fact.register_component<Camera>(ComponentFlags_NoWorkspaceEditor); 
+        fact.register_component<Prefab>(ComponentFlags_Private); // Prefab is not editable in the editor
     }
 
     fin::Region<float> Base::get_bounding_box() const

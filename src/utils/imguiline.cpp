@@ -422,7 +422,7 @@ void LineConstructor::Render()
             ImDrawVert* vtx_write = draw_list->_VtxWritePtr;
             ImDrawIdx* idx_write = draw_list->_IdxWritePtr;
             unsigned int vtx_current_idx = draw_list->_VtxCurrentIdx;
-
+            auto clr = GetColorU32(color[color_idx]);
             for (uint32_t s = current.begin; s < current.begin + current.length; ++s)
             {
                 const ImFontGlyph* glyph = m_stringGlyph[s];
@@ -454,22 +454,22 @@ void LineConstructor::Render()
                         idx_write[5] = (ImDrawIdx)(vtx_current_idx + 3);
                         vtx_write[0].pos.x = x1;
                         vtx_write[0].pos.y = y1;
-                        vtx_write[0].col = color[color_idx];
+                        vtx_write[0].col   = clr;
                         vtx_write[0].uv.x = u1;
                         vtx_write[0].uv.y = v1;
                         vtx_write[1].pos.x = x2;
                         vtx_write[1].pos.y = y1;
-                        vtx_write[1].col = color[color_idx];
+                        vtx_write[1].col   = clr;
                         vtx_write[1].uv.x = u2;
                         vtx_write[1].uv.y = v1;
                         vtx_write[2].pos.x = x2;
                         vtx_write[2].pos.y = y2;
-                        vtx_write[2].col = color[color_idx];
+                        vtx_write[2].col   = clr;
                         vtx_write[2].uv.x = u2;
                         vtx_write[2].uv.y = v2;
                         vtx_write[3].pos.x = x1;
                         vtx_write[3].pos.y = y2;
-                        vtx_write[3].col = color[color_idx];
+                        vtx_write[3].col   = clr;
                         vtx_write[3].uv.x = u1;
                         vtx_write[3].uv.y = v2;
                         vtx_write += 4;

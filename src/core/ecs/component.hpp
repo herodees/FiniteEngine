@@ -11,6 +11,16 @@ namespace fin
 {
     class Scene;
 
+    enum ComponentFlags_
+    {
+        ComponentFlags_Default           = 0, // Default component flags
+        ComponentFlags_Private           = 1 << 0, // Component is private and should not be shown in the component list
+        ComponentFlags_NoWorkspaceEditor = 1 << 1, // Component should not be shown in the workspace editor
+        ComponentFlags_NoEditor          = 1 << 2, // Component should not be shown in the editor at all
+    };
+
+    using ComponentFlags = uint32_t;
+
     namespace Sc
     {
         constexpr std::string_view Id("$id");
@@ -36,6 +46,7 @@ namespace fin
         entt::registry::base_type* storage;
         std::string_view           id;
         std::string_view           label;
+        ComponentFlags             flags;
         void (*emplace)(Entity);
         void (*remove)(Entity);
         bool (*contains)(Entity);
@@ -43,6 +54,15 @@ namespace fin
         bool (*save)(ArchiveParams& ar);
         bool (*edit)(Entity);
         bool (*edit_canvas)(ImGui::CanvasParams&, Entity);
+
+        inline bool HasWorkspaceEditor() const
+        {
+            return !(flags & ComponentFlags_NoWorkspaceEditor);
+        }
+        inline bool HasEditor() const
+        {
+            return !(flags & ComponentFlags_NoEditor);
+        }
     };
 
     template <typename C, std::string_literal ID, std::string_literal LABEL>
@@ -115,11 +135,12 @@ namespace fin
         ~ComponentFactory() = default;
 
         template <typename C>
-        void register_component(bool public_class = true)
+        void register_component(ComponentFlags flags = ComponentFlags_Default)
         {
             C::_s_storage.storage     = &_registry.storage<C>();
             C::_s_storage.id          = C::_s_id;
             C::_s_storage.label       = C::_s_label;
+            C::_s_storage.flags       = flags;
             C::_s_storage.emplace     = &C::emplace;
             C::_s_storage.remove      = &C::remove;
             C::_s_storage.contains    = &C::contains;
@@ -127,8 +148,11 @@ namespace fin
             C::_s_storage.save        = &C::save;
             C::_s_storage.edit        = &C::edit;
             C::_s_storage.edit_canvas = &C::edit_canvas;
-            if (public_class)
-                _components.insert(std::pair(C::_s_id, C::_s_storage));
+
+            if (!(flags & ComponentFlags_Private))
+            {
+                _components.emplace(C::_s_id, C::_s_storage);
+            }
         }
 
         Registry& get_registry();

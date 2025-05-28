@@ -381,6 +381,30 @@ namespace fin
                     _selected     = -1;
                 }
             }
+
+            auto* selected = selected_region();
+            auto* dc = ImGui::GetWindowDrawList();
+            for (auto n : _spatial.get_active())
+            {
+                auto& nde = _spatial[n];
+                for (uint32_t i = 0; i < nde.size(); ++i)
+                {
+                    auto pt1 = canvas.WorldToScreen((ImVec2&)nde.get_point(i));
+                    auto pt2 = canvas.WorldToScreen((ImVec2&)nde.get_point((i + 1) % nde.size()));
+                    if (selected && selected == &nde)
+                    {
+                        if (i == _active_point)
+                        {
+                            dc->AddCircleFilled(pt1, 5, 0xff00ff00);
+                        }
+                        else
+                        {
+                            dc->AddCircleFilled(pt1, 3, 0xff00ffff);
+                        }
+                    }
+                    dc->AddLine(pt1, pt2, 0xff0000ff);
+                }
+            }
         }
 
         void edit_active()
@@ -453,7 +477,7 @@ namespace fin
                 else
                 {
                     ImGuiListClipper clipper;
-                    clipper.Begin(_spatial.size());
+                    clipper.Begin(_spatial.size(), ImGui::GetFrameHeight());
                     while (clipper.Step())
                     {
                         for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; n++)
