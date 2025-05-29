@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ecs/component.hpp"
+#include "ecs/system.hpp"
 #include "include.hpp"
 #include "path_finder.h"
 #include "renderer.hpp"
@@ -59,6 +60,7 @@ namespace fin
         void              clear();
         RenderTexture2D&  canvas();
         ComponentFactory& factory();
+        SystemManager&    systems();
 
         void serialize(msg::Var& ar);
         void deserialize(msg::Var& ar);
@@ -71,6 +73,7 @@ namespace fin
 
         void imgui_work();
         void imgui_props();
+        void imgui_setup();
         void imgui_items();
         void imgui_menu();
         void imgui_filemenu();
@@ -86,8 +89,10 @@ namespace fin
         void update_camera_position(float dt);
 
         ComponentFactory         _factory;
+        SystemManager            _systems;
         std::vector<SceneLayer*> _layers;
         int32_t                  _active_layer{0};
+        int32_t                  _active_system{0};
         bool                     _show_properties{};
         bool                     _edit_region{};
         bool                     _edit_prefabs{};

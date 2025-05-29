@@ -276,6 +276,7 @@ namespace fin
         if (!init_docking)
         {
             _map.imgui_items();
+            _map.imgui_setup();
             _map.imgui_props();
             _map.imgui_work();
         //    ImGui::ShowDemoWindow();
