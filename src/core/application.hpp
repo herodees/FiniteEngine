@@ -43,7 +43,6 @@ namespace fin
         int32_t           _target_fps       = 60;
         float             _fixed_fps        = 30.0f;
         float             _max_fps          = 1200.0f;
-        double            _time_counter     = 0.0;
         double            _fixed_time_step  = 1.0f / _fixed_fps;
         double            _max_time_step    = 1.0f / _max_fps;
         double            _current_time     = GetTime();

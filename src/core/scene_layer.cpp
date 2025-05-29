@@ -164,6 +164,10 @@ namespace fin
     {
     }
 
+    void SceneLayer::fixed_update(float dt)
+    {
+    }
+
     void SceneLayer::render(Renderer& dc)
     {
     }

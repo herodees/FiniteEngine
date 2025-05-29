@@ -9,6 +9,18 @@
 
 namespace fin
 {
+    enum Dir
+    {
+        Right,
+        TopRight,
+        Top,
+        TopLeft,
+        Left,
+        BottomLeft,
+        Bottom,
+        BottomRight
+    };
+
     template <typename T>
     struct Region;
 
@@ -91,6 +103,13 @@ namespace fin
             T dx = x - other.x;
             T dy = y - other.y;
             return dx * dx + dy * dy;
+        }
+
+        T angle_diamond() const
+        {
+            if (y >= 0)
+                return (x >= 0 ? y / (x + y) : 1 - x / (-x + y));
+            return (x < 0 ? 2 - y / (-x - y) : 3 + x / (x - y));
         }
 
         T angle_degrees() const { return angle() * (180.0 / M_PI); }
@@ -559,3 +578,56 @@ namespace fin
         }
     };
 }
+
+namespace std
+{
+    template <typename T>
+    struct hash<fin::Vec2<T>>
+    {
+        std::size_t operator()(const fin::Vec2<T>& v) const noexcept
+        {
+            std::size_t h1 = std::hash<T>{}(v.x);
+            std::size_t h2 = std::hash<T>{}(v.y);
+            return h1 ^ (h2 << 1); // Simple combine
+        }
+    };
+
+    template <typename T>
+    struct hash<fin::Rect<T>>
+    {
+        std::size_t operator()(const fin::Rect<T>& r) const noexcept
+        {
+            std::size_t h1 = std::hash<T>{}(r.x);
+            std::size_t h2 = std::hash<T>{}(r.y);
+            std::size_t h3 = std::hash<T>{}(r.width);
+            std::size_t h4 = std::hash<T>{}(r.height);
+            return (((h1 ^ (h2 << 1)) >> 1) ^ (h3 << 1)) ^ (h4 << 1);
+        }
+    };
+
+    template <typename T>
+    struct hash<fin::Region<T>>
+    {
+        std::size_t operator()(const fin::Region<T>& r) const noexcept
+        {
+            std::size_t h1 = std::hash<T>{}(r.x1);
+            std::size_t h2 = std::hash<T>{}(r.y1);
+            std::size_t h3 = std::hash<T>{}(r.x2);
+            std::size_t h4 = std::hash<T>{}(r.y2);
+            return (((h1 ^ (h2 << 1)) >> 1) ^ (h3 << 1)) ^ (h4 << 1);
+        }
+    };
+
+    template <typename T>
+    struct hash<fin::Line<T>>
+    {
+        std::size_t operator()(const fin::Line<T>& v) const noexcept
+        {
+            std::size_t h1 = std::hash<T>{}(v.point1.x);
+            std::size_t h2 = std::hash<T>{}(v.point1.y);
+            std::size_t h3 = std::hash<T>{}(v.point2.x);
+            std::size_t h4 = std::hash<T>{}(v.point2.y);
+            return (((h1 ^ (h2 << 1)) >> 1) ^ (h3 << 1)) ^ (h4 << 1);
+        }
+    };
+} // namespace std

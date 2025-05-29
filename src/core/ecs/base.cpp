@@ -11,7 +11,9 @@ namespace fin::ecs
         fact.register_component<Collider>();
         fact.register_component<Sprite>(ComponentFlags_NoWorkspaceEditor);
         fact.register_component<Region>();
-        fact.register_component<Camera>(ComponentFlags_NoWorkspaceEditor); 
+        fact.register_component<Path>(ComponentFlags_NoWorkspaceEditor);
+        fact.register_component<Camera>(ComponentFlags_NoWorkspaceEditor);
+        fact.register_component<Body>(ComponentFlags_NoWorkspaceEditor); 
         fact.register_component<Prefab>(ComponentFlags_Private); // Prefab is not editable in the editor
     }
 
@@ -346,4 +348,58 @@ namespace fin::ecs
         ar.data.set_item(Sc::Uid, pf._data[Sc::Uid]);
         return true;
     }
-}
+
+    bool Body::load(ArchiveParams& ar)
+    {
+        auto& dby           = ar.reg.get<Body>(ar.entity);
+        dby._speed.x        = ar.data["vx"].get(0.f);
+        dby._speed.y        = ar.data["vy"].get(0.f);
+        return true;
+    }
+
+    bool Body::save(ArchiveParams& ar)
+    {
+        auto& dby = ar.reg.get<Body>(ar.entity);
+        ar.data.set_item("vx", dby._speed.x);
+        ar.data.set_item("vy", dby._speed.y);
+        return true;
+    }
+
+    bool Body::edit(Entity self)
+    {
+        auto& base = storage().get(self);
+        auto  r    = ImGui::InputFloat2("Speed", &base._speed.x);
+        return r;
+    }
+
+    bool Path::load(ArchiveParams& ar)
+    {
+        auto& col = ar.reg.get<Path>(ar.entity);
+        auto  pts = ar.data.get_item("p");
+        col._path.clear();
+        for (size_t i = 0; i < pts.size(); i += 2)
+        {
+            col._path.emplace_back(pts[i].get(0), pts[i + 1].get(0));
+        }
+        return true;
+    }
+
+    bool Path::save(ArchiveParams& ar)
+    {
+        auto&    col = ar.reg.get<Path>(ar.entity);
+        msg::Var pts;
+        for (auto p : col._path)
+        {
+            pts.push_back(p.x);
+            pts.push_back(p.y);
+        }
+        ar.data.set_item("p", pts);
+        return true;
+    }
+
+    bool Path::edit(Entity self)
+    {
+        return false;
+    }
+
+} // namespace fin::ecs

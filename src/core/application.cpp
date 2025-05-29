@@ -320,10 +320,7 @@ namespace fin
             {
                 // Fixed Update
                 //--------------------------------------------------------------------------
-
-                _time_counter += _fixed_time_step; // We count time (seconds)
-
-                _time_counter += _fixed_time_step;
+                _map.fixed_update(_fixed_time_step);
                 _time_accumulator -= _fixed_time_step;
             }
 

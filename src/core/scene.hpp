@@ -51,8 +51,11 @@ namespace fin
         Vec2f         get_camera_center() const;
         const Camera& get_camera() const;
 
+        void              init();
+        void              deinit();
         void              render(Renderer& dc);
         void              update(float dt);
+        void              fixed_update(float dt);
         void              clear();
         RenderTexture2D&  canvas();
         ComponentFactory& factory();

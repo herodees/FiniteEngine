@@ -32,6 +32,29 @@ namespace fin::ecs
 
 
 
+    struct Body : Component<Body, "bdy", "Body">
+    {
+        Vec2f       _previous_position;
+        Vec2f       _speed{};
+
+        static bool load(ArchiveParams& ar);
+        static bool save(ArchiveParams& ar);
+        static bool edit(Entity self);
+    };
+
+
+
+    struct Path : Component<Path, "pth", "Path">
+    {
+        std::vector<Vec2i> _path;
+
+        static bool load(ArchiveParams& ar);
+        static bool save(ArchiveParams& ar);
+        static bool edit(Entity self);
+    };
+
+
+
     struct Isometric : Component<Isometric, "iso", "Isometric">
     {
         Vec2f _a;

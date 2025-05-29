@@ -18,6 +18,7 @@ namespace fin
 
     Navmesh::~Navmesh()
     {
+        UnloadTexture(debug);
     }
 
     void Navmesh::resize(float worldWidth, float worldHeight, int gridCellWidth, int gridCellHeight)
@@ -27,7 +28,6 @@ namespace fin
         cellsize.x = static_cast<int>(std::ceil(worldWidth / cell.x));
         cellsize.y = static_cast<int>(std::ceil(worldHeight / cell.y));
         terrain.resize(cellsize.x * cellsize.y);
-        nodes.resize(cellsize.x * cellsize.y);
         changed = true;
     }
 
@@ -80,17 +80,127 @@ namespace fin
         return base;
     }
 
-    void Navmesh::reconstructPath(Node& endNode, std::vector<Vec2i>& outPath) const
+    void Navmesh::reconstructPath(const Vec2i&                           endPos,
+                                  const std::unordered_map<Vec2i, Node>& nodes,
+                                  std::vector<Vec2i>&                    outPath) const
     {
         outPath.clear();
-        Node* curr = &endNode;
-        while (!(curr->x == curr->parentX && curr->y == curr->parentY))
+        Vec2i currentPos = endPos;
+
+        while (true)
         {
-            outPath.push_back({curr->x, curr->y});
-            curr = &nodes[curr->parentY * cellsize.x + curr->parentX];
+            outPath.push_back(currentPos);
+            const Node& node = nodes.at(currentPos);
+
+            if (node.parentX == -1 && node.parentY == -1)
+                break;
+
+            currentPos = {node.parentX, node.parentY};
         }
-        outPath.push_back({curr->x, curr->y});
+
         std::reverse(outPath.begin(), outPath.end());
+    }
+
+    void Navmesh::refinePath(std::vector<Vec2i>& path) const
+    {
+        if (path.size() < 3)
+            return; // nothing to refine
+
+        size_t writeIdx = 1; // position to write the next kept point
+
+        Vec2i lastDir = {path[1].x - path[0].x, path[1].y - path[0].y};
+        if (lastDir.x != 0)
+            lastDir.x /= std::abs(lastDir.x);
+        if (lastDir.y != 0)
+            lastDir.y /= std::abs(lastDir.y);
+
+        for (size_t i = 2; i < path.size(); ++i)
+        {
+            Vec2i dir = {path[i].x - path[i - 1].x, path[i].y - path[i - 1].y};
+            if (dir.x != 0)
+                dir.x /= std::abs(dir.x);
+            if (dir.y != 0)
+                dir.y /= std::abs(dir.y);
+
+            if (dir.x != lastDir.x || dir.y != lastDir.y)
+            {
+                path[writeIdx++] = path[i - 1]; // keep last turning point
+                lastDir          = dir;
+            }
+        }
+
+        // Always keep the last point (goal)
+        path[writeIdx++] = path.back();
+
+        // Resize to remove trimmed points
+        path.resize(writeIdx);
+    }
+
+    void Navmesh::raycastOptimize(std::vector<Vec2i>& path) const
+    {
+        if (path.size() < 3)
+            return;
+
+        std::vector<Vec2i> optimized;
+        optimized.push_back(path.front());
+
+        size_t startIdx = 0;
+        size_t nextIdx  = 1;
+
+        while (nextIdx < path.size())
+        {
+            // Try to extend line of sight as far as possible
+            size_t farthest = nextIdx;
+            for (size_t i = nextIdx + 1; i < path.size(); ++i)
+            {
+                if (!lineOfSight(path[startIdx], path[i]))
+                    break;
+                farthest = i;
+            }
+
+            optimized.push_back(path[farthest]);
+            startIdx = farthest;
+            nextIdx  = startIdx + 1;
+        }
+
+        path = std::move(optimized);
+    }
+    // Returns true if the line from 'start' to 'end' is walkable (no obstacles)
+    bool Navmesh::lineOfSight(const Vec2i& start, const Vec2i& end) const
+    {
+        int x0 = start.x, y0 = start.y;
+        int x1 = end.x, y1 = end.y;
+
+        int dx = std::abs(x1 - x0);
+        int dy = std::abs(y1 - y0);
+
+        int sx = (x0 < x1) ? 1 : -1;
+        int sy = (y0 < y1) ? 1 : -1;
+
+        int err = dx - dy;
+
+        while (true)
+        {
+            if (!isWalkable(x0, y0))
+                return false;
+
+            if (x0 == x1 && y0 == y1)
+                break;
+
+            int e2 = 2 * err;
+            if (e2 > -dy)
+            {
+                err -= dy;
+                x0 += sx;
+            }
+            if (e2 < dx)
+            {
+                err += dx;
+                y0 += sy;
+            }
+        }
+
+        return true;
     }
 
     bool Navmesh::findPath(Vec2i start, Vec2i end, std::vector<Vec2i>& outPath) const
@@ -98,54 +208,68 @@ namespace fin
         static constexpr int dx[8] = {-1, 1, 0, 0, -1, -1, 1, 1};
         static constexpr int dy[8] = {0, 0, -1, 1, -1, 1, -1, 1};
 
-        for (auto& n : nodes)
-            n = Node();
+        if (start == end)
+        {
+            outPath = {start};
+            return true;
+        }
 
-        auto  idx       = [&](int x, int y) { return y * cellsize.x + x; };
-        auto& startNode = nodes[idx(start.x, start.y)];
+        auto dist = start.distance_squared(end);
+        if (dist < 10000 && lineOfSight(start, end))
+        {
+            outPath = {start, end};
+            return true;
+        }
+
+        std::unordered_map<Vec2i, Node> nodes;
+
+        auto& startNode = nodes[start];
         startNode.x     = start.x;
         startNode.y     = start.y;
         startNode.gCost = 0;
         startNode.fCost = heuristic(start, end);
         startNode.open  = true;
 
-        auto cmp = [&](int a, int b) { return nodes[a].fCost > nodes[b].fCost; };
-        std::priority_queue<int, std::vector<int>, decltype(cmp)> open(cmp);
-        open.push(idx(start.x, start.y));
+        auto cmp = [&](const Vec2i& a, const Vec2i& b) { return nodes[a].fCost > nodes[b].fCost; };
 
-        int   bestIdx  = -1;
+        using PQ = std::priority_queue<Vec2i, std::vector<Vec2i>, decltype(cmp)>;
+        PQ open(cmp);
+        open.push(start);
+
+        Vec2i best     = {-1, -1};
         float bestDist = std::numeric_limits<float>::max();
 
         while (!open.empty())
         {
-            int currentIdx = open.top();
+            Vec2i currentPos = open.top();
             open.pop();
-            Node& current  = nodes[currentIdx];
+            Node& current  = nodes[currentPos];
             current.closed = true;
 
-            float distToGoal = heuristic({current.x, current.y}, end);
+            float distToGoal = heuristic(currentPos, end);
             if (distToGoal < bestDist)
             {
                 bestDist = distToGoal;
-                bestIdx  = currentIdx;
+                best     = currentPos;
             }
 
-            if (current.x == end.x && current.y == end.y)
+            if (currentPos == end)
             {
-                reconstructPath(current, outPath);
+                reconstructPath(current, nodes, outPath);
+                refinePath(outPath);
                 return true;
             }
 
             for (int d = 0; d < 8; ++d)
             {
-                int nx = current.x + dx[d];
-                int ny = current.y + dy[d];
+                int   nx          = current.x + dx[d];
+                int   ny          = current.y + dy[d];
+                Vec2i neighborPos = {nx, ny};
 
                 if (!isWalkable(nx, ny))
                     continue;
 
-                int   ni       = idx(nx, ny);
-                Node& neighbor = nodes[ni];
+                Node& neighbor = nodes[neighborPos];
                 if (neighbor.closed)
                     continue;
 
@@ -155,21 +279,23 @@ namespace fin
                     neighbor.x       = nx;
                     neighbor.y       = ny;
                     neighbor.gCost   = moveCost;
-                    neighbor.fCost   = moveCost + heuristic({nx, ny}, end);
+                    neighbor.fCost   = moveCost + heuristic(neighborPos, end);
                     neighbor.parentX = current.x;
                     neighbor.parentY = current.y;
+
                     if (!neighbor.open)
                     {
                         neighbor.open = true;
-                        open.push(ni);
+                        open.push(neighborPos);
                     }
                 }
             }
         }
 
-        if (bestIdx != -1)
+        if (best.x != -1 && best.y != -1)
         {
-            reconstructPath(nodes[bestIdx], outPath);
+            reconstructPath(nodes[best], nodes, outPath);
+            refinePath(outPath);
             return true;
         }
 
@@ -229,11 +355,10 @@ namespace fin
 
     void Navmesh::resetTerrain()
     {
-        terrain.clear();
-        terrain.resize(nodes.size());
+        std::fill(terrain.begin(), terrain.end(), 0);
     }
 
-    const Texture2D& Navmesh::getDebugTexture() const
+    const Texture& Navmesh::getDebugTexture() const
     {
         if (!changed)
             return debug;
@@ -260,7 +385,8 @@ namespace fin
             }
         }
 
-        debug.load_from_image(image);
+        UnloadTexture(debug);
+        debug = LoadTextureFromImage(image);
         UnloadImage(image);
         return debug;
     }

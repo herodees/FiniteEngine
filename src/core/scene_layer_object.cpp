@@ -450,7 +450,7 @@ namespace fin
             update_navmesh();
             auto& txt = _navmesh.getDebugTexture();
             ImGui::DrawTexture(canvas,
-                               (ImTextureID)txt.get_texture(),
+                               (ImTextureID)&txt,
                                {0, 0},
                                {(float)_navmesh.worldSize().x, (float)_navmesh.worldSize().y},
                                {0, 0},
@@ -601,6 +601,7 @@ namespace fin
     {
         if (!_dirty_navmesh)
             return;
+
         _dirty_navmesh = false;
         _navmesh.resize(_size.x, _size.y, _cell_size.x, _cell_size.y);
         _navmesh.resetTerrain();

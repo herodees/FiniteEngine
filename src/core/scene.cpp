@@ -145,10 +145,25 @@ namespace fin
 
         if (_mode == SceneMode::Play)
         {
-            for (auto* el : _layers)
-            {
-                el->update(dt);
-            }
+            std::for_each(_layers.begin(), _layers.end(), [dt](auto* lyr) { lyr->update(dt); });
+        }
+    }
+
+    void Scene::init()
+    {
+        std::for_each(_layers.begin(), _layers.end(), [](auto* lyr) { lyr->init(); });
+    }
+
+    void Scene::deinit()
+    {
+        std::for_each(_layers.rbegin(), _layers.rend(), [](auto* lyr) { lyr->deinit(); });
+    }
+
+    void Scene::fixed_update(float dt)
+    {
+        if (_mode == SceneMode::Play)
+        {
+            std::for_each(_layers.begin(), _layers.end(), [dt](auto* lyr) { lyr->fixed_update(dt); });
         }
     }
 

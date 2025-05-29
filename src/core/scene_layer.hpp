@@ -59,6 +59,7 @@ namespace fin
         virtual void deinit();
         virtual void activate(const Rectf& region);
         virtual void update(float dt);
+        virtual void fixed_update(float dt);
         virtual void render(Renderer& dc);
         virtual void imgui_update(bool items);
         virtual void imgui_setup();
