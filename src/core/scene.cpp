@@ -329,7 +329,7 @@ namespace fin
         { // Get main viewport
             ImGuiViewport* viewport = ImGui::GetMainViewport();
             ImVec2         center   = viewport->GetCenter();
-            ImVec2         win_size(400, 350);
+            ImVec2         win_size(800, 600);
             ImVec2         win_pos = ImVec2(center.x - win_size.x * 0.5f, center.y - win_size.y * 0.5f);
             ImGui::SetNextWindowPos(win_pos, ImGuiCond_Appearing);
             ImGui::SetNextWindowSize(win_size, ImGuiCond_Appearing);
@@ -379,7 +379,11 @@ namespace fin
 
     void Scene::imgui_scene()
     {
-        if (ImGui::BeginChildFrame(ImGui::GetID("lyrssl"), {-1, 100}, 0))
+        ImVec2 full_size    = ImGui::GetContentRegionAvail();
+        float  total_height = full_size.y;
+        static float top_size     = 100.0f;
+
+        if (ImGui::BeginChildFrame(ImGui::GetID("lyrssl"), {-1, top_size}, 0))
         {
             int n = 0;
             for (auto* ly : _layers)
@@ -410,6 +414,9 @@ namespace fin
             }
         }
         ImGui::EndChildFrame();
+
+        // Splitter drag
+        ImGui::DragSplitter(ImGui::ImGuiDragSplitterAxis_Y, &top_size, 50.0f, total_height);
 
         if (auto* lyr = active_layer())
         {
@@ -478,182 +485,237 @@ namespace fin
 
     void Scene::imgui_props_setup()
     {
-        static int s_val[2]{};
-
-        if (ImGui::CollapsingHeader("Size", ImGuiTreeNodeFlags_DefaultOpen))
+        enum
         {
-            if (ImGui::Button(ICON_FA_ARROWS_UP_DOWN_LEFT_RIGHT " Resize..."))
-            {
-                ImGui::OpenPopup("Resize");
-                s_val[0] = _size.x;
-                s_val[1] = _size.y;
-            }
-            if (ImGui::BeginPopupModal("Resize", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-            {
-                ImGui::Text("Set new scene size!");
-                ImGui::InputInt2("Size", s_val);
-
-                ImGui::Separator();
-
-                if (ImGui::Button("OK", ImVec2(120, 0)))
-                {
-                    set_size(Vec2f(s_val[0], s_val[1]));
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::SetItemDefaultFocus();
-                ImGui::SameLine();
-                if (ImGui::Button("Cancel", ImVec2(120, 0)))
-                {
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::EndPopup();
-            }
-            ImGui::SameLine();
-            ImGui::Text("Size: %.0fpx x %.0fpx", _size.x, _size.y);
+            PropertyUndefined= -1,
+            PropertyBasic = 0,
+            PropertyLayout,
+            PropertySystem,
+        };
+        static int   selected = PropertyUndefined;
+        static Vec2i new_size;
+        if (selected == PropertyUndefined)
+        {
+            new_size = _size;
+            selected = PropertyBasic;
         }
 
-        if (ImGui::CollapsingHeader("Background", ImGuiTreeNodeFlags_DefaultOpen))
+        // Left
+
+        if (ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX))
         {
-            float clr[4] = {_background.r / 255.f, _background.g / 255.f, _background.b / 255.f, _background.a / 255.f};
-            if (ImGui::ColorEdit4("Color", clr, ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_PickerHueWheel))
-            {
-                _background.r = clr[0] * 255;
-                _background.g = clr[1] * 255;
-                _background.b = clr[2] * 255;
-                _background.a = clr[3] * 255;
-            }
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 20)); // Wider/taller padding
+            ImGui::Dummy({1,1});
+            if (ImGui::Selectable(ICON_FA_GEAR " Basic", selected == PropertyBasic))
+                selected = PropertyBasic;
+
+            if (ImGui::Selectable(ICON_FA_LAYER_GROUP " Layout", selected == PropertyLayout))
+                selected = PropertyLayout;
+
+            if (ImGui::Selectable(ICON_FA_GEARS " System", selected == PropertySystem))
+                selected = PropertySystem;
+            ImGui::PopStyleVar();
         }
+        ImGui::EndChild();
 
-        if (ImGui::BeginTabBar("##tabs", ImGuiTabBarFlags_None))
+
+        ImGui::SameLine();
+
+        // Right
+        if (ImGui::BeginChild("item view", ImVec2(0, 0), ImGuiChildFlags_None)) // Leave room for 1 line below us
         {
-            if (ImGui::BeginTabItem("Layers"))
+            auto show_header = [](const char* label, const char* desc)
+                {
+                ImGui::NewLine();
+                ImGui::SetWindowFontScale(1.3f); // Only affects current window
+                ImGui::Text(label);
+                ImGui::SetWindowFontScale(1.0f);
+                ImGui::NewLine();
+                ImGui::TextWrapped(desc);
+                ImGui::NewLine();
+                };
+
+            if (selected == PropertyBasic)
             {
-                if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
-                        .PushStyle(ImStyle_Button, 1)
-                        .Text(ICON_FA_LAPTOP " Add ")
-                        .PopStyle()
-                        .PushStyle(ImStyle_Button, 2)
-                        .Text(ICON_FA_ARROW_UP)
-                        .PopStyle()
-                        .PushStyle(ImStyle_Button, 3)
-                        .Text(ICON_FA_ARROW_DOWN)
-                        .PopStyle()
-                        .Spring()
-                        .PushStyle(ImStyle_Button, 4)
-                        .Text(ICON_FA_BAN)
-                        .PopStyle()
-                        .End())
-                {
-                    if (ImGui::Line().HoverId() == 1)
-                    {
-                        ImGui::OpenPopup("LayerMenu");
-                    }
+                show_header("Basic Settings",
+                            "Scene size will resize all layers without destroying objects. Background color sets the "
+                            "scene background.");
 
-                    if (ImGui::Line().HoverId() == 2)
+                Vec2i old_size(_size);
+                ImGui::InputInt2("Size", &new_size.x);
+                if (old_size != new_size)
+                {
+                    ImGui::SameLine();
+                    if (ImGui::Button(ICON_FA_ROTATE_LEFT " Revert"))
+                        selected = PropertyUndefined;
+                    ImGui::SameLine();
+                    if(ImGui::Button(ICON_FA_FLOPPY_DISK " Save"))
                     {
-                        _active_layer = move_layer(_active_layer, false);
-                    }
-                    if (ImGui::Line().HoverId() == 3)
-                    {
-                        _active_layer = move_layer(_active_layer, true);
-                    }
-                    if (ImGui::Line().HoverId() == 4 && active_layer())
-                    {
-                        delete_layer(_active_layer);
+                        set_size(new_size);
+                        selected = PropertyUndefined;
                     }
                 }
 
-                if (ImGui::BeginPopup("LayerMenu"))
+                float clr[4] = {_background.r / 255.f, _background.g / 255.f, _background.b / 255.f, _background.a / 255.f};
+                if (ImGui::ColorEdit4("Color", clr, ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_PickerHueWheel))
                 {
-                    if (ImGui::MenuItem(ICON_FA_IMAGE " Sprite layer"))
-                        add_layer(SceneLayer::create(LayerType::Sprite));
-                    if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Region layer"))
-                        add_layer(SceneLayer::create(LayerType::Region));
-                    if (ImGui::MenuItem(ICON_FA_BOX " Object layer"))
-                        add_layer(SceneLayer::create(LayerType::Object));
-                    ImGui::EndPopup();
+                    _background.r = clr[0] * 255;
+                    _background.g = clr[1] * 255;
+                    _background.b = clr[2] * 255;
+                    _background.a = clr[3] * 255;
                 }
+            }
+            else if (selected == PropertyLayout)
+            {
+                show_header("Layout Settings",
+                            "You can create and manage custom layers in the scene to control drawing and logic order. "
+                            "Layers can represent different types like regions, sprites, or object layers. "
+                            "Use this to organize your scene more efficiently and define how elements overlap.");
 
-                if (ImGui::BeginChildFrame(ImGui::GetID("lyrs"), {-1, -2*ImGui::GetFrameHeightWithSpacing()}))
+                if (ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX))
                 {
-                    int n = 0;
-                    for (auto* ly : _layers)
+                    if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
+                            .PushStyle(ImStyle_Button, 1)
+                            .Text(ICON_FA_LAPTOP " Add ")
+                            .PopStyle()
+                            .PushStyle(ImStyle_Button, 2)
+                            .Text(ICON_FA_ARROW_UP)
+                            .PopStyle()
+                            .PushStyle(ImStyle_Button, 3)
+                            .Text(ICON_FA_ARROW_DOWN)
+                            .PopStyle()
+                            .Spring()
+                            .PushStyle(ImStyle_Button, 4)
+                            .Text(ICON_FA_BAN)
+                            .PopStyle()
+                            .End())
                     {
-                        if (ImGui::LineSelect(ImGui::GetID(ly), _active_layer == n)
-                                .PushColor(ly->color())
-                                .Text(ly->icon())
-                                .Space()
-                                .Text(ly->name())
-                                .End())
+                        if (ImGui::Line().HoverId() == 1)
                         {
-                            _active_layer = n;
+                            ImGui::OpenPopup("LayerMenu");
                         }
-                        ++n;
+
+                        if (ImGui::Line().HoverId() == 2)
+                        {
+                            _active_layer = move_layer(_active_layer, false);
+                        }
+                        if (ImGui::Line().HoverId() == 3)
+                        {
+                            _active_layer = move_layer(_active_layer, true);
+                        }
+                        if (ImGui::Line().HoverId() == 4 && active_layer())
+                        {
+                            delete_layer(_active_layer);
+                        }
+                    }
+
+                    if (ImGui::BeginPopup("LayerMenu"))
+                    {
+                        if (ImGui::MenuItem(ICON_FA_IMAGE " Sprite layer"))
+                            _active_layer = add_layer(SceneLayer::create(LayerType::Sprite));
+                        if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Region layer"))
+                            _active_layer = add_layer(SceneLayer::create(LayerType::Region));
+                        if (ImGui::MenuItem(ICON_FA_BOX " Object layer"))
+                            _active_layer = add_layer(SceneLayer::create(LayerType::Object));
+                        ImGui::EndPopup();
+                    }
+
+                    if (ImGui::BeginChildFrame(ImGui::GetID("lyrs"), {-1, -1}))
+                    {
+                        int n = 0;
+                        for (auto* ly : _layers)
+                        {
+                            if (ImGui::LineSelect(ImGui::GetID(ly), _active_layer == n)
+                                    .PushColor(ly->color())
+                                    .Text(ly->icon())
+                                    .Space()
+                                    .Text(ly->name())
+                                    .End())
+                            {
+                                _active_layer = n;
+                            }
+                            ++n;
+                        }
+                    }
+                    ImGui::EndChildFrame();
+                }
+                ImGui::EndChild();
+                ImGui::SameLine();
+                if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_None))
+                {
+                    if (size_t(_active_layer) < _layers.size())
+                    {
+                        _layers[_active_layer]->imgui_setup();
                     }
                 }
-                ImGui::EndChildFrame();
-
-                if (size_t(_active_layer) < _layers.size())
-                {
-                    _layers[_active_layer]->imgui_setup();
-                }
-
-                ImGui::EndTabItem();
+                ImGui::EndChild();
             }
-
-            if (ImGui::BeginTabItem("Systems"))
+            else if (selected == PropertySystem)
             {
-                if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
-                        .PushStyle(ImStyle_Button, 1)
-                        .Text(ICON_FA_LAPTOP " Add ")
-                        .PopStyle()
-                        .PushStyle(ImStyle_Button, 2)
-                        .Text(ICON_FA_ARROW_UP)
-                        .PopStyle()
-                        .PushStyle(ImStyle_Button, 3)
-                        .Text(ICON_FA_ARROW_DOWN)
-                        .PopStyle()
-                        .Spring()
-                        .PushStyle(ImStyle_Button, 4)
-                        .Text(ICON_FA_BAN)
-                        .PopStyle()
-                        .End())
+                show_header("System Settings",
+                            "Manage all active systems in the scene. Systems define logic and behavior using the ECS "
+                            "(Entity-Component-System) model.\n"
+                            "You can add, remove, or reorder systems to control how your scene updates and reacts.");
+
+                if (ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX))
                 {
-                    if (ImGui::Line().HoverId() == 1)
+                    if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
+                            .PushStyle(ImStyle_Button, 1)
+                            .Text(ICON_FA_LAPTOP " Add ")
+                            .PopStyle()
+                            .PushStyle(ImStyle_Button, 2)
+                            .Text(ICON_FA_ARROW_UP)
+                            .PopStyle()
+                            .PushStyle(ImStyle_Button, 3)
+                            .Text(ICON_FA_ARROW_DOWN)
+                            .PopStyle()
+                            .Spring()
+                            .PushStyle(ImStyle_Button, 4)
+                            .Text(ICON_FA_BAN)
+                            .PopStyle()
+                            .End())
                     {
-                        ImGui::OpenPopup("SystemMenu");
+                        if (ImGui::Line().HoverId() == 1)
+                        {
+                            ImGui::OpenPopup("SystemMenu");
+                        }
+
+                        if (ImGui::Line().HoverId() == 2)
+                        {
+                            _active_system = _systems.move_system(_active_system, false);
+                        }
+                        if (ImGui::Line().HoverId() == 3)
+                        {
+                            _active_system = _systems.move_system(_active_system, true);
+                        }
+                        if (ImGui::Line().HoverId() == 4 && active_layer())
+                        {
+                            delete_layer(_active_system);
+                        }
                     }
 
-                    if (ImGui::Line().HoverId() == 2)
+                    if (ImGui::BeginPopup("SystemMenu"))
                     {
-                        _active_system = _systems.move_system(_active_system, false);
+                        _active_system = _systems.imgui_menu();
+                        ImGui::EndPopup();
                     }
-                    if (ImGui::Line().HoverId() == 3)
-                    {
-                        _active_system = _systems.move_system(_active_system, true);
-                    }
-                    if (ImGui::Line().HoverId() == 4 && active_layer())
-                    {
-                        delete_layer(_active_system);
-                    }
-                }
 
-                if (ImGui::BeginPopup("SystemMenu"))
-                {
-                    _active_system = _systems.imgui_menu();
-                    ImGui::EndPopup();
+                    if (ImGui::BeginChildFrame(ImGui::GetID("sysi"), {-1, -1}))
+                    {
+                        _systems.imgui_systems(&_active_system);
+                    }
+                    ImGui::EndChildFrame();
                 }
-
-                if (ImGui::BeginChildFrame(ImGui::GetID("sysi"), {-1, -1}))
+                ImGui::EndChild();
+                ImGui::SameLine();
+                if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_None))
                 {
-                    _systems.imgui_systems(&_active_system);
+                  
                 }
-                ImGui::EndChildFrame();
-                ImGui::EndTabItem();
-            }
-            ImGui::EndTabBar();
+                ImGui::EndChild();
+             }
         }
-
+        ImGui::EndChild();
 
     }
 

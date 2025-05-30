@@ -131,8 +131,8 @@ namespace fin
     {
         _argv = decltype(_argv)(argv, argv + argc);
 
-        const int screenWidth  = 1280;
-        const int screenHeight = 720;
+        const int screenWidth  = 1920;
+        const int screenHeight = 1080;
 
 #if defined(PLATFORM_DESKTOP) && defined(GRAPHICS_API_OPENGL_ES3)
 #if defined(__APPLE__)
@@ -279,7 +279,7 @@ namespace fin
             _map.imgui_setup();
             _map.imgui_props();
             _map.imgui_work();
-        //    ImGui::ShowDemoWindow();
+            //ImGui::ShowDemoWindow();
         }
 
         ImGui::End();

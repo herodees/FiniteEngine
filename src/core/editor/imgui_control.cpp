@@ -75,6 +75,52 @@ namespace ImGui
             ImGui::SetScrollY(window, window->Scroll.y + aDeltaMult.y * im_io.MouseDelta.y);
     }
 
+    bool DragSplitter(ImGuiDragSplitterAxis axis, float* size, float min_size, float total_size, float thickness)
+    {
+        ImVec2 cursor_pos    = ImGui::GetCursorScreenPos();
+        ImVec2 splitter_size = (axis == ImGuiDragSplitterAxis_X) ? ImVec2(thickness, total_size)
+                                                                 : ImVec2(total_size, thickness);
+
+        ImGuiID id = ImGui::GetID("##Splitter");
+        ImRect  bb(cursor_pos, cursor_pos + splitter_size);
+
+
+        ImGui::ItemAdd(bb, id);
+        ImGui::ButtonBehavior(bb, id, nullptr, nullptr);
+
+        bool active = ImGui::IsItemActive();
+        if (active)
+        {
+            float delta = (axis == ImGuiDragSplitterAxis_X) ? ImGui::GetIO().MouseDelta.x : ImGui::GetIO().MouseDelta.y;
+
+            *size += delta;
+            *size = ImClamp(*size, min_size, total_size - min_size);
+
+        }
+        bool hovered = ImGui::IsItemHovered();
+        if (hovered)
+        {
+            ImGui::SetMouseCursor(axis == ImGuiDragSplitterAxis_X ? ImGuiMouseCursor_ResizeEW : ImGuiMouseCursor_ResizeNS);
+        }
+
+        {
+            // Visual 
+            ImU32 col     = ImGui::GetColorU32(active    ? ImGuiCol_SeparatorActive
+                                           : hovered ? ImGuiCol_SeparatorHovered
+                                                     : ImGuiCol_Separator);
+            thickness = ImGui::GetStyle().DockingSeparatorSize;
+            splitter_size = (axis == ImGuiDragSplitterAxis_X) ? ImVec2(thickness, total_size) : ImVec2(total_size, thickness);
+            bb.Max = bb.Min + splitter_size;
+            ImGui::GetWindowDrawList()->AddRectFilled(bb.Min, bb.Max, col);
+        }
+
+        if (axis == ImGuiDragSplitterAxis_Y)
+            ImGui::SetCursorScreenPos({cursor_pos.x, cursor_pos.y + thickness});
+        else
+            ImGui::SetCursorScreenPos({cursor_pos.x + thickness, cursor_pos.y});
+
+        return active;
+    }
 
 
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack)
