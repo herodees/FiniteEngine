@@ -1,1 +1,1 @@
-{"version":1,"width":10000,"height":10000,"background":[0,0,0,255],"layers":[{"type":"obj","name":"ObjectLayer","hidden":false,"items":[]}]}
+{"version":1,"width":10000,"height":10000,"background":[0,0,0,255],"layers":[{"type":"obj","name":"ObjectLayer","hidden":false,"items":[{"$id":1048590,"$uid":114585050569310208,"$cls":{"_":{"x":464.39948,"y":259.3821}}},{"$id":5242893,"$uid":114585050569310208,"$cls":{"_":{"x":207.15121,"y":395.18826}}}],"cw":16,"ch":8}]}

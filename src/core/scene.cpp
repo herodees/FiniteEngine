@@ -260,6 +260,7 @@ namespace fin
         std::string str;
         doc.to_string(str);
         SaveFileData(p.c_str(), str.data(), str.size());
+        _factory.save();
     }
 
     void Scene::set_mode(SceneMode st)
@@ -379,11 +380,9 @@ namespace fin
 
     void Scene::imgui_scene()
     {
-        ImVec2 full_size    = ImGui::GetContentRegionAvail();
-        float  total_height = full_size.y;
-        static float top_size     = 100.0f;
-
-        if (ImGui::BeginChildFrame(ImGui::GetID("lyrssl"), {-1, top_size}, 0))
+        if (ImGui::BeginChild(ImGui::GetID("lyrssl"),
+                              {-1, 100},
+                              ImGuiChildFlags_FrameStyle | ImGuiChildFlags_ResizeY))
         {
             int n = 0;
             for (auto* ly : _layers)
@@ -413,10 +412,7 @@ namespace fin
                 ++n;
             }
         }
-        ImGui::EndChildFrame();
-
-        // Splitter drag
-        ImGui::DragSplitter(ImGui::ImGuiDragSplitterAxis_Y, &top_size, 50.0f, total_height);
+        ImGui::EndChild();
 
         if (auto* lyr = active_layer())
         {
@@ -502,17 +498,20 @@ namespace fin
 
         // Left
 
-        if (ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX))
+        if (ImGui::BeginChild("left pane",
+                              ImVec2(140, 0),
+                              ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX,
+                              ImGuiWindowFlags_NoBackground))
         {
-            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 20)); // Wider/taller padding
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 15)); // Wider/taller padding
             ImGui::Dummy({1,1});
-            if (ImGui::Selectable(ICON_FA_GEAR " Basic", selected == PropertyBasic))
+            if (ImGui::Selectable( " " ICON_FA_GEAR " Basic", selected == PropertyBasic))
                 selected = PropertyBasic;
 
-            if (ImGui::Selectable(ICON_FA_LAYER_GROUP " Layout", selected == PropertyLayout))
+            if (ImGui::Selectable(" " ICON_FA_LAYER_GROUP " Layout", selected == PropertyLayout))
                 selected = PropertyLayout;
 
-            if (ImGui::Selectable(ICON_FA_GEARS " System", selected == PropertySystem))
+            if (ImGui::Selectable(" " ICON_FA_GEARS " System", selected == PropertySystem))
                 selected = PropertySystem;
             ImGui::PopStyleVar();
         }
@@ -522,7 +521,7 @@ namespace fin
         ImGui::SameLine();
 
         // Right
-        if (ImGui::BeginChild("item view", ImVec2(0, 0), ImGuiChildFlags_None)) // Leave room for 1 line below us
+        if (ImGui::BeginChild("item view", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground)) // Leave room for 1 line below us
         {
             auto show_header = [](const char* label, const char* desc)
                 {
@@ -572,7 +571,10 @@ namespace fin
                             "Layers can represent different types like regions, sprites, or object layers. "
                             "Use this to organize your scene more efficiently and define how elements overlap.");
 
-                if (ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX))
+                if (ImGui::BeginChild("left pane",
+                                      ImVec2(250, 0),
+                                      ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX,
+                                      ImGuiWindowFlags_NoBackground))
                 {
                     if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
                             .PushStyle(ImStyle_Button, 1)
@@ -641,7 +643,7 @@ namespace fin
                 }
                 ImGui::EndChild();
                 ImGui::SameLine();
-                if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_None))
+                if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_FrameStyle, ImGuiWindowFlags_NoBackground))
                 {
                     if (size_t(_active_layer) < _layers.size())
                     {
@@ -657,7 +659,10 @@ namespace fin
                             "(Entity-Component-System) model.\n"
                             "You can add, remove, or reorder systems to control how your scene updates and reacts.");
 
-                if (ImGui::BeginChild("left pane", ImVec2(250, 0), ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX))
+                if (ImGui::BeginChild("left pane",
+                                      ImVec2(250, 0),
+                                      ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX,
+                                      ImGuiWindowFlags_NoBackground))
                 {
                     if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
                             .PushStyle(ImStyle_Button, 1)
@@ -708,10 +713,14 @@ namespace fin
                 }
                 ImGui::EndChild();
                 ImGui::SameLine();
-                if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_None))
+                if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground))
                 {
-                  
+                    if (_systems.is_valid(_active_system))
+                    {
+                        _systems.get_system(_active_system)->imgui_setup();
+                    }
                 }
+                
                 ImGui::EndChild();
              }
         }

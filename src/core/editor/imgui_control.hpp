@@ -15,13 +15,6 @@ namespace ImGui
     bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit = false);
     void SpriteImage(fin::Atlas::Sprite* spr, ImVec2 size);
 
-    enum ImGuiDragSplitterAxis
-    {
-        ImGuiDragSplitterAxis_X,
-        ImGuiDragSplitterAxis_Y
-    };
-    bool DragSplitter(ImGuiDragSplitterAxis axis, float* size, float min_size, float total_size, float thickness = 6.f);
-    
     struct CanvasParams
     {
         ImVec2 origin   = ImVec2(0, 0); // pan offset

@@ -34,6 +34,7 @@ namespace fin
         virtual void     on_stop_runing() {};
         virtual void     update(float dt) {};
         virtual void     fixed_update(float dt) {};
+        virtual bool     imgui_setup();
 
     private:
         Scene&      _scene;
@@ -66,6 +67,7 @@ namespace fin
         int32_t move_system(int32_t sid, bool up);
         System* get_system(int32_t sid);
         int32_t find_system(std::string_view name) const;
+        bool    is_valid(int32_t sid) const;
         void    on_start_runing();
         void    on_stop_runing();
         void    update(float dt);

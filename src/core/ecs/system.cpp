@@ -27,6 +27,11 @@ namespace fin
         return !(_flags & SystemFlags_Disabled);
     }
 
+    bool System::imgui_setup()
+    {
+        return false;
+    }
+
     SystemManager::SystemManager(Scene& scene) : _scene(scene)
     {
     }
@@ -106,6 +111,11 @@ namespace fin
         return -1;
     }
 
+    bool SystemManager::is_valid(int32_t sid) const
+    {
+        return (sid >= 0 && size_t(sid) < _systems.size() && _systems[sid] != nullptr);
+    }
+
     void SystemManager::on_start_runing()
     {
         std::for_each(_systems.begin(), _systems.end(), [](System* system) { system->on_start_runing(); });
@@ -143,7 +153,7 @@ namespace fin
         int32_t idx = -1;
         for (auto it : _system_map)
         {
-            if (ImGui::MenuItem(it.second.label.data(), nullptr, false, true))
+            if (ImGui::MenuItem(it.second.label.data()))
             {
                 idx = add_system(it.first);
             }
