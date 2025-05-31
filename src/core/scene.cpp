@@ -3,6 +3,7 @@
 #include "utils/imguiline.hpp"
 #include "editor/imgui_control.hpp"
 #include "ecs/base.hpp"
+#include "ecs/core.hpp"
 
 namespace fin
 {
@@ -22,6 +23,8 @@ namespace fin
         _factory.set_root(std::string(root));
         ecs::register_base_components(_factory);
         _factory.load();
+        ecs::register_core_systems(_systems);
+        _systems.add_defaults();
 
         ecs::Base::storage().on_update().connect<&Scene::on_new_position>(this);
         ecs::Base::storage().on_destroy().connect<&Scene::on_destroy_position>(this);
@@ -145,6 +148,7 @@ namespace fin
 
         if (_mode == SceneMode::Play)
         {
+            _systems.update(dt);
             std::for_each(_layers.begin(), _layers.end(), [dt](auto* lyr) { lyr->update(dt); });
         }
     }
@@ -152,10 +156,12 @@ namespace fin
     void Scene::init()
     {
         std::for_each(_layers.begin(), _layers.end(), [](auto* lyr) { lyr->init(); });
+        _systems.on_start_runing();
     }
 
     void Scene::deinit()
     {
+        _systems.on_stop_runing();
         std::for_each(_layers.rbegin(), _layers.rend(), [](auto* lyr) { lyr->deinit(); });
     }
 
@@ -163,6 +169,7 @@ namespace fin
     {
         if (_mode == SceneMode::Play)
         {
+            _systems.fixed_update(dt);
             std::for_each(_layers.begin(), _layers.end(), [dt](auto* lyr) { lyr->fixed_update(dt); });
         }
     }
@@ -188,6 +195,11 @@ namespace fin
     SystemManager& Scene::systems()
     {
         return _systems;
+    }
+
+    ScriptFactory& Scene::scripts()
+    {
+        return _scripts;
     }
 
     void Scene::serialize(msg::Var& ar)
@@ -500,8 +512,8 @@ namespace fin
 
         if (ImGui::BeginChild("left pane",
                               ImVec2(140, 0),
-                              ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX,
-                              ImGuiWindowFlags_NoBackground))
+                              ImGuiChildFlags_FrameStyle | ImGuiChildFlags_ResizeX,
+                              0))
         {
             ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 15)); // Wider/taller padding
             ImGui::Dummy({1,1});
@@ -521,7 +533,10 @@ namespace fin
         ImGui::SameLine();
 
         // Right
-        if (ImGui::BeginChild("item view", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground)) // Leave room for 1 line below us
+        if (ImGui::BeginChild("item view",
+                              ImVec2(0, 0),
+                              ImGuiChildFlags_AlwaysUseWindowPadding,
+                              ImGuiWindowFlags_NoBackground)) // Leave room for 1 line below us
         {
             auto show_header = [](const char* label, const char* desc)
                 {
@@ -878,6 +893,11 @@ namespace fin
                 return ly;
         }
         return nullptr;
+    }
+
+    std::span<SceneLayer*> Scene::layers()
+    {
+        return std::span<SceneLayer*>(_layers);
     }
 
 

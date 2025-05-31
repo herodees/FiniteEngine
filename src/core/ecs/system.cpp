@@ -22,6 +22,11 @@ namespace fin
         return _info->name;
     }
 
+    SystemInfo* System::info() const
+    {
+        return _info;
+    }
+
     bool System::should_run_system() const
     {
         return !(_flags & SystemFlags_Disabled);
@@ -39,6 +44,20 @@ namespace fin
     SystemManager::~SystemManager()
     {
         std::for_each(_systems.begin(), _systems.end(), [](System* system) { delete system; });
+    }
+
+    void SystemManager::add_defaults()
+    {
+        for (auto& it : _system_map)
+        {
+            if (!(it.second.flags & SystemFlags_Extra))
+            {
+                auto* sys = it.second.create(_scene, &it.second);
+                sys->_index = int32_t(_systems.size());
+                _systems.emplace_back(sys);
+                sys->on_create();
+            }
+        }
     }
 
     int32_t SystemManager::add_system(std::string_view id)
@@ -167,7 +186,7 @@ namespace fin
         for (size_t i = 0; i < _systems.size(); ++i)
         {
             auto* sys = _systems[i];
-            if (ImGui::Selectable(sys->name().data(), sys->_index == *active))
+            if (ImGui::Selectable(sys->info()->label.data(), sys->_index == *active))
             {
                 *active = sys->_index;
                 ret  = true;

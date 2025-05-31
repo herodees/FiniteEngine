@@ -126,6 +126,10 @@ namespace fin
         void   imgui_workspace_menu() override;
         void   imgui_setup() override;
         void   imgui_update(bool items) override;
+        Entity get_active(size_t n);
+        size_t get_active_count() const;
+        Navmesh& get_navmesh() { return _navmesh; }
+        const Navmesh& get_navmesh() const { return _navmesh; }
 
     protected:
         void update_navmesh();

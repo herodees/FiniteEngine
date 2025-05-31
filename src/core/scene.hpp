@@ -2,6 +2,7 @@
 
 #include "ecs/component.hpp"
 #include "ecs/system.hpp"
+#include "ecs/behavior.hpp"
 #include "include.hpp"
 #include "path_finder.h"
 #include "renderer.hpp"
@@ -44,6 +45,7 @@ namespace fin
         SceneLayer* active_layer();
         SceneLayer* find_layer(std::string_view name) const;
 
+
         void          activate_grid(const Recti& screen);
         Vec2i         get_active_size() const;
         Vec2i         get_scene_size() const;
@@ -52,15 +54,17 @@ namespace fin
         Vec2f         get_camera_center() const;
         const Camera& get_camera() const;
 
-        void              init();
-        void              deinit();
-        void              render(Renderer& dc);
-        void              update(float dt);
-        void              fixed_update(float dt);
-        void              clear();
-        RenderTexture2D&  canvas();
-        ComponentFactory& factory();
-        SystemManager&    systems();
+        void                   init();
+        void                   deinit();
+        void                   render(Renderer& dc);
+        void                   update(float dt);
+        void                   fixed_update(float dt);
+        void                   clear();
+        RenderTexture2D&       canvas();
+        ComponentFactory&      factory();
+        SystemManager&         systems();
+        ScriptFactory&         scripts();
+        std::span<SceneLayer*> layers();
 
         void serialize(msg::Var& ar);
         void deserialize(msg::Var& ar);
@@ -90,6 +94,7 @@ namespace fin
 
         ComponentFactory         _factory;
         SystemManager            _systems;
+        ScriptFactory            _scripts;
         std::vector<SceneLayer*> _layers;
         int32_t                  _active_layer{0};
         int32_t                  _active_system{0};

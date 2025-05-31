@@ -597,6 +597,16 @@ namespace fin
         }
     }
 
+    Entity ObjectSceneLayer::get_active(size_t n)
+    {
+        return _iso[n]->_ptr;
+    }
+
+    size_t ObjectSceneLayer::get_active_count() const
+    {
+        return _iso.size();
+    }
+
     void ObjectSceneLayer::update_navmesh()
     {
         if (!_dirty_navmesh)

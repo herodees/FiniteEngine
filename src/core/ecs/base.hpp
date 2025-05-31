@@ -1,6 +1,7 @@
 #pragma once
 
 #include "component.hpp"
+#include "behavior.hpp"
 #include "core/atlas.hpp"
 #include "utils/lquery.hpp"
 
@@ -121,6 +122,20 @@ namespace fin::ecs
     struct Prefab : Component<Prefab, "pfb", "Prefab">
     {
         msg::Var _data;
+
+        static bool load(ArchiveParams& ar);
+        static bool save(ArchiveParams& ar);
+    };
+
+
+    struct Script : Component<Script, "scr", "Script">
+    {
+        Script() = default;
+        ~Script();
+        IBehaviorScript* get_script(std::string_view name) const;
+        void             add_script(IBehaviorScript* scr);
+        void             remove_script(IBehaviorScript* scr);
+        IBehaviorScript* _script{};
 
         static bool load(ArchiveParams& ar);
         static bool save(ArchiveParams& ar);

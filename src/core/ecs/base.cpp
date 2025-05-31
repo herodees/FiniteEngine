@@ -402,4 +402,54 @@ namespace fin::ecs
         return false;
     }
 
+    Script::~Script()
+    {
+        auto* script = _script;
+        while (script)
+        {
+            auto* next = script->next;
+            delete script;
+            script = next;
+        }
+    }
+
+    IBehaviorScript* Script::get_script(std::string_view name) const
+    {
+        auto* script = _script;
+        while (script)
+        {
+            if (name == script->type_name)
+            {
+                return script;
+            }
+            script = script->next;
+        }
+        return nullptr;
+    }
+
+    void Script::add_script(IBehaviorScript* scr)
+    {
+        scr->next = _script;
+        _script = scr;
+    }
+
+    void Script::remove_script(IBehaviorScript* scr)
+    {
+        if (_script == scr)
+        {
+            _script = scr->next;
+            return;
+        }
+        auto* script = _script;
+        while (script && script->next)
+        {
+            if (script->next == scr)
+            {
+                script->next = scr->next;
+                return;
+            }
+            script = script->next;
+        }
+    }
+
 } // namespace fin::ecs

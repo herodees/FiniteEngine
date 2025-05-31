@@ -10,7 +10,7 @@ namespace fin
     enum SystemFlags_
     {
         SystemFlags_Default  = 0, // Default component flags
-        SystemFlags_Private  = 1 << 0,
+        SystemFlags_Extra    = 1 << 0,
         SystemFlags_Disabled = 1 << 1,
     };
 
@@ -27,6 +27,7 @@ namespace fin
         Registry&        registry();
         Scene&           scene();
         std::string_view name() const;
+        SystemInfo*      info() const;
         bool             should_run_system() const;
         virtual void     on_create() {};
         virtual void     on_destroy() {};
@@ -62,6 +63,7 @@ namespace fin
         template <typename C, std::string_literal ID, std::string_literal LABEL>
         void register_system(SystemFlags flags = SystemFlags_Default);
 
+        void    add_defaults();
         int32_t add_system(std::string_view id);
         void    delete_system(int32_t sid);
         int32_t move_system(int32_t sid, bool up);
@@ -86,16 +88,19 @@ namespace fin
     template <typename C, std::string_literal ID, std::string_literal LABEL>
     inline void SystemManager::register_system(SystemFlags flags)
     {
-        auto [it, inserted] = _system_map.try_emplace(ID, SystemInfo{});
+        static_assert(std::is_base_of_v<System, C>, "System must derive from ecs::System");
+
+        std::string id(ID.value);
+        auto [it, inserted] = _system_map.emplace(id, SystemInfo());
         if (inserted)
         {
-            it->second.name   = ID;
-            it->second.label  = LABEL;
+            it->second.name   = ID.value;
+            it->second.label  = LABEL.value;
             it->second.flags  = flags;
-            it->second.create = [flags](Scene& s, SystemInfo* i) -> System*
+            it->second.create = [](Scene& s, SystemInfo* i) -> System*
             {
                 auto* sys   = new C(s);
-                sys->_flags = flags;
+                sys->_flags = i->flags;
                 sys->_info  = i;
                 return sys;
             };
