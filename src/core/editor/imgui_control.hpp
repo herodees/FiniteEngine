@@ -1,13 +1,11 @@
 #pragma once
 
-#include "include.hpp"
 #include "core/atlas.hpp"
+#include "include.hpp"
 #include "misc/cpp/imgui_stdlib.h"
 
 namespace ImGui
 {
-    void ScrollWhenDragging(const ImVec2& aDeltaMult, ImGuiMouseButton aMouseButton, ImGuiID testid);
-
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack);
     bool TextureInput(const char* label, fin::Texture2D::Ptr* pack);
     bool SoundInput(const char* label, fin::SoundSource::Ptr* pack);
@@ -30,30 +28,14 @@ namespace ImGui
         bool   dragging           = false;
         void*  dragging_user_data = nullptr;
 
-        inline ImVec2 WorldToScreen(ImVec2 world) const
-        {
-            return canvas_pos + origin + world * zoom;
-        }
-        inline ImVec2 ScreenToWorld(ImVec2 screen) const
-        {
-            return (screen - canvas_pos - origin) / zoom;
-        }
-        inline ImVec2 Snap(ImVec2 world) const
-        {
-            return ImVec2{snap_grid.x > 0 ? std::round(world.x / snap_grid.x) * snap_grid.x : world.x,
-                          snap_grid.y > 0 ? std::round(world.y / snap_grid.y) * snap_grid.y : world.y};
-        }
-        inline ImVec2 SnapScreenToWorld(ImVec2 screen) const
-        {
-            return Snap(ScreenToWorld(screen));
-        }
-        inline void CenterOrigin()
-        {
-            origin = canvas_size * 0.5f;
-        }
-        bool DragPoint(ImVec2& pt, void* user_data, float radius_screen);
-        bool BeginDrag(ImVec2& pt, void* user_data);
-        bool EndDrag(ImVec2& pt, void* user_data);
+        ImVec2 WorldToScreen(ImVec2 world) const;
+        ImVec2 ScreenToWorld(ImVec2 screen) const;
+        ImVec2 Snap(ImVec2 world) const;
+        ImVec2 SnapScreenToWorld(ImVec2 screen) const;
+        void   CenterOrigin();
+        bool   DragPoint(ImVec2& pt, void* user_data, float radius_screen);
+        bool   BeginDrag(ImVec2& pt, void* user_data);
+        bool   EndDrag(ImVec2& pt, void* user_data);
     };
     bool BeginCanvas(const char* id, ImVec2 size, CanvasParams& params);
     void EndCanvas();
@@ -72,9 +54,6 @@ namespace ImGui
     void  SetDragData(void* d, const char* id = nullptr);
     void* GetDragData(const char* id = nullptr);
 
-    void SetActiveVar(fin::msg::Var el);
-    fin::msg::Var& GetActiveVar();
-
     bool FileMenu(std::string& path, const char* filter);
     bool OpenFileName(const char* label, std::string& path, const char* filter);
 
@@ -87,7 +66,52 @@ namespace ImGui
         virtual ~Editor() = default;
 
         virtual bool load(std::string_view path) = 0;
-        virtual bool imgui_show() = 0;
+        virtual bool imgui_show()                = 0;
+    };
+
+    class Dialog : std::enable_shared_from_this<Editor>
+    {
+    public:
+        using Ptr = std::shared_ptr<Dialog>;
+
+        virtual ~Dialog() = default;
+
+        template <typename T, typename... Args>
+        static Ptr Create(Args&&... args)
+        {
+            static_assert(std::is_base_of_v<Dialog, T>,
+                          "Dialog::Create can only be used with types derived from Dialog");
+
+            return std::make_shared<T>(std::forward<Args>(args)...); // Fixed argument forwarding
+        }
+
+        template <typename T, typename... Args>
+        static void Show(const char* label, ImVec2 size, ImGuiWindowFlags flags, Args&&... args)
+        {
+            if (auto dialog = Create<T>(std::forward<Args>(args)...))
+            {
+                Show(label, size, flags, dialog); // Call the existing Show(Ptr) method
+            }
+        }
+
+        virtual bool OnUpdate()
+        {
+            return true;
+        };
+
+        static void Show(const char* label, ImVec2 size, ImGuiWindowFlags flags, Ptr dialog);
+        static void Update();
+        static void Close(const Ptr& dialog);
+
+    private:
+        struct Info
+        {
+            std::string      label;
+            ImVec2           size;
+            ImGuiWindowFlags flags;
+            Ptr              dialog;
+        };
+        static std::vector<Info> s_activeDialogs; // Track active dialogs
     };
 
 } // namespace ImGui

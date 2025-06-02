@@ -9,6 +9,18 @@ namespace fin
 {
     const char GamePrefabFile[] = "game.prefab";
 
+    static msg::Var create_empty_prefab(std::string_view name, std::string_view group)
+    {
+        msg::Var obj;
+        msg::Var cls;
+        cls.set_item("_", nullptr);
+        obj.set_item(Sc::Uid, std::generate_unique_id());
+        obj.set_item(Sc::Id, name);
+        obj.set_item(Sc::Group, group);
+        obj.set_item(Sc::Class, cls);
+        return obj;
+    }
+
     struct FileDir
     {
         std::string                    path;
@@ -23,6 +35,110 @@ namespace fin
     static std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _s_cache;
     static msg::Var                                                                                   _s_copy;
     static ComponentData*                                                                             _s_comp{};
+
+
+
+
+    class ImportDialog : public ImGui::Dialog
+    {
+    public:
+        ImportDialog(ComponentFactory& factory) : _factory(factory)
+        {
+            _components.resize(_factory.get_components().size());
+        }
+
+        bool OnImport()
+        {
+            if (!_atlas)
+                return false;
+
+            for (auto i = 0; i < _atlas->size(); ++i)
+            {
+                auto& spr = _atlas->get(i + 1);
+                auto  obj = create_empty_prefab(spr._name, _group);
+                auto  cls = obj.get_item(Sc::Class);
+
+                auto&  cmps = _factory.get_components();
+                size_t n    = 0;
+                for (auto& el : cmps)
+                {
+                    if (_components[n++])
+                    {
+                        if (el.first == ecs::Sprite::_s_id)
+                        {
+                            msg::Var ar;
+                            ar.set_item("src", _atlas.get()->get_path());
+                            ar.set_item("spr", spr._name);
+                            cls.set_item(el.first, ar);
+                        }
+                        else
+                        {
+                            cls.set_item(el.first, nullptr);
+                        }
+                    }
+                }
+                _factory.push_prefab_data(obj);
+            }
+            _factory.generate_prefab_map();
+            return true;
+        }
+
+        bool OnUpdate() override
+        {
+            if (ImGui::OpenFileName("Sprite Atlas", _path, ".atlas"))
+            {
+                _atlas = Atlas::load_shared(_path);
+            }
+            if (ImGui::InputText("Group", &_group))
+            {
+            }
+            if (ImGui::BeginCombo("Components", "Select Component", 0))
+            {
+                auto&  cmps = _factory.get_components();
+                size_t n    = 0;
+                for (auto& el : cmps)
+                {
+                    if (el.first == ecs::Sprite::_s_id || el.first == ecs::Base::_s_id)
+                    {
+                        _components[n] = true;
+                    }
+                    ImGui::Checkbox(el.second.label.data(), &(bool&)_components[n++]);
+                }
+                ImGui::EndCombo();
+            }
+
+            if (ImGui::BeginChildFrame(ImGui::GetID(this), {-1, -2 * ImGui::GetFrameHeightWithSpacing()}) && _atlas)
+            {
+                for (auto n = 0; n < _atlas->size(); ++n)
+                {
+                    auto& spr = _atlas->get(n+1);
+                    ImGui::Selectable(spr._name.c_str());
+                }
+            }
+            ImGui::EndChildFrame();
+
+            ImGui::NewLine();
+            ImGui::Separator();
+            if (ImGui::Button("Cancel"))
+                _valid = false;
+
+            ImGui::SameLine();
+            if (ImGui::Button("Import") && OnImport())
+                _valid = false;
+
+            return _valid;
+        }
+
+        ComponentFactory&    _factory;
+        std::string          _path;
+        std::string          _group;
+        std::vector<uint8_t> _components;
+        Atlas::Ptr           _atlas;
+        bool                 _valid = true;
+    };
+
+
+
 
     void reset_atlas_cache()
     {
@@ -131,6 +247,15 @@ namespace fin
             save_prefab_components(entity, cls);
             data.set_item(Sc::Class, cls);
         }
+    }
+
+    int ComponentFactory::push_prefab_data(msg::Var& obj)
+    {
+        int n = _prefabs.size();
+        _prefabs.push_back(obj);
+        _prefab_map[obj.get_item(Sc::Uid).get(0ull)] = obj;
+        _groups[""].push_back(n);
+        return n;
     }
 
     void ComponentFactory::load_prefab_components(Entity entity, msg::Var& data)
@@ -250,17 +375,7 @@ namespace fin
         }
     }
 
-    msg::Var ComponentFactory::create_empty_prefab(std::string_view name, std::string_view group)
-    {
-        msg::Var obj;
-        msg::Var cls;
-        cls.set_item("_", nullptr);
-        obj.set_item(Sc::Uid, std::generate_unique_id());
-        obj.set_item(Sc::Id, name);
-        obj.set_item(Sc::Group, group);
-        obj.set_item(Sc::Class, cls);
-        return obj;
-    }
+
 
     void ComponentFactory::set_root(const std::string& startPath)
     {
@@ -788,6 +903,9 @@ namespace fin
                 .PushStyle(ImStyle_Button, 10)
                 .Text(ICON_FA_FILE_CIRCLE_PLUS)
                 .PopStyle()
+                .PushStyle(ImStyle_Button, 12)
+                .Text(ICON_FA_FILE_IMPORT)
+                .PopStyle()
                 .PushStyle(ImStyle_Button, 11)
                 .Text(ICON_FA_FLOPPY_DISK)
                 .PopStyle()
@@ -810,17 +928,16 @@ namespace fin
                 case 10:
                 {
                     auto obj = create_empty_prefab(ImGui::FormatStr("%s_%d", "Entity", _prefabs.size()), "");
-
-                    int n = _prefabs.size();
-                    _prefabs.push_back(obj);
-                    _prefab_map[obj.get_item(Sc::Uid).get(0ull)] = obj;
-                    _groups[""].push_back(n);
+                    int n = push_prefab_data(obj);
                     selet_prefab(scene, n);
                 }
-                    break;
+                break;
                 case 11:
-                        selet_prefab(scene, _selected);
+                    selet_prefab(scene, _selected);
                     save();
+                    break;
+                case 12:
+                    ImGui::Dialog::Show<ImportDialog>("Import Sprites", {800,600}, 0, *this);
                     break;
                 case 20:
                 {

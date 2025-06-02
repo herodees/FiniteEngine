@@ -13,7 +13,7 @@ namespace fin
 
     enum ComponentFlags_
     {
-        ComponentFlags_Default           = 0, // Default component flags
+        ComponentFlags_Default           = 0,      // Default component flags
         ComponentFlags_Private           = 1 << 0, // Component is private and should not be shown in the component list
         ComponentFlags_NoWorkspaceEditor = 1 << 1, // Component should not be shown in the workspace editor
         ComponentFlags_NoEditor          = 1 << 2, // Component should not be shown in the editor at all
@@ -36,9 +36,9 @@ namespace fin
 
     struct ArchiveParams
     {
-        Registry&        reg;
-        Entity           entity;
-        msg::Var         data;
+        Registry& reg;
+        Entity    entity;
+        msg::Var  data;
     };
 
     struct ComponentData
@@ -159,7 +159,7 @@ namespace fin
         Map&      get_components();
 
         Entity get_old_entity(Entity old_id);
-        void clear_old_entities();
+        void   clear_old_entities();
 
         bool imgui_menu(Scene* scene);
         void imgui_props(Scene* scene);
@@ -175,10 +175,11 @@ namespace fin
         void load_entity(Entity& entity, msg::Var& ar);
         void save_entity(Entity entity, msg::Var& ar);
 
+        int  push_prefab_data(msg::Var& obj);
+        void generate_prefab_map();
+
     private:
         bool imgui_component(Scene* scene, ComponentData* comp, Entity entity);
-
-        void generate_prefab_map();
 
         void load_prefab_components(Entity entity, msg::Var& ar);
         void save_prefab_components(Entity entity, msg::Var& ar);
@@ -193,8 +194,6 @@ namespace fin
         void edit_prefab(Scene* scene, int32_t n);
         void save_edit_prefab(Scene* scene);
         void close_edit_prefab(Scene* scene);
-
-        msg::Var create_empty_prefab(std::string_view name, std::string_view group = "");
 
     private:
         Registry                                                                             _registry;
@@ -213,8 +212,4 @@ namespace fin
         bool                                                                                 _prefab_changed{false};
         bool                                                                                 _prefab_explorer{};
     };
-
-
-
-
 } // namespace fin

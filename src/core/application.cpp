@@ -8,6 +8,7 @@
 #endif
 #include <utils/dialog_utils.hpp>
 #include <utils/imguiline.hpp>
+#include "editor/imgui_control.hpp"
 
 namespace fin
 {
@@ -279,6 +280,8 @@ namespace fin
             _map.imgui_setup();
             _map.imgui_props();
             _map.imgui_work();
+            ImGui::Dialog::Update();
+
             //ImGui::ShowDemoWindow();
         }
 

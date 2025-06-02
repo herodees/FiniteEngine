@@ -14,66 +14,9 @@ namespace ImGui
         void*         drag_data = 0;
         std::string   drag_type;
         std::string   buff;
-        fin::msg::Var selected_var;
     } s_shared;
 
 
-
-    void ScrollWhenDragging(const ImVec2& aDeltaMult, ImGuiMouseButton aMouseButton, ImGuiID testid)
-    {
-        ImGuiContext& g = *ImGui::GetCurrentContext();
-
-        if (g.MovingWindow != nullptr)
-        {
-            return;
-        }
-
-        ImGuiWindow* window = g.CurrentWindow;
-        if (!window->ScrollbarX && !window->ScrollbarY) // Nothing to scroll
-        {
-            return;
-        }
-
-        ImGuiIO& im_io = ImGui::GetIO();
-
-        bool hovered = false;
-        bool held    = false;
-
-        const ImGuiWindow* window_to_highlight = g.NavWindowingTarget ? g.NavWindowingTarget : g.NavWindow;
-        bool               window_highlight    = (window_to_highlight &&
-                                 (window->RootWindowForTitleBarHighlight == window_to_highlight->RootWindowForTitleBarHighlight ||
-                                  (window->DockNode && window->DockNode == window_to_highlight->DockNode)));
-
-        ImGuiButtonFlags button_flags = (aMouseButton == 0)   ? ImGuiButtonFlags_MouseButtonLeft
-                                        : (aMouseButton == 1) ? ImGuiButtonFlags_MouseButtonRight
-                                                              : ImGuiButtonFlags_MouseButtonMiddle;
-        if (g.HoveredId == testid            // If nothing hovered so far in the frame (not same as IsAnyItemHovered()!)
-            && im_io.MouseDown[aMouseButton] // Mouse pressed
-            && window_highlight              // Window active
-        )
-        {
-            ImGui::ButtonBehavior(window->InnerClipRect, window->GetID("##scrolldraggingoverlay"), &hovered, &held, button_flags);
-
-            if ((window->InnerClipRect.Contains(im_io.MousePos)))
-            {
-                held = true;
-            }
-            else if (window->InnerClipRect.Contains(
-                         im_io.MouseClickedPos[aMouseButton])) // If mouse has moved outside window, check if click was inside
-            {
-                held = true;
-            }
-            else
-            {
-                held = false;
-            }
-        }
-
-        if (held && aDeltaMult.x != 0.0f)
-            ImGui::SetScrollX(window, window->Scroll.x + aDeltaMult.x * im_io.MouseDelta.x);
-        if (held && aDeltaMult.y != 0.0f)
-            ImGui::SetScrollY(window, window->Scroll.y + aDeltaMult.y * im_io.MouseDelta.y);
-    }
 
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack)
     {
@@ -467,16 +410,6 @@ namespace ImGui
         return nullptr;
     }
 
-    void SetActiveVar(fin::msg::Var el)
-    {
-        s_shared.selected_var = el;
-    }
-
-    fin::msg::Var& GetActiveVar()
-    {
-        return s_shared.selected_var;
-    }
-
     void HelpMarker(const char* desc)
     {
         ImGui::TextDisabled(ICON_FA_BOOK_OPEN "");
@@ -778,6 +711,32 @@ namespace ImGui
     }
 
 
+    ImVec2 CanvasParams::WorldToScreen(ImVec2 world) const
+    {
+        return canvas_pos + origin + world * zoom;
+    }
+
+    ImVec2 CanvasParams::ScreenToWorld(ImVec2 screen) const
+    {
+        return (screen - canvas_pos - origin) / zoom;
+    }
+
+    ImVec2 CanvasParams::Snap(ImVec2 world) const
+    {
+        return ImVec2{snap_grid.x > 0 ? std::round(world.x / snap_grid.x) * snap_grid.x : world.x,
+                      snap_grid.y > 0 ? std::round(world.y / snap_grid.y) * snap_grid.y : world.y};
+    }
+
+    ImVec2 CanvasParams::SnapScreenToWorld(ImVec2 screen) const
+    {
+        return Snap(ScreenToWorld(screen));
+    }
+
+    void CanvasParams::CenterOrigin()
+    {
+        origin = canvas_size * 0.5f;
+    }
+
     bool CanvasParams::DragPoint(ImVec2& pt, void* user_data, float radius_screen)
     {
         if (!dragging)
@@ -844,6 +803,77 @@ namespace ImGui
             }
         }
         return false;
+    }
+
+    std::vector<Dialog::Info> Dialog::s_activeDialogs;
+
+    void Dialog::Close(const Ptr& dialog)
+    {
+        if (!dialog)
+            return; 
+        s_activeDialogs.erase(std::remove_if(s_activeDialogs.begin(),
+                                             s_activeDialogs.end(),
+                                             [&dialog](const Info& nfo)
+                                             {
+                                                 if (nfo.dialog == dialog)
+                                                 {
+                                                     return true;
+                                                 }
+                                                 return false;
+                                             }),
+                             
+                              s_activeDialogs.end());
+    }
+
+    void Dialog::Show(const char* label, ImVec2 size, ImGuiWindowFlags flags, Ptr dialog)
+    {
+        if (!dialog)
+            return;
+
+        if (std::find_if(s_activeDialogs.begin(),
+                         s_activeDialogs.end(),
+                         [&dialog](const Info& nfo)
+                         {
+                             if (nfo.dialog == dialog)
+                             {
+                                 return true;
+                             }
+                             return false;
+                         }) == s_activeDialogs.end())
+        {
+            auto& dlg = s_activeDialogs.emplace_back();
+            dlg.dialog = dialog;
+            dlg.size   = size;
+            dlg.label  = label;
+            dlg.flags  = flags;
+        }
+    }
+
+    void Dialog::Update()
+    {
+        s_activeDialogs.erase(std::remove_if(s_activeDialogs.begin(),
+                                             s_activeDialogs.end(),
+                                             [](const Info& nfo)
+                                             {
+                                                 ImGuiViewport* viewport = ImGui::GetMainViewport();
+                                                 ImVec2         center   = viewport->GetCenter();
+                                                 ImVec2         win_pos  = ImVec2(center.x - nfo.size.x * 0.5f,
+                                                                         center.y - nfo.size.y * 0.5f);
+                                                 ImGui::SetNextWindowPos(win_pos, ImGuiCond_Appearing);
+                                                 ImGui::SetNextWindowSize(nfo.size, ImGuiCond_Appearing);
+                                                 bool opened = true;
+                                                 if (ImGui::Begin(nfo.label.c_str(), &opened, nfo.flags))
+                                                 {
+                                                     if (!nfo.dialog->OnUpdate())
+                                                     {
+                                                         ImGui::End();
+                                                         return true;
+                                                     }
+                                                 }
+                                                 ImGui::End();
+                                                 return !opened;
+                                             }),
+                              s_activeDialogs.end());
     }
 
 } // namespace ImGui

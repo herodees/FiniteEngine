@@ -4,9 +4,29 @@
 
 namespace fin
 {
+    struct IBehaviorScript;
+
+    enum BehaviorFlags_
+    {
+        BehaviorFlags_Default   = 0,
+        BehaviorFlags_Singleton = 1 << 0,
+    };
+
+    using BehaviorFlags = uint32_t;
+
+
+
+    struct BehaviorInfo
+    {
+        std::string_view name;
+        BehaviorFlags    flags{};
+        IBehaviorScript* (*create)();
+    };
+
     struct IBehaviorScript
     {
         IBehaviorScript* next{};
+        BehaviorInfo*    info{};
         std::string_view type_name;
 
         virtual ~IBehaviorScript() {};
