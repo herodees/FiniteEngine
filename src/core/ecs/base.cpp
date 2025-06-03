@@ -1,28 +1,33 @@
 #include "base.hpp"
 #include <core/editor/imgui_control.hpp>
 #include <core/scene_layer.hpp>
+#include <core/scene_layer_object.hpp>
+#include <core/scene.hpp>
 
 namespace fin::ecs
 {
-    void register_base_components(ComponentFactory& fact)
+    void RegisterBaseComponents(ComponentFactory& fact)
     {
-        fact.register_component<Base>(ComponentFlags_NoWorkspaceEditor);
-        fact.register_component<Isometric>();
-        fact.register_component<Collider>();
-        fact.register_component<Sprite>(ComponentFlags_NoWorkspaceEditor);
-        fact.register_component<Region>();
-        fact.register_component<Path>(ComponentFlags_NoWorkspaceEditor);
-        fact.register_component<Camera>(ComponentFlags_NoWorkspaceEditor);
-        fact.register_component<Body>(ComponentFlags_NoWorkspaceEditor); 
-        fact.register_component<Prefab>(ComponentFlags_Private); // Prefab is not editable in the editor
+        fact.RegisterComponent<Base>(ComponentFlags_NoWorkspaceEditor);
+        fact.RegisterComponent<Name>(ComponentFlags_NoWorkspaceEditor | ComponentFlags_NoPrefab);
+        fact.RegisterComponent<Isometric>();
+        fact.RegisterComponent<Collider>();
+        fact.RegisterComponent<Sprite>(ComponentFlags_NoWorkspaceEditor);
+        fact.RegisterComponent<Region>();
+        fact.RegisterComponent<Path>(ComponentFlags_NoWorkspaceEditor);
+        fact.RegisterComponent<Camera>(ComponentFlags_NoWorkspaceEditor);
+        fact.RegisterComponent<Body>(ComponentFlags_NoWorkspaceEditor); 
+        fact.RegisterComponent<Prefab>(ComponentFlags_Private); // Prefab is not editable in the editor
+        fact.RegisterComponent<Script>(
+            ComponentFlags_NoWorkspaceEditor | ComponentFlags_NoEditor); // Prefab is not editable in the editor
     }
 
-    fin::Region<float> Base::get_bounding_box() const
+    fin::Region<float> Base::GetBoundingBox() const
     {
         fin::Region<float> bbox{_position.x, _position.y, _position.x, _position.y};
-        if (Sprite::contains(_self))
+        if (Sprite::Contains(_self))
         {
-            auto* spr = Sprite::get(_self);
+            auto* spr = Sprite::Get(_self);
             if (spr->pack.sprite)
             {
                 bbox.x1 -= spr->pack.sprite->_origina.x;
@@ -31,9 +36,9 @@ namespace fin::ecs
                 bbox.y2 = bbox.y1 + spr->pack.sprite->_source.height;
             }
         }
-        else if (Region::contains(_self))
+        else if (Region::Contains(_self))
         {
-            auto* reg = Region::get(_self);
+            auto* reg = Region::Get(_self);
             if (!reg->_points.empty())
             {
                 Vec2f min = reg->_points[0];
@@ -53,57 +58,57 @@ namespace fin::ecs
         return bbox;
     }
 
-    bool Base::hit_test(Vec2f pos) const
+    bool Base::HitTest(Vec2f pos) const
     {
-        if (Region::contains(_self))
-            return Region::get(_self)->hit_test(pos);
+        if (Region::Contains(_self))
+            return Region::Get(_self)->HitTest(pos);
 
-        if (get_bounding_box().contains(pos))
+        if (GetBoundingBox().contains(pos))
         {
             return true;
         }
         return false;
     }
 
-    bool Base::load(ArchiveParams& ar)
+    bool Base::Load(ArchiveParams& ar)
     {
-        auto& base       = ar.reg.get<Base>(ar.entity);
-        base._self       = ar.entity;
-        base._position.x = ar.data["x"].get(0.f);
-        base._position.y = ar.data["y"].get(0.f);
+        auto* base = Base::Get(ar.entity);
+        base->_self       = ar.entity;
+        base->_position.x = ar.data["x"].get(0.f);
+        base->_position.y = ar.data["y"].get(0.f);
 
         return true;
     }
 
-    bool Base::save(ArchiveParams& ar)
+    bool Base::Save(ArchiveParams& ar)
     {
-        auto& base = ar.reg.get<Base>(ar.entity);
-        ar.data.set_item("x", base._position.x);
-        ar.data.set_item("y", base._position.y);
+        auto* base = Base::Get(ar.entity);
+        ar.data.set_item("x", base->_position.x);
+        ar.data.set_item("y", base->_position.y);
 
         return true;
     }
 
-    bool Base::edit(Entity self)
+    bool Base::ImguiProps(Entity self)
     {
-        auto& base = storage().get(self);
+        auto& base = GetStorage().get(self);
         auto r = ImGui::InputFloat2("Position", &base._position.x);
         if (r)
         {
-            base.update();
+            base.UpdateSparseGrid();
         }
         return r;
     }
 
-    void Base::update()
+    void Base::UpdateSparseGrid()
     {
         if (_layer)
-            _layer->update(this);
+            _layer->Update(this);
     }
 
-    bool Isometric::load(ArchiveParams& ar)
+    bool Isometric::Load(ArchiveParams& ar)
     {
-        auto& iso = ar.reg.get<Isometric>(ar.entity);
+        auto& iso  = *Isometric::Get(ar.entity);
         iso._a.x   = ar.data["ax"].get(0.f);
         iso._a.y   = ar.data["ay"].get(0.f);
         iso._b.x   = ar.data["bx"].get(0.f);
@@ -111,9 +116,9 @@ namespace fin::ecs
         return true;
     }
 
-    bool Isometric::save(ArchiveParams& ar)
+    bool Isometric::Save(ArchiveParams& ar)
     {
-        auto& iso = ar.reg.get<Isometric>(ar.entity);
+        auto& iso = *Isometric::Get(ar.entity);
         ar.data.set_item("ax", iso._a.x);
         ar.data.set_item("ay", iso._a.y);
         ar.data.set_item("bx", iso._b.x);
@@ -121,18 +126,18 @@ namespace fin::ecs
         return true;
     }
 
-    bool Isometric::edit(Entity self)
+    bool Isometric::ImguiProps(Entity self)
     {
-        auto& base = storage().get(self);
+        auto& base = GetStorage().get(self);
         auto  r    = ImGui::InputFloat2("A", &base._a.x);
         r |= ImGui::InputFloat2("B", &base._b.x);
         return r;
     }
 
-    bool Isometric::edit_canvas(ImGui::CanvasParams& canvas, Entity self)
+    bool Isometric::ImguiWorkspace(ImGui::CanvasParams& canvas, Entity self)
     {
         bool ret = false;
-        auto& base = storage().get(self);
+        auto& base = GetStorage().get(self);
         ImVec2& a    = (ImVec2&)base._a;
         ImVec2& b    = (ImVec2&)base._b;
         ImVec2  snap{1, 1};
@@ -149,9 +154,9 @@ namespace fin::ecs
         return ret;
     }
 
-    bool Collider::load(ArchiveParams& ar)
+    bool Collider::Load(ArchiveParams& ar)
     {
-        auto& col = ar.reg.get<Collider>(ar.entity);
+        auto& col = *Collider::Get(ar.entity);
         auto pts = ar.data.get_item("p");
         col._points.clear();
         for (size_t i = 0; i < pts.size(); i += 2)
@@ -161,9 +166,9 @@ namespace fin::ecs
         return true;
     }
 
-    bool Collider::save(ArchiveParams& ar)
+    bool Collider::Save(ArchiveParams& ar)
     {
-        auto& col = ar.reg.get<Collider>(ar.entity);
+        auto&    col = *Collider::Get(ar.entity);
         msg::Var pts;
         for (auto p : col._points)
         {
@@ -174,17 +179,17 @@ namespace fin::ecs
         return true;
     }
 
-    bool Collider::edit(Entity self)
+    bool Collider::ImguiProps(Entity self)
     {
-        auto& base = storage().get(self);
+        auto& base = GetStorage().get(self);
         auto  r    = ImGui::PointVector("Points##cldr", &base._points, {-1, 100});
         return r;
     }
 
-    bool Collider::edit_canvas(ImGui::CanvasParams& canvas, Entity self) 
+    bool Collider::ImguiWorkspace(ImGui::CanvasParams& canvas, Entity self) 
     {
         bool   ret  = false;
-        auto&  base = storage().get(self);
+        auto&  base = GetStorage().get(self);
         ImVec2 snap{1, 1};
         std::swap(snap, canvas.snap_grid);
         for (size_t i = 0; i < base._points.size(); ++i)
@@ -202,18 +207,18 @@ namespace fin::ecs
         return ret;
     }
 
-    bool Sprite::load(ArchiveParams& ar)
+    bool Sprite::Load(ArchiveParams& ar)
     {
-        auto& spr = ar.reg.get<Sprite>(ar.entity);
+        auto& spr = *Sprite::Get(ar.entity);
         auto  src = ar.data["src"];
         auto  sp = ar.data["spr"];
         spr.pack = Atlas::load_shared(src.str(), sp.str());
         return true;
     }
 
-    bool Sprite::save(ArchiveParams& ar)
+    bool Sprite::Save(ArchiveParams& ar)
     {
-        auto& spr = ar.reg.get<Sprite>(ar.entity);
+        auto& spr = *Sprite::Get(ar.entity);
         if (spr.pack.atlas)
         {
             ar.data.set_item("src", spr.pack.atlas->get_path());
@@ -225,15 +230,15 @@ namespace fin::ecs
         return true;
     }
 
-    bool Sprite::edit(Entity self)
+    bool Sprite::ImguiProps(Entity self)
     {
-        auto& base = storage().get(self);
+        auto& base = GetStorage().get(self);
         auto  r    = ImGui::SpriteInput("Sprite##spr", &base.pack);
 
         return r;
     }
 
-    bool Region::hit_test(Vec2f testPoint) const
+    bool Region::HitTest(Vec2f testPoint) const
     {
         size_t count = _points.size();
         if (!count)
@@ -254,9 +259,9 @@ namespace fin::ecs
         return inside;
     }
 
-    bool Region::load(ArchiveParams& ar)
+    bool Region::Load(ArchiveParams& ar)
     {
-        auto& col = ar.reg.get<Region>(ar.entity);
+        auto& col = *Region::Get(ar.entity);
         auto  pts = ar.data.get_item("p");
         col._points.clear();
         for (size_t i = 0; i < pts.size(); i += 2)
@@ -266,9 +271,9 @@ namespace fin::ecs
         return true;
     }
 
-    bool Region::save(ArchiveParams& ar)
+    bool Region::Save(ArchiveParams& ar)
     {
-        auto&    col = ar.reg.get<Region>(ar.entity);
+        auto&    col = *Region::Get(ar.entity);
         msg::Var pts;
         for (auto p : col._points)
         {
@@ -279,17 +284,17 @@ namespace fin::ecs
         return true;
     }
 
-    bool Region::edit(Entity self)
+    bool Region::ImguiProps(Entity self)
     {
-        auto& base = storage().get(self);
+        auto& base = GetStorage().get(self);
         auto  r    = ImGui::PointVector("Points##reg", &base._points, {-1, 100});
         return r;
     }
 
-    bool Region::edit_canvas(ImGui::CanvasParams& canvas, Entity self)
+    bool Region::ImguiWorkspace(ImGui::CanvasParams& canvas, Entity self)
     {
         bool   ret  = false;
-        auto&  base = storage().get(self);
+        auto&  base = GetStorage().get(self);
         ImVec2 snap{1, 1};
         std::swap(snap, canvas.snap_grid);
         for (size_t i = 0; i < base._points.size(); ++i)
@@ -307,9 +312,9 @@ namespace fin::ecs
         return ret;
     }
 
-    bool Camera::load(ArchiveParams& ar)
+    bool Camera::Load(ArchiveParams& ar)
     {
-        auto& cam       = ar.reg.get<Camera>(ar.entity);
+        auto& cam       = *Camera::Get(ar.entity);
         cam._position.x = ar.data["x"].get(0.f);
         cam._position.y = ar.data["y"].get(0.f);
         cam._size.x     = ar.data["w"].get(0.f);
@@ -317,9 +322,9 @@ namespace fin::ecs
         return true;
     }
 
-    bool Camera::save(ArchiveParams& ar)
+    bool Camera::Save(ArchiveParams& ar)
     {
-        auto& cam = ar.reg.get<Camera>(ar.entity);
+        auto& cam = *Camera::Get(ar.entity);
         ar.data.set_item("x", cam._position.x);
         ar.data.set_item("y", cam._position.y);
         ar.data.set_item("w", cam._size.x);
@@ -327,54 +332,54 @@ namespace fin::ecs
         return true;
     }
 
-    bool Camera::edit(Entity self)
+    bool Camera::ImguiProps(Entity self)
     {
-        auto& base = storage().get(self);
+        auto& base = GetStorage().get(self);
         auto  r    = ImGui::InputFloat2("Position", &base._position.x);
         r |= ImGui::InputFloat2("Size", &base._size.x);
         return r;
     }
 
-    bool Prefab::load(ArchiveParams& ar)
+    bool Prefab::Load(ArchiveParams& ar)
     {
-        auto& pf = ar.reg.get<Prefab>(ar.entity);
+        auto& pf  = *Prefab::Get(ar.entity);
         auto uid = ar.data[Sc::Uid].get(0ull);
         return true;
     }
 
-    bool Prefab::save(ArchiveParams& ar)
+    bool Prefab::Save(ArchiveParams& ar)
     {
-        auto& pf = ar.reg.get<Prefab>(ar.entity);
+        auto& pf = *Prefab::Get(ar.entity);
         ar.data.set_item(Sc::Uid, pf._data[Sc::Uid]);
         return true;
     }
 
-    bool Body::load(ArchiveParams& ar)
+    bool Body::Load(ArchiveParams& ar)
     {
-        auto& dby           = ar.reg.get<Body>(ar.entity);
+        auto& dby           = *Body::Get(ar.entity);
         dby._speed.x        = ar.data["vx"].get(0.f);
         dby._speed.y        = ar.data["vy"].get(0.f);
         return true;
     }
 
-    bool Body::save(ArchiveParams& ar)
+    bool Body::Save(ArchiveParams& ar)
     {
-        auto& dby = ar.reg.get<Body>(ar.entity);
+        auto& dby = *Body::Get(ar.entity);
         ar.data.set_item("vx", dby._speed.x);
         ar.data.set_item("vy", dby._speed.y);
         return true;
     }
 
-    bool Body::edit(Entity self)
+    bool Body::ImguiProps(Entity self)
     {
-        auto& base = storage().get(self);
+        auto& base = GetStorage().get(self);
         auto  r    = ImGui::InputFloat2("Speed", &base._speed.x);
         return r;
     }
 
-    bool Path::load(ArchiveParams& ar)
+    bool Path::Load(ArchiveParams& ar)
     {
-        auto& col = ar.reg.get<Path>(ar.entity);
+        auto& col = *Path::Get(ar.entity);
         auto  pts = ar.data.get_item("p");
         col._path.clear();
         for (size_t i = 0; i < pts.size(); i += 2)
@@ -384,9 +389,9 @@ namespace fin::ecs
         return true;
     }
 
-    bool Path::save(ArchiveParams& ar)
+    bool Path::Save(ArchiveParams& ar)
     {
-        auto&    col = ar.reg.get<Path>(ar.entity);
+        auto&    col = *Path::Get(ar.entity);
         msg::Var pts;
         for (auto p : col._path)
         {
@@ -397,7 +402,7 @@ namespace fin::ecs
         return true;
     }
 
-    bool Path::edit(Entity self)
+    bool Path::ImguiProps(Entity self)
     {
         return false;
     }
@@ -413,12 +418,12 @@ namespace fin::ecs
         }
     }
 
-    IBehaviorScript* Script::get_script(std::string_view name) const
+    IBehaviorScript* Script::AddScript(std::string_view name) const
     {
         auto* script = _script;
         while (script)
         {
-            if (name == script->type_name)
+            if (name == script->info->name)
             {
                 return script;
             }
@@ -427,13 +432,13 @@ namespace fin::ecs
         return nullptr;
     }
 
-    void Script::add_script(IBehaviorScript* scr)
+    void Script::AddScript(IBehaviorScript* scr)
     {
         scr->next = _script;
         _script = scr;
     }
 
-    void Script::remove_script(IBehaviorScript* scr)
+    void Script::RemoveScript(IBehaviorScript* scr)
     {
         if (_script == scr)
         {
@@ -450,6 +455,123 @@ namespace fin::ecs
             }
             script = script->next;
         }
+    }
+
+void Script::MoveScript(IBehaviorScript* scr, int dir)
+    {
+        if (!scr || !_script || dir == 0)
+            return;
+
+        // Moving up (dir < 0)
+        if (dir < 0)
+        {
+            // If it's already the first element, can't move up
+            if (_script == scr)
+                return;
+
+            // Find the previous node
+            IBehaviorScript* prev    = nullptr;
+            IBehaviorScript* current = _script;
+            while (current && current->next != scr)
+            {
+                prev    = current;
+                current = current->next;
+            }
+
+            // If we found the node to move
+            if (current && current->next == scr)
+            {
+                if (prev)
+                {
+                    // Normal case - node is in middle of list
+                    IBehaviorScript* scrNext = scr->next;
+                    prev->next               = scr;
+                    scr->next                = current;
+                    current->next            = scrNext;
+                }
+                else
+                {
+                    // Special case - moving second node to first
+                    IBehaviorScript* scrNext = scr->next;
+                    _script                  = scr;
+                    scr->next                = current;
+                    current->next            = scrNext;
+                }
+            }
+        }
+        // Moving down (dir > 0)
+        else
+        {
+            // Find the node and its previous
+            IBehaviorScript* prev    = nullptr;
+            IBehaviorScript* current = _script;
+            while (current && current != scr)
+            {
+                prev    = current;
+                current = current->next;
+            }
+
+            // If we found the node and it has a next node to swap with
+            if (current == scr && scr->next)
+            {
+                IBehaviorScript* scrNext = scr->next;
+                scr->next                = scrNext->next;
+                scrNext->next            = scr;
+
+                if (prev)
+                {
+                    prev->next = scrNext;
+                }
+                else
+                {
+                    _script = scrNext;
+                }
+            }
+        }
+    }
+
+    bool Script::Load(ArchiveParams& ar)
+    {
+        return false;
+    }
+
+    bool Script::Save(ArchiveParams& ar)
+    {
+        return false;
+    }
+
+    bool Name::Load(ArchiveParams& ar)
+    {
+        auto id = ar.data.get_item("id");
+        ar.NameEntity(ar.entity, id.str());
+        return true;
+    }
+
+    bool Name::Save(ArchiveParams& ar)
+    {
+        auto& nme = *Name::Get(ar.entity);
+        if (!nme._name.empty())
+            ar.data.set_item("id", nme._name);
+        return true;
+    }
+
+    bool Name::ImguiProps(Entity self)
+    {
+        static std::string _s_buff;
+        auto&              nme  = *Name::Get(self);
+        auto&              base = *Base::Get(self);
+
+        if (!base._layer)
+            return false;
+
+        _s_buff = nme._name;
+        auto* scene = base._layer->parent();
+
+        if (ImGui::InputText("Name", &_s_buff))
+        {
+            return scene->GetFactory().SetEntityName(self, _s_buff);
+        }
+        return false;
     }
 
 } // namespace fin::ecs

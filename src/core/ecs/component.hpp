@@ -17,6 +17,7 @@ namespace fin
         ComponentFlags_Private           = 1 << 0, // Component is private and should not be shown in the component list
         ComponentFlags_NoWorkspaceEditor = 1 << 1, // Component should not be shown in the workspace editor
         ComponentFlags_NoEditor          = 1 << 2, // Component should not be shown in the editor at all
+        ComponentFlags_NoPrefab          = 1 << 3,
     };
 
     using ComponentFlags = uint32_t;
@@ -36,9 +37,12 @@ namespace fin
 
     struct ArchiveParams
     {
-        Registry& reg;
-        Entity    entity;
-        msg::Var  data;
+        Scene&   scene;
+        Entity   entity;
+        msg::Var data;
+
+        Entity GetOldEntity(Entity oldid) const;
+        bool   NameEntity(Entity eid, std::string_view name);
     };
 
     struct ComponentData
@@ -50,10 +54,10 @@ namespace fin
         void (*emplace)(Entity);
         void (*remove)(Entity);
         bool (*contains)(Entity);
-        bool (*load)(ArchiveParams& ar);
-        bool (*save)(ArchiveParams& ar);
-        bool (*edit)(Entity);
-        bool (*edit_canvas)(ImGui::CanvasParams&, Entity);
+        bool (*Load)(ArchiveParams& ar);
+        bool (*Save)(ArchiveParams& ar);
+        bool (*ImguiProps)(Entity);
+        bool (*ImguiWorkspace)(ImGui::CanvasParams&, Entity);
 
         inline bool HasWorkspaceEditor() const
         {
@@ -70,45 +74,45 @@ namespace fin
     {
         using Storage = entt::storage_for_t<C>;
 
-        static C& emplace_or_replace(Entity e)
+        static C& EmplaceOrReplace(Entity e)
         {
-            if (!storage().contains(e))
-                storage().emplace(e);
-            return storage().get(e);
+            if (!GetStorage().contains(e))
+                GetStorage().emplace(e);
+            return GetStorage().get(e);
         }
-        static void emplace(Entity e)
+        static void Emplace(Entity e)
         {
             _s_storage.storage->emplace(e);
         }
-        static void remove(Entity e)
+        static void Remove(Entity e)
         {
             _s_storage.storage->remove(e);
         }
-        static bool contains(Entity e)
+        static bool Contains(Entity e)
         {
             return _s_storage.storage->contains(e);
         }
-        static C* get(Entity e)
+        static C* Get(Entity e)
         {
             return static_cast<C*>(_s_storage.storage->get(e));
         }
-        static bool load(ArchiveParams& ar)
+        static bool Load(ArchiveParams& ar)
         {
             return true;
         }
-        static bool save(ArchiveParams& ar)
+        static bool Save(ArchiveParams& ar)
         {
             return true;
         }
-        static bool edit(Entity)
+        static bool ImguiProps(Entity)
         {
             return false;
         }
-        static bool edit_canvas(ImGui::CanvasParams&, Entity)
+        static bool ImguiWorkspace(ImGui::CanvasParams&, Entity)
         {
             return false;
         }
-        static Storage& storage()
+        static Storage& GetStorage()
         {
             return static_cast<Storage&>(*_s_storage.storage);
         }
@@ -128,26 +132,27 @@ namespace fin
 
     class ComponentFactory
     {
+        friend class ImportDialog; 
     public:
         using Map = std::unordered_map<std::string, ComponentData, std::string_hash, std::equal_to<>>;
 
-        ComponentFactory()  = default;
+        ComponentFactory(Scene& scene) : _scene(scene) {};
         ~ComponentFactory() = default;
 
         template <typename C>
-        void register_component(ComponentFlags flags = ComponentFlags_Default)
+        void RegisterComponent(ComponentFlags flags = ComponentFlags_Default)
         {
-            C::_s_storage.storage     = &_registry.storage<C>();
-            C::_s_storage.id          = C::_s_id;
-            C::_s_storage.label       = C::_s_label;
-            C::_s_storage.flags       = flags;
-            C::_s_storage.emplace     = &C::emplace;
-            C::_s_storage.remove      = &C::remove;
-            C::_s_storage.contains    = &C::contains;
-            C::_s_storage.load        = &C::load;
-            C::_s_storage.save        = &C::save;
-            C::_s_storage.edit        = &C::edit;
-            C::_s_storage.edit_canvas = &C::edit_canvas;
+            C::_s_storage.storage        = &_registry.storage<C>();
+            C::_s_storage.id             = C::_s_id;
+            C::_s_storage.label          = C::_s_label;
+            C::_s_storage.flags          = flags;
+            C::_s_storage.emplace        = &C::Emplace;
+            C::_s_storage.remove         = &C::Remove;
+            C::_s_storage.contains       = &C::Contains;
+            C::_s_storage.Load           = &C::Load;
+            C::_s_storage.Save           = &C::Save;
+            C::_s_storage.ImguiProps     = &C::ImguiProps;
+            C::_s_storage.ImguiWorkspace = &C::ImguiWorkspace;
 
             if (!(flags & ComponentFlags_Private))
             {
@@ -155,48 +160,54 @@ namespace fin
             }
         }
 
-        Registry& get_registry();
-        Map&      get_components();
+        Registry& GetRegistry();
+        Map&      GetComponents();
 
-        Entity get_old_entity(Entity old_id);
-        void   clear_old_entities();
+        Entity GetOldEntity(Entity old_id);
+        void   ClearOldEntities();
 
-        bool imgui_menu(Scene* scene);
-        void imgui_props(Scene* scene);
-        void imgui_items(Scene* scene);
-        bool imgui_workspace(Scene* scene);
-        bool imgui_prefab(Scene* scene, Entity entity);
+        bool ImguiMenu(Scene* scene);
+        void ImguiProperties(Scene* scene);
+        void ImguiItems(Scene* scene);
+        bool ImguiWorkspace(Scene* scene);
+        bool ImguiPrefab(Scene* scene, Entity entity);
 
-        void set_root(const std::string& startPath);
+        void SetRoot(const std::string& startPath);
 
-        bool load();
-        bool save();
+        bool Load();
+        bool Save();
 
-        void load_entity(Entity& entity, msg::Var& ar);
-        void save_entity(Entity entity, msg::Var& ar);
+        void LoadEntity(Entity& entity, msg::Var& ar);
+        void SaveEntity(Entity entity, msg::Var& ar);
 
-        int  push_prefab_data(msg::Var& obj);
-        void generate_prefab_map();
-
-    private:
-        bool imgui_component(Scene* scene, ComponentData* comp, Entity entity);
-
-        void load_prefab_components(Entity entity, msg::Var& ar);
-        void save_prefab_components(Entity entity, msg::Var& ar);
-
-        bool load(msg::Var& ar);
-        bool save(msg::Var& ar);
-
-        void imgui_prefabs(Scene* scene);
-        void imgui_explorer(Scene* scene);
-
-        void selet_prefab(Scene* scene, int32_t n);
-        void edit_prefab(Scene* scene, int32_t n);
-        void save_edit_prefab(Scene* scene);
-        void close_edit_prefab(Scene* scene);
+        bool             SetEntityName(Entity entity, std::string_view name);
+        std::string_view GetEntityName(Entity entity) const;
+        Entity           GetEntityByName(std::string_view entity) const;
 
     private:
+        int  PushPrefabData(msg::Var& obj);
+        void GeneratePrefabMap();
+
+        bool ImguiComponent(Scene* scene, ComponentData* comp, Entity entity);
+
+        void LoadPrefabComponent(Entity entity, msg::Var& ar);
+        void SavePrefabComponent(Entity entity, msg::Var& ar);
+
+        bool Load(msg::Var& ar);
+        bool Save(msg::Var& ar);
+
+        void ImguiPrefabs(Scene* scene);
+        void ImguiExplorer(Scene* scene);
+
+        void SelectPrefab(Scene* scene, int32_t n);
+        void EditPrefab(Scene* scene, int32_t n);
+        void SaveEditPrefab(Scene* scene);
+        void CloseEditPrefab(Scene* scene);
+
+    private:
+        Scene&                                                                               _scene;
         Registry                                                                             _registry;
+        std::unordered_map<std::string, Entity, std::string_hash, std::equal_to<>>           _named;
         Map                                                                                  _components;
         entt::storage<Entity>                                                                _entity_map;
         std::unordered_map<uint64_t, msg::Var>                                               _prefab_map;

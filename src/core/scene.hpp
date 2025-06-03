@@ -27,7 +27,7 @@ namespace fin
         Prefab,
     };
 
-    class Scene
+    class Scene : private ScriptFactory, private SystemManager, private ComponentFactory, private LayerManager
     {
         friend class SpriteSceneObject;
 
@@ -36,53 +36,45 @@ namespace fin
         ~Scene();
 
         const std::string& get_path() const;
-        void               init(std::string_view root);
+        void               Init(std::string_view root);
+        void               SetSize(Vec2f size);
+        void               ActicateGrid(const Recti& screen);
+        Vec2i              GetActiveSize() const;
+        Vec2i              GetSceneSize() const;
+        void               SetCameraPosition(Vec2f pos, float speed = 1.f);
+        void               SetCameraCenter(Vec2f pos, float speed = 1.f);
+        Vec2f              GetCameraCenter() const;
+        const Camera&      GetCamera() const;
 
-        void        set_size(Vec2f size);
-        int32_t     add_layer(SceneLayer* layer);
-        void        delete_layer(int32_t n);
-        int32_t     move_layer(int32_t layer, bool up);
-        SceneLayer* active_layer();
-        SceneLayer* find_layer(std::string_view name) const;
+        void Init();
+        void Deinit();
+        void Render(Renderer& dc);
+        void Update(float dt);
+        void FixedUpdate(float dt);
+        void Clear();
 
+        RenderTexture2D&  GetCanvas();
+        ComponentFactory& GetFactory();
+        SystemManager&    GetSystems();
+        ScriptFactory&    GetScripts();
+        LayerManager&     GetLayers();
 
-        void          activate_grid(const Recti& screen);
-        Vec2i         get_active_size() const;
-        Vec2i         get_scene_size() const;
-        void          set_camera_position(Vec2f pos, float speed = 1.f);
-        void          set_camera_center(Vec2f pos, float speed = 1.f);
-        Vec2f         get_camera_center() const;
-        const Camera& get_camera() const;
+        void Serialize(msg::Var& ar);
+        void Deserialize(msg::Var& ar);
 
-        void                   init();
-        void                   deinit();
-        void                   render(Renderer& dc);
-        void                   update(float dt);
-        void                   fixed_update(float dt);
-        void                   clear();
-        RenderTexture2D&       canvas();
-        ComponentFactory&      factory();
-        SystemManager&         systems();
-        ScriptFactory&         scripts();
-        std::span<SceneLayer*> layers();
+        void Load(std::string_view path);
+        void Save(std::string_view path, bool change_path = true);
 
-        void serialize(msg::Var& ar);
-        void deserialize(msg::Var& ar);
+        void      SetMode(SceneMode sm);
+        SceneMode GetMode() const;
 
-        void load(std::string_view path);
-        void save(std::string_view path, bool change_path = true);
-
-        void      set_mode(SceneMode sm);
-        SceneMode get_mode() const;
-
-        void imgui_work();
-        void imgui_props();
-        void imgui_setup();
-        void imgui_items();
-        void imgui_menu();
-        void imgui_filemenu();
-        void imgui_workspace();
-        void imgui_show_properties(bool show);
+        void ImguiWorkspace();
+        void ImguiProps();
+        void ImguiSetup();
+        void ImguiItems();
+        void ImguiMenu();
+        void ImguiFilemenu();
+        void ImguiShowProperties(bool show);
 
     private:
         void on_new_position(Registry& reg, Entity ent);
@@ -90,13 +82,7 @@ namespace fin
         void imgui_scene();
         void imgui_props_object();
         void imgui_props_setup();
-        void update_camera_position(float dt);
 
-        ComponentFactory         _factory;
-        SystemManager            _systems;
-        ScriptFactory            _scripts;
-        std::vector<SceneLayer*> _layers;
-        int32_t                  _active_layer{0};
         int32_t                  _active_system{0};
         bool                     _show_properties{};
         bool                     _edit_region{};

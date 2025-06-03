@@ -5,6 +5,7 @@
 namespace fin
 {
     struct IBehaviorScript;
+    class Scene;
 
     enum BehaviorFlags_
     {
@@ -21,13 +22,15 @@ namespace fin
         std::string_view name;
         BehaviorFlags    flags{};
         IBehaviorScript* (*create)();
+        Scene& scene;
     };
+
+
 
     struct IBehaviorScript
     {
-        IBehaviorScript* next{};
-        BehaviorInfo*    info{};
-        std::string_view type_name;
+        IBehaviorScript*    next{};
+        const BehaviorInfo* info{};
 
         virtual ~IBehaviorScript() {};
         virtual void OnStart(Entity e) {};
@@ -46,8 +49,11 @@ namespace fin
     class ScriptFactory
     {
     public:
+        ScriptFactory(Scene& scene);
+        ~ScriptFactory();
+
         template <class Script>
-        void RegisterScript(std::string_view name);
+        void RegisterScript(std::string_view name, BehaviorFlags flags);
 
         IBehaviorScript* Enplace(Entity ent, std::string_view name) const;
         bool             Contains(Entity ent, std::string_view name) const;
@@ -55,18 +61,24 @@ namespace fin
         void             Remove(Entity ent, IBehaviorScript* script) const;
 
         IBehaviorScript* Create(std::string_view name) const;
+
     private:
-        std::unordered_map<std::string, IBehaviorScript* (*)(), std::string_hash, std::equal_to<>> _registry;
+        Scene&                                                                           _scene;
+        std::unordered_map<std::string, BehaviorInfo, std::string_hash, std::equal_to<>> _registry;
     };
 
 
 
     template <class Script>
-    inline void ScriptFactory::RegisterScript(std::string_view name)
+    inline void ScriptFactory::RegisterScript(std::string_view name, BehaviorFlags flags)
     {
         static_assert(std::is_base_of_v<IBehaviorScript, Script>, "Script must derive from IBehaviorScript");
-
-        _registry[std::string{name}] = []() -> IBehaviorScript* { return new Script(); };
+        auto [it, inserted] = _registry.emplace(std::string(name), {"", flags, nullptr, _scene});
+        if (inserted)
+        {
+            it->second.name   = it->first;
+            it->second.create = []() -> IBehaviorScript* { return new Script(); };
+        }
     }
 
 } // namespace fin

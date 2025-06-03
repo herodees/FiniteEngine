@@ -8,7 +8,7 @@ class JsonTypePoint : public JsonType
 public:
     JsonTypePoint() : JsonType("point"){};
 
-    bool edit(msg::Var &sch, JsonVal &val, std::string_view key) override
+    bool ImguiProps(msg::Var &sch, JsonVal &val, std::string_view key) override
     {
         auto def_el = sch.get_item("default");
         auto pt = val.get_item();
@@ -34,7 +34,7 @@ class JsonTypeColor : public JsonType
 public:
     JsonTypeColor() : JsonType("color"){};
 
-    bool edit(msg::Var &sch, JsonVal &val, std::string_view key) override
+    bool ImguiProps(msg::Var &sch, JsonVal &val, std::string_view key) override
     {
         auto def_el = sch.get_item("default");
         int value = std::hex_to_color(val.get_item().get(def_el.get("")), 0);
@@ -56,7 +56,7 @@ class JsonTypePoints : public JsonType
 public:
     JsonTypePoints() : JsonType("point_array"){};
 
-    bool edit(msg::Var &sch, JsonVal &value, std::string_view key) override
+    bool ImguiProps(msg::Var &sch, JsonVal &value, std::string_view key) override
     {
         bool modified = false;
         auto vals = value.get_item();
@@ -283,7 +283,7 @@ bool JsonEdit::show_schema(msg::Var &sch, JsonVal &val, std::string_view key)
             {
                 if (p->_name == type)
                 {
-                    modified |= p->edit(sch, val, title);
+                    modified |= p->ImguiProps(sch, val, title);
                     break;
                 }
             }

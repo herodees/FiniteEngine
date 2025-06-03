@@ -74,7 +74,7 @@ namespace fin
                 return -1;
             }
 
-            void update()
+            void Update()
             {
                 _need_update = false;
                 _bbox        = {};
@@ -106,29 +106,29 @@ namespace fin
 
         RegionSceneLayer() : SceneLayer(LayerType::Region), _spatial({})
         {
-            name() = "RegionLayer";
-            icon() = ICON_FA_MAP_LOCATION_DOT;
+            GetName() = "RegionLayer";
+            GetIcon() = ICON_FA_MAP_LOCATION_DOT;
             _color = 0xff50ffc0;
         };
 
-        void resize(Vec2f size) override
+        void Resize(Vec2f size) override
         {
             _spatial.resize({0, 0, size.width, size.height});
         }
 
-        void activate(const Rectf& region) override
+        void Activate(const Rectf& region) override
         {
-            SceneLayer::activate(region);
+            SceneLayer::Activate(region);
             _spatial.activate(region);
         }
 
-        void serialize(msg::Var& ar)
+        void Serialize(msg::Var& ar)
         {
-            SceneLayer::serialize(ar);
+            SceneLayer::Serialize(ar);
             msg::Var items;
             items.make_array(_spatial.size());
 
-            auto save = [&items](Node& node)
+            auto Save = [&items](Node& node)
             {
                 msg::Var item;
                 item.make_object(1);
@@ -149,13 +149,13 @@ namespace fin
                 items.push_back(item);
             };
 
-            _spatial.for_each(save);
+            _spatial.for_each(Save);
             ar.set_item("items", items);
         }
 
-        void deserialize(msg::Var& ar)
+        void Deserialize(msg::Var& ar)
         {
-            SceneLayer::deserialize(ar);
+            SceneLayer::Deserialize(ar);
             _spatial.clear();
 
             auto els = ar["items"];
@@ -174,7 +174,7 @@ namespace fin
                     nde._offset.y = el["ty"].get(0);
                 }
 
-                nde.update();
+                nde.Update();
                 _spatial.insert(nde);
             }
         }
@@ -202,7 +202,7 @@ namespace fin
                     o._points.set_item(n + 1, nyo);
                 }
             }
-            o.update();
+            o.Update();
 
             _spatial.insert(o);
         }
@@ -238,13 +238,13 @@ namespace fin
             }
         }
 
-        void update(float dt) override
+        void Update(float dt) override
         {
         }
 
-        void render(Renderer& dc) override
+        void Render(Renderer& dc) override
         {
-            if (is_hidden())
+            if (IsHidden())
                 return;
 
       
@@ -287,7 +287,7 @@ namespace fin
             rlSetTexture(0);
         }
 
-        void imgui_workspace_menu() override
+        void ImguiWorkspaceMenu() override
         {
             BeginDefaultMenu("wsmnu");
             ImGui::Line()
@@ -312,7 +312,7 @@ namespace fin
             }
         }
 
-        void imgui_workspace(ImGui::CanvasParams& canvas) override
+        void ImguiWorkspace(ImGui::CanvasParams& canvas) override
         {
             ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
             // Edit region points
@@ -323,8 +323,11 @@ namespace fin
                     if (ImGui::IsItemClicked(0))
                     {
                         _active_point = reg->find(mouse_pos, 5);
-                        ImVec2 pt     = {reg->get_point(_active_point).x, reg->get_point(_active_point).y};
-                        canvas.BeginDrag(pt, (void*)(size_t)_active_point);
+                        if (_active_point != -1)
+                        {
+                            ImVec2 pt = {reg->get_point(_active_point).x, reg->get_point(_active_point).y};
+                            canvas.BeginDrag(pt, (void*)(size_t)_active_point);
+                        }
                     }
                     if (ImGui::IsItemClicked(1))
                     {
@@ -346,7 +349,7 @@ namespace fin
                             auto obj = *reg;
                             _spatial.remove(*selected_region());
                             obj.set_point(_active_point, pt);
-                            obj.update();
+                            obj.Update();
                             _spatial.insert(obj);
                         }
                     }
@@ -362,7 +365,7 @@ namespace fin
                         auto obj = *reg;
                         _spatial.remove(*reg);
                         obj.insert(mouse_pos, _active_point + 1);
-                        obj.update();
+                        obj.Update();
                         _spatial.insert(obj);
                         _active_point = _active_point + 1;
                     }
@@ -370,7 +373,7 @@ namespace fin
                     {
                         Node obj;
                         obj.insert(mouse_pos, 0);
-                        obj.update();
+                        obj.Update();
                         _selected     = _spatial.insert(obj);
                         _active_point = 0;
                     }
@@ -420,12 +423,12 @@ namespace fin
 
                 if (modified)
                 {
-                    reg->update();
+                    reg->Update();
                 }
             }
         }
 
-        void imgui_update(bool items) override
+        void ImguiUpdate(bool items) override
         {
             if (!items)
                 return edit_active();
@@ -514,10 +517,10 @@ namespace fin
         int32_t                                                                              _edit         = -1;
         int32_t                                                                              _selected     = -1;
         int32_t                                                                              _active_point = -1;
-        bool                                                                                 _edit_region{};
+        bool                                                                                 _edit_region{true};
     };
 
-    SceneLayer* SceneLayer::create_region()
+    SceneLayer* SceneLayer::CreateRegion()
     {
         return new RegionSceneLayer;
     }

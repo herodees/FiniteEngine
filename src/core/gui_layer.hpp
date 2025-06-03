@@ -206,7 +206,7 @@ namespace fin
     struct GuiLayerPlatform
     {
         virtual void             init()                                                                        = 0;
-        virtual void             deinit()                                                                      = 0;
+        virtual void             Deinit()                                                                      = 0;
         virtual GuiFontId        font_load(std::string_view path)                                              = 0;
         virtual void             render_text(std::string_view txt, GuiControl::Rect& rc, const FontInfo& info) = 0;
         virtual void             render_solid_rect(const GuiControl::Rect rc, uint32_t clr, uint32_t align)    = 0;
@@ -240,7 +240,7 @@ namespace fin
         GuiLayer();
         ~GuiLayer() = default;
 
-        void update(float dt);
+        void Update(float dt);
         void render();
 
         void add_to_update(GuiControl* b, bool rem);

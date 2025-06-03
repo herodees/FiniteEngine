@@ -657,7 +657,7 @@ namespace ImGui
     class AtlasEditor : public Editor
     {
     public:
-        bool load(std::string_view path) override
+        bool Load(std::string_view path) override
         {
             _data.atlas = fin::Atlas::load_shared(path);
             return _data.atlas.get();
@@ -704,7 +704,7 @@ namespace ImGui
         if (ext == "atlas")
             out = std::make_shared<AtlasEditor>();
 
-        if (out && !out->load(path))
+        if (out && !out->Load(path))
             return nullptr;
 
         return out;

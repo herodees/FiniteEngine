@@ -3,17 +3,25 @@
 
 namespace fin
 {
+    ScriptFactory::ScriptFactory(Scene& scene) : _scene(scene)
+    {
+    }
+
+    ScriptFactory::~ScriptFactory()
+    {
+    }
+
     IBehaviorScript* ScriptFactory::Enplace(Entity ent, std::string_view name) const
     {
-        if (!ecs::Script::contains(ent))
-            ecs::Script::emplace(ent);
+        if (!ecs::Script::Contains(ent))
+            ecs::Script::Emplace(ent);
 
         auto* s = Create(name);
         if (s == nullptr)
             return nullptr;
 
-        auto* scr = ecs::Script::get(ent);
-        scr->add_script(s);
+        auto* scr = ecs::Script::Get(ent);
+        scr->AddScript(s);
         s->OnStart(ent);
         return s;
     }
@@ -25,19 +33,19 @@ namespace fin
 
     IBehaviorScript* ScriptFactory::Get(Entity ent, std::string_view name) const
     {
-        if (!ecs::Script::contains(ent))
+        if (!ecs::Script::Contains(ent))
             return nullptr;
 
-        return ecs::Script::get(ent)->get_script(name);
+        return ecs::Script::Get(ent)->AddScript(name);
     }
 
     void ScriptFactory::Remove(Entity ent, IBehaviorScript* script) const
     {
-        if (!ecs::Script::contains(ent))
+        if (!ecs::Script::Contains(ent))
             return;
 
         script->OnDestroy(ent);
-        ecs::Script::get(ent)->remove_script(script);   
+        ecs::Script::Get(ent)->RemoveScript(script);   
     }
 
     IBehaviorScript* ScriptFactory::Create(std::string_view name) const
@@ -45,8 +53,8 @@ namespace fin
         auto it = _registry.find(name);
         if (it != _registry.end())
         {
-            auto p       = it->second();
-            p->type_name = it->first;
+            auto p  = it->second.create();
+            p->info = &it->second;
             return p;
         }
         return nullptr;

@@ -26,8 +26,8 @@ namespace fin
 
         SpriteSceneLayer() : SceneLayer(LayerType::Sprite), _spatial({})
         {
-            name() = "SpriteLayer";
-            icon() = ICON_FA_IMAGE;
+            GetName() = "SpriteLayer";
+            GetIcon() = ICON_FA_IMAGE;
             _color = 0xffffa0b0;
         };
 
@@ -36,14 +36,14 @@ namespace fin
             _spatial.remove(_spatial[n]);
         }
 
-        void resize(Vec2f size) override
+        void Resize(Vec2f size) override
         {
             _spatial.resize({0, 0, size.width, size.height});
         }
 
-        void activate(const Rectf& region) override
+        void Activate(const Rectf& region) override
         {
-            SceneLayer::activate(region);
+            SceneLayer::Activate(region);
             _spatial.activate(region);
             if (_sort_y)
                 _spatial.sort_active([&](int a, int b) { return _spatial[a]._bbox.y < _spatial[b]._bbox.y; });
@@ -60,13 +60,13 @@ namespace fin
             _spatial.insert(o);
         }
 
-        void update(float dt) override
+        void Update(float dt) override
         {
         }
 
-        void render(Renderer& dc) override
+        void Render(Renderer& dc) override
         {
-            if (is_hidden())
+            if (IsHidden())
                 return;
 
             dc.set_color(WHITE);
@@ -83,13 +83,13 @@ namespace fin
             }
         }
 
-        void serialize(msg::Var& ar) override
+        void Serialize(msg::Var& ar) override
         {
-            SceneLayer::serialize(ar);
+            SceneLayer::Serialize(ar);
 
             msg::Var   items;
             items.make_array(_spatial.size());
-            auto     save = [&items](Node& node)
+            auto     Save = [&items](Node& node)
             {
                 msg::Var item;
                 item.set_item("i", node._index);
@@ -100,17 +100,17 @@ namespace fin
                 items.push_back(item);
             };
 
-            _spatial.for_each(save);
+            _spatial.for_each(Save);
             ar.set_item("items", items);
             ar.set_item("max_index", _max_index);
             ar.set_item("sort_y", _sort_y);
         }
 
-        void deserialize(msg::Var& ar) override
+        void Deserialize(msg::Var& ar) override
         {
-            SceneLayer::deserialize(ar);
+            SceneLayer::Deserialize(ar);
             _spatial.clear();
-            _spatial.resize(Rectf(0, 0, _parent->get_scene_size().x, _parent->get_scene_size().y));
+            _spatial.resize(Rectf(0, 0, _parent->GetSceneSize().x, _parent->GetSceneSize().y));
 
             _max_index = ar["max_index"].get(0u);
             _sort_y    = ar["sort_y"].get(false);
@@ -157,7 +157,7 @@ namespace fin
         {
         }
 
-        void imgui_workspace_menu() override
+        void ImguiWorkspaceMenu() override
         {
             BeginDefaultMenu("wsmnu");
             if (EndDefaultMenu())
@@ -165,11 +165,11 @@ namespace fin
             }
         }
 
-        void imgui_workspace(ImGui::CanvasParams& canvas) override
+        void ImguiWorkspace(ImGui::CanvasParams& canvas) override
         {
             _edit._sprite = {};
 
-            if (is_hidden())
+            if (IsHidden())
                 return;
 
             ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
@@ -264,13 +264,13 @@ namespace fin
             }
         }
 
-        void imgui_setup() override
+        void ImguiSetup() override
         {
-            SceneLayer::imgui_setup();
+            SceneLayer::ImguiSetup();
             ImGui::Checkbox("Sort by Y", &_sort_y);
         }
 
-        void imgui_update(bool items) override
+        void ImguiUpdate(bool items) override
         {
             if (!items)
                 return edit_active();
@@ -367,7 +367,7 @@ namespace fin
         bool                                                                                 _sort_y    = false;
     };
 
-    SceneLayer* SceneLayer::create_sprite()
+    SceneLayer* SceneLayer::CreateSprite()
     {
         return new SpriteSceneLayer;
     }

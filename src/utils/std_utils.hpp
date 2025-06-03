@@ -29,15 +29,15 @@ namespace std
     struct string_hash
     {
         using is_transparent = void;
-        [[nodiscard]] size_t operator()(const char* txt) const
+        [[nodiscard]] size_t operator()(const char* txt) const noexcept
         {
             return std::hash<std::string_view>{}(txt);
         }
-        [[nodiscard]] size_t operator()(std::string_view txt) const
+        [[nodiscard]] size_t operator()(std::string_view txt) const noexcept
         {
             return std::hash<std::string_view>{}(txt);
         }
-        [[nodiscard]] size_t operator()(const std::string& txt) const
+        [[nodiscard]] size_t operator()(const std::string& txt) const noexcept
         {
             return std::hash<std::string>{}(txt);
         }

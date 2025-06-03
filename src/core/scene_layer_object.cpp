@@ -1,11 +1,10 @@
-#include "scene_layer.hpp"
+#include "scene_layer_object.hpp"
+#include "editor/imgui_control.hpp"
+#include "utils/imguiline.hpp"
+#include "ecs/base.hpp"
+#include "application.hpp"
 #include "renderer.hpp"
 #include "scene.hpp"
-#include "application.hpp"
-#include "editor/imgui_control.hpp"
-#include "ecs/base.hpp"
-#include "utils/imguiline.hpp"
-
 
 namespace fin
 {
@@ -32,7 +31,7 @@ namespace fin
 
     void ObjectSceneLayer::IsoObject::setup(Entity ent)
     {
-        auto* base = ecs::Base::get(ent);
+        auto* base = ecs::Base::Get(ent);
 
         _ptr           = ent;
         _depth        = 0;
@@ -40,11 +39,11 @@ namespace fin
         _origin.point1 = base->_position;
         _origin.point2 = _origin.point1;
 
-        _bbox = base->get_bounding_box();
+        _bbox = base->GetBoundingBox();
 
-        if (ecs::Isometric::contains(ent))
+        if (ecs::Isometric::Contains(ent))
         {
-            auto* iso = ecs::Isometric::get(ent);
+            auto* iso = ecs::Isometric::Get(ent);
             _origin.point1 += iso->_a;
             _origin.point2 += iso->_b;
         }
@@ -55,28 +54,28 @@ namespace fin
 
     ObjectSceneLayer::ObjectSceneLayer() : SceneLayer(LayerType::Object), _navmesh(0, 0, _cell_size.x, _cell_size.y)
     {
-        name() = "ObjectLayer";
-        icon() = ICON_FA_MAP_PIN;
+        GetName() = "ObjectLayer";
+        GetIcon() = ICON_FA_MAP_PIN;
         _color = 0xffa0a0ff;
     };
 
     ObjectSceneLayer ::~ObjectSceneLayer()
     {
-        clear();
+        Clear();
     }
 
-    void ObjectSceneLayer::serialize(msg::Var& ar)
+    void ObjectSceneLayer::Serialize(msg::Var& ar)
     {
-        SceneLayer::serialize(ar);
+        SceneLayer::Serialize(ar);
         msg::Var items;
         items.make_array(_objects.size());
 
-        auto& fact = parent()->factory();
+        auto& fact = parent()->GetFactory();
 
         for (auto ent : _objects)
         {
             msg::Var obj;
-            fact.save_entity(ent, obj);
+            fact.SaveEntity(ent, obj);
             items.push_back(obj);
         }
 
@@ -85,18 +84,18 @@ namespace fin
         ar.set_item("ch", _cell_size.y);
     }
 
-    void ObjectSceneLayer::deserialize(msg::Var& ar)
+    void ObjectSceneLayer::Deserialize(msg::Var& ar)
     {
-        SceneLayer::deserialize(ar);
+        SceneLayer::Deserialize(ar);
 
-        auto& fact  = parent()->factory();
+        auto& fact  = parent()->GetFactory();
         _cell_size.x = ar.get_item("cw").get(16);
         _cell_size.y = ar.get_item("ch").get(8);
         auto items = ar.get_item("items");
         for (auto& obj : items.elements())
         {
             Entity ent{entt::null};
-            fact.load_entity(ent, obj);
+            fact.LoadEntity(ent, obj);
             if (ent != entt::null)
                 insert(ent);
         }
@@ -105,9 +104,9 @@ namespace fin
 
     void ObjectSceneLayer::insert(Entity ent)
     {
-        if (ecs::Base::contains(ent))
+        if (ecs::Base::Contains(ent))
         {
-            auto* obj = ecs::Base::get(ent);
+            auto* obj = ecs::Base::Get(ent);
             if (obj->_layer == this)
                 return;
 
@@ -123,9 +122,9 @@ namespace fin
 
     void ObjectSceneLayer::remove(Entity ent)
     {
-        if (ecs::Base::contains(ent))
+        if (ecs::Base::Contains(ent))
         {
-            auto* obj = ecs::Base::get(ent);
+            auto* obj = ecs::Base::Get(ent);
             if (obj->_layer)
             {
                 obj->_layer->_spatial_db.remove_from_bin(obj);
@@ -133,7 +132,7 @@ namespace fin
             }
             _dirty_navmesh = true;
         }
-        parent()->factory().get_registry().destroy(ent);
+        parent()->GetFactory().GetRegistry().destroy(ent);
     }
 
     Entity ObjectSceneLayer::find_at(Vec2f position) const
@@ -142,9 +141,9 @@ namespace fin
         auto   cb  = [&ret, position](lq::SpatialDatabase::Proxy* obj, float dist)
             {
                 auto ent = static_cast<ecs::Base*>(obj)->_self;
-                if (ecs::Sprite::contains(ent))
+                if (ecs::Sprite::Contains(ent))
                 {
-                    auto* spr = ecs::Sprite::get(ent);
+                    auto* spr = ecs::Sprite::Get(ent);
                     if (spr->pack.sprite)
                     {
                         Vec2f bbox;
@@ -171,9 +170,9 @@ namespace fin
 
             if (bbox.contains(position))
             {
-                if (ecs::Sprite::contains(obj))
+                if (ecs::Sprite::Contains(obj))
                 {
-                    auto* spr = ecs::Sprite::get(obj);
+                    auto* spr = ecs::Sprite::Get(obj);
                     if (spr->pack.sprite)
                     {
                         if (spr->pack.is_alpha_visible(position.x - bbox.x1, position.y - bbox.y1))
@@ -200,30 +199,30 @@ namespace fin
 
     void ObjectSceneLayer::moveto(Entity ent, Vec2f pos)
     {
-        auto* obj      = ecs::Base::get(ent);
+        auto* obj      = ecs::Base::Get(ent);
         obj->_position = pos;
-        update(obj);
+        Update(obj);
         _dirty_navmesh = true;
     }
 
     void ObjectSceneLayer::move(Entity ent, Vec2f pos)
     {
-        auto* obj      = ecs::Base::get(ent);
+        auto* obj      = ecs::Base::Get(ent);
         obj->_position += pos;
-        update(obj);
+        Update(obj);
         _dirty_navmesh = true;
     }
 
-    void ObjectSceneLayer::update(void* obj)
+    void ObjectSceneLayer::Update(void* obj)
     {
         _spatial_db.update_for_new_location(reinterpret_cast<ecs::Base*>(obj));
     }
 
-    void ObjectSceneLayer::update(float dt)
+    void ObjectSceneLayer::Update(float dt)
     {
     }
 
-    void ObjectSceneLayer::clear()
+    void ObjectSceneLayer::Clear()
     {
         _iso_pool.clear();
         _iso.clear();
@@ -232,7 +231,7 @@ namespace fin
         _objects.clear();
     }
 
-    void ObjectSceneLayer::resize(Vec2f size)
+    void ObjectSceneLayer::Resize(Vec2f size)
     {
         _size        = size;
         _grid_size.x = (size.width + (tile_size - 1)) / tile_size; // Round up division
@@ -243,9 +242,9 @@ namespace fin
 
         for (Entity et : _objects)
         {
-            if (ecs::Base::contains(et))
+            if (ecs::Base::Contains(et))
             {
-                auto* obj = ecs::Base::get(et);
+                auto* obj = ecs::Base::Get(et);
                 obj->_bin   = nullptr;
                 obj->_prev  = nullptr;
                 obj->_next  = nullptr;
@@ -255,13 +254,13 @@ namespace fin
         _dirty_navmesh = true;
     }
 
-    void ObjectSceneLayer::activate(const Rectf& region)
+    void ObjectSceneLayer::Activate(const Rectf& region)
     {
-        SceneLayer::activate(region);
+        SceneLayer::Activate(region);
 
         _selected.clear();
         _iso_pool_size = 0;
-        auto& reg = parent()->factory().get_registry();
+        auto& reg = parent()->GetFactory().GetRegistry();
 
         auto cb = [&](lq::SpatialDatabase::Proxy* item)
         {
@@ -340,22 +339,22 @@ namespace fin
         }
     }
 
-    void ObjectSceneLayer::render(Renderer& dc)
+    void ObjectSceneLayer::Render(Renderer& dc)
     {
-        if (is_hidden())
+        if (IsHidden())
             return;
 
         dc.set_color(WHITE);
 
-        auto& reg = parent()->factory().get_registry();
+        auto& reg = parent()->GetFactory().GetRegistry();
         auto sprites = reg.view<ecs::Sprite, ecs::Base>();
 
         for (auto ent : _iso)
         {
             if (sprites.contains(ent->_ptr))
             {
-                auto* base   = ecs::Base::get(ent->_ptr);
-                auto* sprite = ecs::Sprite::get(ent->_ptr);
+                auto* base   = ecs::Base::Get(ent->_ptr);
+                auto* sprite = ecs::Sprite::Get(ent->_ptr);
 
                 if (sprite->pack.sprite)
                 {
@@ -371,11 +370,11 @@ namespace fin
         }
     }
 
-    void ObjectSceneLayer::imgui_workspace(ImGui::CanvasParams& canvas)
+    void ObjectSceneLayer::ImguiWorkspace(ImGui::CanvasParams& canvas)
     {
         _drop = entt::null;
 
-        if (is_hidden())
+        if (IsHidden())
             return;
 
         ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
@@ -385,9 +384,9 @@ namespace fin
             auto el = find_active_at(mouse_pos);
             select_edit(el);
 
-            if (ecs::Base::contains(_edit))
+            if (ecs::Base::Contains(_edit))
             {
-                auto*  base = ecs::Base::get(_edit);
+                auto*  base = ecs::Base::Get(_edit);
                 ImVec2 pos{base->_position.x, base->_position.y};
                 canvas.BeginDrag(pos, base);
             }
@@ -398,9 +397,9 @@ namespace fin
             select_edit(entt::null);
         }
 
-        if (ecs::Base::contains(_edit))
+        if (ecs::Base::Contains(_edit))
         {
-            auto*   base = ecs::Base::get(_edit);
+            auto*   base = ecs::Base::Get(_edit);
             ImVec2 pos{base->_position.x, base->_position.y};
             if (canvas.EndDrag(pos, base))
             {
@@ -416,9 +415,9 @@ namespace fin
             {
                 IM_ASSERT(payload->DataSize == sizeof(Entity));
                 _drop = *(const Entity*)payload->Data;
-                if (ecs::Base::contains(_drop))
+                if (ecs::Base::Contains(_drop))
                 {
-                    auto* obj      = ecs::Base::get(_drop);
+                    auto* obj      = ecs::Base::Get(_drop);
                     obj->_position = {mouse_pos.x, mouse_pos.y};
                 }
                 else
@@ -430,9 +429,9 @@ namespace fin
             {
                 IM_ASSERT(payload->DataSize == sizeof(Entity));
                 _drop = *(const Entity*)payload->Data;
-                if (ecs::Base::contains(_drop))
+                if (ecs::Base::Contains(_drop))
                 {
-                    auto* obj      = ecs::Base::get(_drop);
+                    auto* obj      = ecs::Base::Get(_drop);
                     obj->_position = {mouse_pos.x, mouse_pos.y};
                     insert(_drop);
                 }
@@ -460,14 +459,14 @@ namespace fin
 
         for (auto ent : _selected)
         {
-            if (!ecs::Base::contains(ent))
+            if (!ecs::Base::Contains(ent))
                 continue;
 
-            auto* base = ecs::Base::get(ent);
+            auto* base = ecs::Base::Get(ent);
 
-            if (g_settings.visible_isometric && ecs::Isometric::contains(ent))
+            if (g_settings.visible_isometric && ecs::Isometric::Contains(ent))
             {
-                auto* iso = ecs::Isometric::get(ent);
+                auto* iso = ecs::Isometric::Get(ent);
                 auto  a   = iso->_a + base->_position;
                 auto  b   = iso->_b + base->_position;
                 auto  aa  = canvas.WorldToScreen({a.x, a.y});
@@ -481,14 +480,14 @@ namespace fin
                 }
             }
 
-            if (g_settings.visible_collision && ecs::Collider::contains(ent))
+            if (g_settings.visible_collision && ecs::Collider::Contains(ent))
             {
-                auto* col = ecs::Collider::get(ent);
+                auto* col = ecs::Collider::Get(ent);
             }
 
             if (ent == _edit)
             {
-                auto bb = base->get_bounding_box();
+                auto bb = base->GetBoundingBox();
                 dc->AddRect(canvas.WorldToScreen({bb.x1, bb.y1}),
                             canvas.WorldToScreen({bb.x2, bb.y2}),
                             IM_COL32(255, 255, 255, 255),
@@ -504,13 +503,17 @@ namespace fin
         }
     }
 
-    void ObjectSceneLayer::imgui_workspace_menu()
+    void ObjectSceneLayer::ImguiWorkspaceMenu()
     {
+        BeginDefaultMenu("wsmnu");
+        if (EndDefaultMenu())
+        {
+        }
     }
 
-    void ObjectSceneLayer::imgui_setup()
+    void ObjectSceneLayer::ImguiSetup()
     {
-        SceneLayer::imgui_setup();
+        SceneLayer::ImguiSetup();
 
         if (ImGui::InputInt2("Navmesh grid", &_cell_size.x))
         {
@@ -518,7 +521,7 @@ namespace fin
         }
     }
 
-    void ObjectSceneLayer::imgui_update(bool items)
+    void ObjectSceneLayer::ImguiUpdate(bool items)
     {
         if (items)
         {
@@ -593,7 +596,7 @@ namespace fin
         }
         else if (_edit != entt::null)
         {
-            parent()->factory().imgui_prefab(parent(), _edit);
+            parent()->GetFactory().ImguiPrefab(parent(), _edit);
         }
     }
 
@@ -618,10 +621,10 @@ namespace fin
         std::vector<Vec2f> points;
         for (Entity et : _objects)
         {
-            if (ecs::Base::contains(et) && ecs::Collider::contains(et))
+            if (ecs::Base::Contains(et) && ecs::Collider::Contains(et))
             {
-                auto* obj = ecs::Base::get(et);
-                auto* col = ecs::Collider::get(et);
+                auto* obj = ecs::Base::Get(et);
+                auto* col = ecs::Collider::Get(et);
                 points.clear();
                 std::for_each(col->_points.begin(),
                               col->_points.end(),
@@ -637,7 +640,7 @@ namespace fin
         return _navmesh.findPath(from, to, path);
     }
 
-    SceneLayer* SceneLayer::create_object()
+    SceneLayer* SceneLayer::CreateObject()
     {
         return new ObjectSceneLayer;
     }

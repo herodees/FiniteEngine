@@ -1,13 +1,14 @@
 #include "core.hpp"
 #include "base.hpp"
 #include "core/scene.hpp"
+#include "core/scene_layer_object.hpp"
 
 namespace fin::ecs
 {
-    void register_core_systems(SystemManager& fact)
+    void RegisterCoreSystems(SystemManager& fact)
     {
-        fact.register_system<Navigation, "navs", "Navigation">(SystemFlags_Default);
-        fact.register_system<Behavior, "bhvs", "Behavior">(SystemFlags_Default);
+        fact.RegisterSystem<Navigation, "navs", "Navigation">(SystemFlags_Default);
+        fact.RegisterSystem<Behavior, "bhvs", "Behavior">(SystemFlags_Default);
     }
 
 
@@ -17,15 +18,14 @@ namespace fin::ecs
     {
     }
 
-    void Navigation::update(float dt)
+    void Navigation::Update(float dt)
     {
-        auto layers = scene().layers();
+        auto layers = GetScene().GetLayers().GetLayers();
         for (auto* layer : layers)
         {
-            if (!layer->is_active())
+            if (!layer->IsActive())
                 continue;
-
-            if (layer->type() != LayerType::Object)
+            if (layer->GetType() != LayerType::Object)
                 continue;
 
             update_objects(dt, static_cast<ObjectSceneLayer*>(layer));
@@ -73,8 +73,8 @@ namespace fin::ecs
 
     void Navigation::update_objects(float dt, ObjectSceneLayer* layer)
     {
-        auto&      factory  = scene().factory();
-        auto&      registry = factory.get_registry();
+        auto&      factory  = GetScene().GetFactory();
+        auto&      registry = factory.GetRegistry();
         const auto view     = registry.view<ecs::Base, ecs::Body>();
         auto&      navmesh  = layer->get_navmesh();
 
@@ -85,12 +85,12 @@ namespace fin::ecs
             if (!registry.valid(ent) || !view.contains(ent))
                 continue;
 
-            Base* base = ecs::Base::get(ent);
-            Body* body = ecs::Body::get(ent);
+            Base* base = ecs::Base::Get(ent);
+            Body* body = ecs::Body::Get(ent);
 
-            if (ecs::Path::contains(ent))
+            if (ecs::Path::Contains(ent))
             {
-                update_path(base, body, ecs::Path::get(ent), navmesh);
+                update_path(base, body, ecs::Path::Get(ent), navmesh);
             }
 
             if (body->_speed == Vec2f())
@@ -138,7 +138,7 @@ namespace fin::ecs
         }
     }
 
-    bool Navigation::imgui_setup()
+    bool Navigation::ImguiSetup()
     {
         return false;
     }
@@ -149,14 +149,14 @@ namespace fin::ecs
     {
     }
 
-    void Behavior::update(float dt)
+    void Behavior::Update(float dt)
     {
-        auto layers = scene().layers();
+        auto layers = GetScene().GetLayers().GetLayers();
         for (auto* layer : layers)
         {
-            if (!layer->is_active())
+            if (!layer->IsActive())
                 continue;
-            if (layer->type() != LayerType::Object)
+            if (layer->GetType() != LayerType::Object)
                 continue;
 
             update_objects(dt,static_cast<ObjectSceneLayer*>(layer));
@@ -169,9 +169,9 @@ namespace fin::ecs
         {
             auto ent = layer->get_active(n);
 
-            if (ecs::Script::contains(ent))
+            if (ecs::Script::Contains(ent))
             {
-                auto* scr = ecs::Script::get(ent);
+                auto* scr = ecs::Script::Get(ent);
                 auto* s = scr->_script;
                 while (s)
                 {
@@ -182,7 +182,7 @@ namespace fin::ecs
         }
     }
 
-    bool Behavior::imgui_setup()
+    bool Behavior::ImguiSetup()
     {
         return false;
     }

@@ -324,7 +324,7 @@ namespace easing
     template <float MaxTime, proc cb = linear>
     struct value
     {
-        void update(float dt)
+        void Update(float dt)
         {
             if (animating)
             {

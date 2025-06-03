@@ -9,7 +9,7 @@ namespace fin
 
 namespace fin::ecs
 {
-    void register_core_systems(SystemManager& fact);
+    void RegisterCoreSystems(SystemManager& fact);
 
 
     class Navigation : public System
@@ -18,9 +18,9 @@ namespace fin::ecs
         Navigation(Scene& s);
         ~Navigation() override = default;
 
-        void update(float dt) override;
+        void Update(float dt) override;
         void update_objects(float dt, ObjectSceneLayer* layer);
-        bool imgui_setup() override;
+        bool ImguiSetup() override;
     };
 
 
@@ -31,8 +31,8 @@ namespace fin::ecs
         Behavior(Scene& s);
         ~Behavior() override = default;
 
-        void update(float dt) override;
+        void Update(float dt) override;
         void update_objects(float dt, ObjectSceneLayer* layer);
-        bool imgui_setup() override;
+        bool ImguiSetup() override;
     };
 }
