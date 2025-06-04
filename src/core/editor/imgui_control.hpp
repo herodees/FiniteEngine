@@ -65,7 +65,7 @@ namespace ImGui
         Editor()          = default;
         virtual ~Editor() = default;
 
-        virtual bool load(std::string_view path) = 0;
+        virtual bool Load(std::string_view path) = 0;
         virtual bool imgui_show()                = 0;
     };
 

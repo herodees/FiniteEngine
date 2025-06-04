@@ -24,18 +24,18 @@ namespace fin
         System(Scene& s);
         virtual ~System() = default;
 
-        Registry&        registry();
-        Scene&           scene();
-        std::string_view name() const;
-        SystemInfo*      info() const;
-        bool             should_run_system() const;
-        virtual void     on_create() {};
-        virtual void     on_destroy() {};
-        virtual void     on_start_runing() {};
-        virtual void     on_stop_runing() {};
-        virtual void     update(float dt) {};
-        virtual void     fixed_update(float dt) {};
-        virtual bool     imgui_setup();
+        Registry&        GetRegistry();
+        Scene&           GetScene();
+        std::string_view GetName() const;
+        SystemInfo*      GetSystemInfo() const;
+        bool             ShouldRunSystem() const;
+        virtual void     OnCreate() {};
+        virtual void     OnDestroy() {};
+        virtual void     OnStartRunning() {};
+        virtual void     OnStopRunning() {};
+        virtual void     Update(float dt) {};
+        virtual void     FixedUpdate(float dt) {};
+        virtual bool     ImguiSetup();
 
     private:
         Scene&      _scene;
@@ -43,7 +43,6 @@ namespace fin
         SystemFlags _flags{};
         SystemInfo* _info{nullptr};
     };
-
 
 
     struct SystemInfo
@@ -61,22 +60,23 @@ namespace fin
         ~SystemManager();
 
         template <typename C, std::string_literal ID, std::string_literal LABEL>
-        void register_system(SystemFlags flags = SystemFlags_Default);
+        void RegisterSystem(SystemFlags flags = SystemFlags_Default);
 
-        void    add_defaults();
-        int32_t add_system(std::string_view id);
-        void    delete_system(int32_t sid);
-        int32_t move_system(int32_t sid, bool up);
-        System* get_system(int32_t sid);
-        int32_t find_system(std::string_view name) const;
-        bool    is_valid(int32_t sid) const;
-        void    on_start_runing();
-        void    on_stop_runing();
-        void    update(float dt);
-        void    fixed_update(float dt);
+        void    AddDefaults();
+        int32_t AddSystem(std::string_view id);
+        void    DeleteSystem(int32_t sid);
+        int32_t MoveSystem(int32_t sid, bool up);
+        System* GetSystem(int32_t sid);
+        int32_t FindSystem(std::string_view name) const;
+        bool    IsValid(int32_t sid) const;
+        void    OnStartRunning();
+        void    OnStopRunning();
+        void    Update(float dt);
+        void    FixedUpdate(float dt);
 
-        int32_t imgui_menu();
-        bool    imgui_systems(int32_t* sys);
+        int32_t ImguiMenu();
+        bool    ImguiSystems(int32_t* sys);
+
     private:
         Scene&                                                                         _scene;
         std::unordered_map<std::string, SystemInfo, std::string_hash, std::equal_to<>> _system_map;
@@ -84,9 +84,8 @@ namespace fin
     };
 
 
-
     template <typename C, std::string_literal ID, std::string_literal LABEL>
-    inline void SystemManager::register_system(SystemFlags flags)
+    inline void SystemManager::RegisterSystem(SystemFlags flags)
     {
         static_assert(std::is_base_of_v<System, C>, "System must derive from ecs::System");
 

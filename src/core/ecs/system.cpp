@@ -7,32 +7,32 @@ namespace fin
     {
     }
 
-    Registry& System::registry()
+    Registry& System::GetRegistry()
     {
-        return _scene.factory().get_registry();
+        return _scene.GetFactory().GetRegistry();
     }
 
-    Scene& System::scene()
+    Scene& System::GetScene()
     {
         return _scene;
     }
 
-    std::string_view System::name() const
+    std::string_view System::GetName() const
     {
         return _info->name;
     }
 
-    SystemInfo* System::info() const
+    SystemInfo* System::GetSystemInfo() const
     {
         return _info;
     }
 
-    bool System::should_run_system() const
+    bool System::ShouldRunSystem() const
     {
         return !(_flags & SystemFlags_Disabled);
     }
 
-    bool System::imgui_setup()
+    bool System::ImguiSetup()
     {
         return false;
     }
@@ -46,7 +46,7 @@ namespace fin
         std::for_each(_systems.begin(), _systems.end(), [](System* system) { delete system; });
     }
 
-    void SystemManager::add_defaults()
+    void SystemManager::AddDefaults()
     {
         for (auto& it : _system_map)
         {
@@ -55,14 +55,14 @@ namespace fin
                 auto* sys = it.second.create(_scene, &it.second);
                 sys->_index = int32_t(_systems.size());
                 _systems.emplace_back(sys);
-                sys->on_create();
+                sys->OnCreate();
             }
         }
     }
 
-    int32_t SystemManager::add_system(std::string_view id)
+    int32_t SystemManager::AddSystem(std::string_view id)
     {
-        auto n = find_system(id);
+        auto n = FindSystem(id);
         if (n != -1)
             return n;
 
@@ -73,16 +73,16 @@ namespace fin
         auto* sys   = it->second.create(_scene, &it->second);
         sys->_index = int32_t(_systems.size());
         _systems.emplace_back(sys);
-        sys->on_create();
+        sys->OnCreate();
         return sys->_index;
     }
 
-    void SystemManager::delete_system(int32_t sid)
+    void SystemManager::DeleteSystem(int32_t sid)
     {
         if (size_t(sid) < _systems.size())
         {
             auto* sys = _systems[sid];
-            sys->on_destroy();
+            sys->OnDestroy();
             _systems.erase(_systems.begin() + sid);
             delete sys;
             for (size_t n = 0; n < _systems.size(); ++n)
@@ -90,7 +90,7 @@ namespace fin
         }
     }
 
-    int32_t SystemManager::move_system(int32_t sid, bool up)
+    int32_t SystemManager::MoveSystem(int32_t sid, bool up)
     {
         if (up)
         {
@@ -113,16 +113,16 @@ namespace fin
         return sid;
     }
 
-    System* SystemManager::get_system(int32_t n)
+    System* SystemManager::GetSystem(int32_t n)
     {
         return _systems[n];
     }
 
-    int32_t SystemManager::find_system(std::string_view name) const
+    int32_t SystemManager::FindSystem(std::string_view name) const
     {
         for (size_t i = 0; i < _systems.size(); ++i)
         {
-            if (_systems[i]->name() == name)
+            if (_systems[i]->GetName() == name)
             {
                 return static_cast<int32_t>(i);
             }
@@ -130,63 +130,63 @@ namespace fin
         return -1;
     }
 
-    bool SystemManager::is_valid(int32_t sid) const
+    bool SystemManager::IsValid(int32_t sid) const
     {
         return (sid >= 0 && size_t(sid) < _systems.size() && _systems[sid] != nullptr);
     }
 
-    void SystemManager::on_start_runing()
+    void SystemManager::OnStartRunning()
     {
-        std::for_each(_systems.begin(), _systems.end(), [](System* system) { system->on_start_runing(); });
+        std::for_each(_systems.begin(), _systems.end(), [](System* system) { system->OnStartRunning(); });
     }
 
-    void SystemManager::on_stop_runing()
+    void SystemManager::OnStopRunning()
     {
-        std::for_each(_systems.begin(), _systems.end(), [](System* system) { system->on_stop_runing(); });
+        std::for_each(_systems.begin(), _systems.end(), [](System* system) { system->OnStopRunning(); });
     }
 
-    void SystemManager::update(float dt)
-    {
-        std::for_each(_systems.begin(),
-                      _systems.end(),
-                      [dt](System* system)
-                      {
-                          if (system->should_run_system())
-                              system->update(dt);
-                      });
-    }
-
-    void SystemManager::fixed_update(float dt)
+    void SystemManager::Update(float dt)
     {
         std::for_each(_systems.begin(),
                       _systems.end(),
                       [dt](System* system)
                       {
-                          if (system->should_run_system())
-                              system->fixed_update(dt);
+                          if (system->ShouldRunSystem())
+                              system->Update(dt);
                       });
     }
 
-    int32_t SystemManager::imgui_menu()
+    void SystemManager::FixedUpdate(float dt)
+    {
+        std::for_each(_systems.begin(),
+                      _systems.end(),
+                      [dt](System* system)
+                      {
+                          if (system->ShouldRunSystem())
+                              system->FixedUpdate(dt);
+                      });
+    }
+
+    int32_t SystemManager::ImguiMenu()
     {
         int32_t idx = -1;
         for (auto it : _system_map)
         {
             if (ImGui::MenuItem(it.second.label.data()))
             {
-                idx = add_system(it.first);
+                idx = AddSystem(it.first);
             }
         }
         return idx;
     }
 
-    bool SystemManager::imgui_systems(int32_t* active)
+    bool SystemManager::ImguiSystems(int32_t* active)
     {
         bool ret{};
         for (size_t i = 0; i < _systems.size(); ++i)
         {
             auto* sys = _systems[i];
-            if (ImGui::Selectable(sys->info()->label.data(), sys->_index == *active))
+            if (ImGui::Selectable(sys->GetSystemInfo()->label.data(), sys->_index == *active))
             {
                 *active = sys->_index;
                 ret  = true;

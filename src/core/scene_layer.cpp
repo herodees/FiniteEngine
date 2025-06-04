@@ -19,15 +19,19 @@ namespace fin
         ImGui::Line()
             .Spring()
             .PushStyle(ImStyle_Button, -100, g_settings.visible_grid)
-            .Text(ICON_FA_BORDER_ALL )
+            .Text(ICON_FA_BORDER_ALL)
             .PopStyle()
             .Space()
             .PushStyle(ImStyle_Button, -101, g_settings.visible_isometric)
-            .Text(ICON_FA_MAP_LOCATION_DOT )
+            .Text(ICON_FA_MAP_LOCATION_DOT)
             .PopStyle()
             .Space()
             .PushStyle(ImStyle_Button, -102, g_settings.visible_collision)
             .Text(ICON_FA_VECTOR_SQUARE)
+            .PopStyle()
+            .Space()
+            .PushStyle(ImStyle_Button, -103, g_settings.visible_navgrid)
+            .Text(ICON_FA_MOUNTAIN_SUN)
             .PopStyle();
 
         if (ImGui::Line().End())
@@ -38,55 +42,57 @@ namespace fin
                 g_settings.visible_isometric = !g_settings.visible_isometric;
             if (ImGui::Line().HoverId() == -102)
                 g_settings.visible_collision = !g_settings.visible_collision;
+            if (ImGui::Line().HoverId() == -103)
+                g_settings.visible_navgrid = !g_settings.visible_navgrid;
             return true;
         }
         return false;
     }
 
-    SceneLayer* SceneLayer::create(msg::Var& ar, Scene* scene)
+    SceneLayer* SceneLayer::Create(msg::Var& ar, Scene* scene)
     {
-        if (auto* obj = create(ar["type"].str()))
+        if (auto* obj = Create(ar["type"].str()))
         {
             obj->_parent = scene;
-            obj->resize(scene->get_scene_size());
-            obj->deserialize(ar);
+            obj->Resize(scene->GetSceneSize());
+            obj->Deserialize(ar);
             return obj;
         }
         return nullptr;
     }
 
-    SceneLayer* SceneLayer::create(std::string_view t)
+    SceneLayer* SceneLayer::Create(std::string_view t)
     {
         if (t == LayerType::Object)
-            return create_object();
+            return CreateObject();
         if (t == LayerType::Sprite)
-            return create_sprite();
+            return CreateSprite();
         if (t == LayerType::Region)
-            return create_region();
+            return CreateRegion();
 
-        return create_sprite();
+        return CreateSprite();
     }
 
     SceneLayer::SceneLayer(std::string_view t) : _type(t)
     {
     }
 
-    std::string_view SceneLayer::type() const
+    std::string_view SceneLayer::GetType() const
     {
         return _type;
     }
 
-    std::string& SceneLayer::name()
+    std::string& SceneLayer::GetName()
     {
         return _name;
     }
 
-    std::string_view& SceneLayer::icon()
+    std::string_view& SceneLayer::GetIcon()
     {
         return _icon;
     }
 
-    uint32_t SceneLayer::color() const
+    uint32_t SceneLayer::GetColor() const
     {
         return _color;
     }
@@ -106,23 +112,23 @@ namespace fin
         return _region;
     }
 
-    Vec2f SceneLayer::screen_to_view(Vec2f pos) const
+    Vec2f SceneLayer::ScreenToView(Vec2f pos) const
     {
         return Vec2f(pos.x + _region.x, pos.y + _region.y); 
     }
 
-    Vec2f SceneLayer::view_to_screen(Vec2f pos) const
+    Vec2f SceneLayer::ViewToScreen(Vec2f pos) const
     {
         return Vec2f(pos.x - _region.x, pos.y - _region.y); 
     }
 
-    Vec2f SceneLayer::get_mouse_position() const
+    Vec2f SceneLayer::GetMousePosition() const
     {
-        const auto p{GetMousePosition()};
+        const auto p{::GetMousePosition()};
         return {p.x + _region.x, p.y + _region.y};
     }
 
-    void SceneLayer::serialize(msg::Var& ar)
+    void SceneLayer::Serialize(msg::Var& ar)
     {
         ar.set_item("type", _type);
         ar.set_item("name", _name);
@@ -131,7 +137,7 @@ namespace fin
             ar.set_item("active", _active);
     }
 
-    void SceneLayer::deserialize(msg::Var& ar)
+    void SceneLayer::Deserialize(msg::Var& ar)
     {
         _type = ar["type"].str();
         _name = ar["name"].str();
@@ -139,78 +145,365 @@ namespace fin
         _active = ar["active"].get(false);
     }
 
-    void SceneLayer::resize(Vec2f size)
+    void SceneLayer::Resize(Vec2f size)
     {
     }
 
-    void SceneLayer::clear()
+    void SceneLayer::Clear()
     {
     }
 
-    void SceneLayer::init()
+    void SceneLayer::Init()
     {
     }
 
-    void SceneLayer::deinit()
+    void SceneLayer::Deinit()
     {
     }
 
-    void SceneLayer::activate(const Rectf& region)
+    void SceneLayer::Activate(const Rectf& region)
     {
         _region = region;
     }
 
-    void SceneLayer::update(float dt)
+    void SceneLayer::Update(float dt)
     {
     }
 
-    void SceneLayer::fixed_update(float dt)
+    void SceneLayer::FixedUpdate(float dt)
     {
     }
 
-    void SceneLayer::render(Renderer& dc)
+    void SceneLayer::Render(Renderer& dc)
     {
     }
 
-    void SceneLayer::imgui_update(bool items)
+    void SceneLayer::ImguiUpdate(bool items)
     {
     }
 
-    void SceneLayer::imgui_setup()
+    void SceneLayer::ImguiSetup()
     {
         ImGui::InputText("Name", &_name);
     }
 
-    void SceneLayer::imgui_workspace(Params& params, DragData& drag)
+    void SceneLayer::ImguiWorkspace(ImGui::CanvasParams& canvas)
     {
     }
 
-    void SceneLayer::imgui_workspace(ImGui::CanvasParams& canvas)
+    void SceneLayer::ImguiWorkspaceMenu()
     {
     }
 
-    void SceneLayer::imgui_workspace_menu()
-    {
-    }
-
-    bool SceneLayer::is_hidden() const
+    bool SceneLayer::IsHidden() const
     {
         return _hidden;
     }
 
-    bool SceneLayer::is_active() const
+    bool SceneLayer::IsActive() const
     {
         return _active;
     }
 
-    void SceneLayer::hide(bool b)
+    void SceneLayer::Hide(bool b)
     {
         _hidden = b;
     }
 
-    void SceneLayer::activate(bool a)
+    void SceneLayer::Activate(bool a)
     {
         _active = a;
+    }
+
+
+
+    
+    LayerManager::~LayerManager()
+    {
+        Clear();
+    }
+
+    int32_t LayerManager::AddLayer(SceneLayer* layer)
+    {
+        _layers.emplace_back(layer);
+        layer->_parent = &_scene;
+        layer->_index  = int32_t(_layers.size()) - 1;
+        layer->Resize(_scene.GetSceneSize());
+        return layer->_index;
+    }
+
+    void LayerManager::RemoveLayer(int32_t n)
+    {
+        delete _layers[n];
+        _layers.erase(_layers.begin() + n);
+        for (; n < _layers.size(); ++n)
+            _layers[n]->_index = (int32_t)n;
+    }
+
+    int32_t LayerManager::MoveLayer(int32_t layer, bool up)
+    {
+        if (up)
+        {
+            if (size_t(layer + 1) < _layers.size() && size_t(layer) < _layers.size())
+            {
+                std::swap(_layers[layer], _layers[layer + 1]);
+                return layer + 1;
+            }
+        }
+        else
+        {
+            if (size_t(layer - 1) < _layers.size() && size_t(layer) < _layers.size())
+            {
+                std::swap(_layers[layer], _layers[layer - 1]);
+                return layer - 1;
+            }
+        }
+        for (size_t n = 0; n < _layers.size(); ++n)
+            _layers[n]->_index = (int32_t)n;
+        return layer;
+    }
+
+    SceneLayer* LayerManager::GetActiveLayer()
+    {
+        if (size_t(_active_layer) < _layers.size())
+            return _layers[_active_layer];
+        return nullptr;
+    }
+
+    SceneLayer* LayerManager::FindLayer(std::string_view name) const
+    {
+        for (auto* ly : _layers)
+        {
+            if (ly->GetName() == name)
+                return ly;
+        }
+        return nullptr;
+    }
+
+    void LayerManager::set_size(Vec2f size)
+    {
+        for (auto* ly : _layers)
+        {
+            ly->Resize(size);
+        }
+    }
+
+    void LayerManager::Activate(const Rectf& region)
+    {
+        for (auto* ly : _layers)
+        {
+            ly->Activate(region);
+        }
+    }
+
+    void LayerManager::Render(Renderer& dc)
+    {
+        for (auto* el : _layers)
+        {
+            el->Render(dc);
+        }
+    }
+
+    void LayerManager::Update(float dt)
+    {
+        std::for_each(_layers.begin(), _layers.end(), [dt](auto* lyr) { lyr->Update(dt); });
+    }
+
+    void LayerManager::FixedUpdate(float dt)
+    {
+        std::for_each(_layers.begin(), _layers.end(), [dt](auto* lyr) { lyr->FixedUpdate(dt); });
+    }
+
+    void LayerManager::Init()
+    {
+        std::for_each(_layers.begin(), _layers.end(), [](auto* lyr) { lyr->Init(); });
+    }
+
+    void LayerManager::Deinit()
+    {
+        std::for_each(_layers.rbegin(), _layers.rend(), [](auto* lyr) { lyr->Deinit(); });
+    }
+
+    void LayerManager::Clear()
+    {
+        std::for_each(_layers.begin(), _layers.end(), [](auto* p) { delete p; });
+        _layers.clear();
+    }
+
+    void LayerManager::Serialize(msg::Var& ar)
+    {
+        for (auto lyr : _layers)
+        {
+            msg::Var layer;
+            lyr->Serialize(layer);
+            ar.push_back(layer);
+        }
+    }
+
+    void LayerManager::Deserialize(msg::Var& ar)
+    {
+        for (auto ly : ar.elements())
+        {
+            AddLayer(SceneLayer::Create(ly, &_scene));
+        }
+    }
+
+    bool LayerManager::ImguiLayers(int32_t* active)
+    {
+        if (!active)
+            active = &_active_layer;
+
+        bool ret = false;
+        if (ImGui::BeginChildFrame(ImGui::GetID("lyrssl"), {-1, 100}, 0))
+        {
+            int n = 0;
+            for (auto* ly : _layers)
+            {
+                if (ImGui::LineSelect(ImGui::GetID(ly), *active == n)
+                        .Space()
+                        .PushStyle(ImStyle_Button, 1)
+                        .Text(ly->IsHidden() ? ICON_FA_EYE_SLASH : ICON_FA_EYE)
+                        .PopStyle()
+                        .Space()
+                        .PushColor(ly->GetColor())
+                        .Text(ly->GetIcon())
+                        .Space()
+                        .Text(ly->GetName())
+                        .Spring()
+                        .PopColor()
+                        .Text(_active_layer == n ? ICON_FA_BRUSH : "")
+                        .End())
+                {
+                    ret = true;
+                    *active = n;
+                    if (ImGui::Line().HoverId() == 1)
+                    {
+                        ly->Hide(!ly->IsHidden());
+                    }
+                }
+                ++n;
+            }
+        }
+
+        ImGui::EndChildFrame();
+        return ret;
+    }
+
+    void LayerManager::ImguiSetup()
+    {
+        if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
+                .PushStyle(ImStyle_Button, 1)
+                .Text(ICON_FA_LAPTOP " Add ")
+                .PopStyle()
+                .PushStyle(ImStyle_Button, 2)
+                .Text(ICON_FA_ARROW_UP)
+                .PopStyle()
+                .PushStyle(ImStyle_Button, 3)
+                .Text(ICON_FA_ARROW_DOWN)
+                .PopStyle()
+                .Spring()
+                .PushStyle(ImStyle_Button, 4)
+                .Text(ICON_FA_BAN)
+                .PopStyle()
+                .End())
+        {
+            if (ImGui::Line().HoverId() == 1)
+            {
+                ImGui::OpenPopup("LayerMenu");
+            }
+
+            if (ImGui::Line().HoverId() == 2)
+            {
+                _active_layer = MoveLayer(_active_layer, false);
+            }
+            if (ImGui::Line().HoverId() == 3)
+            {
+                _active_layer = MoveLayer(_active_layer, true);
+            }
+            if (ImGui::Line().HoverId() == 4 && GetActiveLayer())
+            {
+                RemoveLayer(_active_layer);
+            }
+        }
+
+        if (ImGui::BeginPopup("LayerMenu"))
+        {
+            if (ImGui::MenuItem(ICON_FA_IMAGE " Sprite layer"))
+                _active_layer = AddLayer(SceneLayer::Create(LayerType::Sprite));
+            if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Region layer"))
+                _active_layer = AddLayer(SceneLayer::Create(LayerType::Region));
+            if (ImGui::MenuItem(ICON_FA_BOX " Object layer"))
+                _active_layer = AddLayer(SceneLayer::Create(LayerType::Object));
+            ImGui::EndPopup();
+        }
+
+        if (ImGui::BeginChildFrame(ImGui::GetID("lyrs"), {-1, -1}))
+        {
+            int n = 0;
+            for (auto* ly : _layers)
+            {
+                if (ImGui::LineSelect(ImGui::GetID(ly), _active_layer == n)
+                        .PushColor(ly->GetColor())
+                        .Text(ly->GetIcon())
+                        .Space()
+                        .Text(ly->GetName())
+                        .End())
+                {
+                    _active_layer = n;
+                }
+                ++n;
+            }
+        }
+        ImGui::EndChildFrame();
+    }
+
+    bool LayerManager::ImguiScene()
+    {
+        if (ImGui::BeginChild(ImGui::GetID("lyrssl"), {-1, 100}, ImGuiChildFlags_FrameStyle | ImGuiChildFlags_ResizeY))
+        {
+            int n = 0;
+            for (auto* ly : _layers)
+            {
+                if (ImGui::LineSelect(ImGui::GetID(ly), _active_layer == n)
+                        .Space()
+                        .PushStyle(ImStyle_Button, 1)
+                        .Text(ly->IsHidden() ? ICON_FA_EYE_SLASH : ICON_FA_EYE)
+                        .PopStyle()
+                        .Space()
+                        .PushColor(ly->GetColor())
+                        .Text(ly->GetIcon())
+                        .Space()
+                        .Text(ly->GetName())
+                        .Spring()
+                        .PopColor()
+                        .Text(_active_layer == n ? ICON_FA_CIRCLE_DOT : "")
+                        .Space()
+                        .End())
+                {
+                    _active_layer = n;
+                    if (ImGui::Line().HoverId() == 1)
+                    {
+                        ly->Hide(!ly->IsHidden());
+                    }
+                }
+                ++n;
+            }
+        }
+        ImGui::EndChild();
+
+        if (auto* lyr = GetActiveLayer())
+        {
+            ImGui::PushID("lyit");
+            lyr->ImguiUpdate(true);
+            ImGui::PopID();
+        }
+
+        return false;
+    }
+
+    std::span<SceneLayer*> LayerManager::GetLayers()
+    {
+        return std::span<SceneLayer*>();
     }
 
 

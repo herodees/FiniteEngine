@@ -12,7 +12,7 @@ namespace fin
 
 namespace fin::ecs
 {
-    void register_base_components(ComponentFactory& fact);
+    void RegisterBaseComponents(ComponentFactory& fact);
 
 
     struct Base : lq::SpatialDatabase::Proxy, Component<Base, "_", "Base">
@@ -22,13 +22,13 @@ namespace fin::ecs
         Entity  _self;
         ObjectSceneLayer* _layer{};
 
-        fin::Region<float> get_bounding_box() const;
-        bool               hit_test(Vec2f pos) const;
-        void               update();
+        fin::Region<float> GetBoundingBox() const;
+        bool               HitTest(Vec2f pos) const;
+        void               UpdateSparseGrid();
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
-        static bool edit(Entity self);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
     };
 
 
@@ -38,9 +38,9 @@ namespace fin::ecs
         Vec2f       _previous_position;
         Vec2f       _speed{};
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
-        static bool edit(Entity self);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
     };
 
 
@@ -49,9 +49,9 @@ namespace fin::ecs
     {
         std::vector<Vec2i> _path;
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
-        static bool edit(Entity self);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
     };
 
 
@@ -61,10 +61,10 @@ namespace fin::ecs
         Vec2f _a;
         Vec2f _b;
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
-        static bool edit(Entity self);
-        static bool edit_canvas(ImGui::CanvasParams& canvas, Entity self);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
+        static bool ImguiWorkspace(ImGui::CanvasParams& canvas, Entity self);
     };
 
 
@@ -73,10 +73,10 @@ namespace fin::ecs
     {
         std::vector<Vec2f> _points;
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
-        static bool edit(Entity self);
-        static bool edit_canvas(ImGui::CanvasParams& canvas, Entity self);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
+        static bool ImguiWorkspace(ImGui::CanvasParams& canvas, Entity self);
     };
 
 
@@ -85,9 +85,9 @@ namespace fin::ecs
     {
         Atlas::Pack pack;
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
-        static bool edit(Entity self);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
     };
 
 
@@ -97,12 +97,12 @@ namespace fin::ecs
         std::vector<Vec2f> _points;
         bool               _local{};
 
-        bool hit_test(Vec2f pos) const;
+        bool HitTest(Vec2f pos) const;
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
-        static bool edit(Entity self);
-        static bool edit_canvas(ImGui::CanvasParams& canvas, Entity self);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
+        static bool ImguiWorkspace(ImGui::CanvasParams& canvas, Entity self);
     };
 
 
@@ -112,9 +112,9 @@ namespace fin::ecs
         Vec2f _position;
         Vec2f _size;
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
-        static bool edit(Entity self);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
     };
 
 
@@ -123,21 +123,36 @@ namespace fin::ecs
     {
         msg::Var _data;
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
     };
+
 
 
     struct Script : Component<Script, "scr", "Script">
     {
-        Script() = default;
-        ~Script();
-        IBehaviorScript* get_script(std::string_view name) const;
-        void             add_script(IBehaviorScript* scr);
-        void             remove_script(IBehaviorScript* scr);
         IBehaviorScript* _script{};
 
-        static bool load(ArchiveParams& ar);
-        static bool save(ArchiveParams& ar);
+        Script() = default;
+        ~Script();
+        IBehaviorScript* AddScript(std::string_view name) const;
+        void             AddScript(IBehaviorScript* scr);
+        void             RemoveScript(IBehaviorScript* scr);
+        void             MoveScript(IBehaviorScript* scr, int dir);
+
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
     };
+
+
+
+    struct Name : Component<Name, "nme", "Named Object">
+    {
+        std::string_view _name;
+
+        static bool Load(ArchiveParams& ar);
+        static bool Save(ArchiveParams& ar);
+        static bool ImguiProps(Entity self);
+    };
+
 } // namespace fin::ecs

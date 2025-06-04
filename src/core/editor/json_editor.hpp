@@ -38,7 +38,7 @@ public:
     JsonType(std::string_view id);
     virtual ~JsonType() = default;
 
-    virtual bool edit(msg::Var &sch, JsonVal &value, std::string_view key) = 0;
+    virtual bool ImguiProps(msg::Var &sch, JsonVal &value, std::string_view key) = 0;
 
     std::string _name;
     JsonType *_next{};

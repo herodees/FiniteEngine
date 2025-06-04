@@ -30,48 +30,48 @@ namespace fin
     {
         friend class Scene;
     public:
-        static SceneLayer* create(msg::Var& ar, Scene* scene);
-        static SceneLayer* create(std::string_view t);
+        static SceneLayer* Create(msg::Var& ar, Scene* scene);
+        static SceneLayer* Create(std::string_view t);
 
-        static SceneLayer* create_sprite();
-        static SceneLayer* create_region();
-        static SceneLayer* create_object();
+        static SceneLayer* CreateSprite();
+        static SceneLayer* CreateRegion();
+        static SceneLayer* CreateObject();
 
         SceneLayer(std::string_view t);
         virtual ~SceneLayer() = default;
 
-        std::string_view  type() const;
-        std::string&      name();
-        std::string_view& icon();
-        uint32_t          color() const;
+        std::string_view  GetType() const;
+        std::string&      GetName();
+        std::string_view& GetIcon();
+        uint32_t          GetColor() const;
         int32_t           index() const;
         Scene*            parent();
         const Rectf&      region() const;
-        Vec2f             screen_to_view(Vec2f pos) const;
-        Vec2f             view_to_screen(Vec2f pos) const;
-        Vec2f             get_mouse_position() const;
+        Vec2f             ScreenToView(Vec2f pos) const;
+        Vec2f             ViewToScreen(Vec2f pos) const;
+        Vec2f             GetMousePosition() const;
 
-        virtual void serialize(msg::Var& ar);
-        virtual void deserialize(msg::Var& ar);
-        virtual void resize(Vec2f size);
-        virtual void clear();
-        virtual void init();
-        virtual void deinit();
-        virtual void activate(const Rectf& region);
-        virtual void update(float dt);
-        virtual void fixed_update(float dt);
-        virtual void render(Renderer& dc);
-        virtual void imgui_update(bool items);
-        virtual void imgui_setup();
-        virtual void imgui_workspace(Params& params, DragData& drag);
-        virtual void imgui_workspace(ImGui::CanvasParams& canvas);
-        virtual void imgui_workspace_menu();
+        virtual void Serialize(msg::Var& ar);
+        virtual void Deserialize(msg::Var& ar);
+        virtual void Resize(Vec2f size);
+        virtual void Clear();
+        virtual void Init();
+        virtual void Deinit();
+        virtual void Activate(const Rectf& region);
+        virtual void Update(float dt);
+        virtual void FixedUpdate(float dt);
+        virtual void Render(Renderer& dc);
 
-        bool is_hidden() const;
-        bool is_active() const;
+        virtual void ImguiUpdate(bool items);
+        virtual void ImguiSetup();
+        virtual void ImguiWorkspace(ImGui::CanvasParams& canvas);
+        virtual void ImguiWorkspaceMenu();
 
-        void hide(bool b);
-        void activate(bool a);
+        bool IsHidden() const;
+        bool IsActive() const;
+
+        void Hide(bool b);
+        void Activate(bool a);
 
     protected:
         Scene*           _parent{};
@@ -83,72 +83,46 @@ namespace fin
         Rectf            _region;
         bool             _hidden{};
         bool             _active{};
+        friend class LayerManager;
     };
 
 
 
-    class ObjectSceneLayer : public SceneLayer
+    class LayerManager
     {
-        struct IsoObject
-        {
-            int32_t                 _depth        : 31;
-            bool                    _depth_active : 1;
-            Line<float>             _origin;
-            Region<float>           _bbox;
-            Entity                  _ptr;
-            std::vector<IsoObject*> _back;
-
-            int32_t                 depth_get();
-            void                    setup(Entity ent);
-        };
-
     public:
-        ObjectSceneLayer();
-        ~ObjectSceneLayer() override;
+        LayerManager(Scene& scene) : _scene(scene) {};
+        ~LayerManager();
 
-        void   serialize(msg::Var& ar) override;
-        void   deserialize(msg::Var& ar) override;
-        void   clear() override;
-        void   resize(Vec2f size) override;
-        void   activate(const Rectf& region) override;
-        void   insert(Entity ent);
-        void   remove(Entity ent);
-        void   moveto(Entity ent, Vec2f pos);
-        void   move(Entity ent, Vec2f pos);
-        void   update(void* obj);
-        Entity find_at(Vec2f position) const;
-        Entity find_active_at(Vec2f position) const;
-        bool   find_path(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const;
-        void   select_edit(Entity ent);
-        void   update(float dt) override;
-        void   render(Renderer& dc) override;
-        void   imgui_workspace(ImGui::CanvasParams& canvas) override;
-        void   imgui_workspace_menu() override;
-        void   imgui_setup() override;
-        void   imgui_update(bool items) override;
-        Entity get_active(size_t n);
-        size_t get_active_count() const;
-        Navmesh& get_navmesh() { return _navmesh; }
-        const Navmesh& get_navmesh() const { return _navmesh; }
+        int32_t     AddLayer(SceneLayer* layer);
+        void        RemoveLayer(int32_t n);
+        int32_t     MoveLayer(int32_t layer, bool up);
+        SceneLayer* GetActiveLayer();
+        SceneLayer* FindLayer(std::string_view name) const;
 
-    protected:
-        void update_navmesh();
+        void set_size(Vec2f size);
+        void Activate(const Rectf& region);
+        void Render(Renderer& dc);
+        void Update(float dt);
+        void FixedUpdate(float dt);
+        void Init();
+        void Deinit();
+        void Clear();
+        void Serialize(msg::Var& ar);
+        void Deserialize(msg::Var& ar);
 
-        entt::sparse_set        _objects;
-        entt::sparse_set        _selected;
-        Vec2i                   _grid_size{0,0};
-        Vec2i                   _cell_size{16, 8};
-        Vec2f                   _size;
-        lq::SpatialDatabase     _spatial_db;
-        std::vector<IsoObject>  _iso_pool;
-        std::vector<IsoObject*> _iso;
-        Navmesh                 _navmesh;
-        uint32_t                _iso_pool_size{};
-        int32_t                 _inflate{};
-        Entity                  _edit{entt::null};
-        Entity                  _drop{entt::null};
-        bool                    _dirty_navmesh{};
+        bool ImguiLayers(int32_t* active);
+        void ImguiSetup();
+        bool ImguiScene();
+
+        std::span<SceneLayer*> GetLayers();
+
+    private:
+        Scene&                   _scene;
+        std::vector<SceneLayer*> _layers;
+        int32_t                  _active_layer{0};
     };
+
 
     void BeginDefaultMenu(const char* id);
     bool EndDefaultMenu();

@@ -44,7 +44,7 @@ namespace fin
     public:
         ImportDialog(ComponentFactory& factory) : _factory(factory)
         {
-            _components.resize(_factory.get_components().size());
+            _components.resize(_factory.GetComponents().size());
         }
 
         bool OnImport()
@@ -58,7 +58,7 @@ namespace fin
                 auto  obj = create_empty_prefab(spr._name, _group);
                 auto  cls = obj.get_item(Sc::Class);
 
-                auto&  cmps = _factory.get_components();
+                auto&  cmps = _factory.GetComponents();
                 size_t n    = 0;
                 for (auto& el : cmps)
                 {
@@ -77,9 +77,9 @@ namespace fin
                         }
                     }
                 }
-                _factory.push_prefab_data(obj);
+                _factory.PushPrefabData(obj);
             }
-            _factory.generate_prefab_map();
+            _factory.GeneratePrefabMap();
             return true;
         }
 
@@ -94,7 +94,7 @@ namespace fin
             }
             if (ImGui::BeginCombo("Components", "Select Component", 0))
             {
-                auto&  cmps = _factory.get_components();
+                auto&  cmps = _factory.GetComponents();
                 size_t n    = 0;
                 for (auto& el : cmps)
                 {
@@ -165,17 +165,17 @@ namespace fin
         return out;
     }
 
-    Registry& ComponentFactory::get_registry()
+    Registry& ComponentFactory::GetRegistry()
     {
         return _registry;
     }
 
-    ComponentFactory::Map& ComponentFactory::get_components()
+    ComponentFactory::Map& ComponentFactory::GetComponents()
     {
         return _components;
     }
 
-    Entity ComponentFactory::get_old_entity(Entity old_id)
+    Entity ComponentFactory::GetOldEntity(Entity old_id)
     {
         if (old_id == entt::null)
             return entt::null;
@@ -190,16 +190,16 @@ namespace fin
         return _entity_map.get(old_id);
     }
 
-    void ComponentFactory::clear_old_entities()
+    void ComponentFactory::ClearOldEntities()
     {
         _entity_map.clear();
     }
 
 
-    void ComponentFactory::load_entity(Entity& entity, msg::Var& data)
+    void ComponentFactory::LoadEntity(Entity& entity, msg::Var& data)
     {
         auto old_entity = (Entity)data[Sc::Id].get((uint32_t)entt::null); // Ensure Id is present
-        entity          = get_old_entity(old_entity);
+        entity          = GetOldEntity(old_entity);
         if (entity == entt::null)
         {
             return; // If the entity is null, we cannot load it
@@ -217,26 +217,26 @@ namespace fin
                 TraceLog(LOG_WARNING, "Prefab with UID %llu not found", nuid);
                 return;
             }
-            auto& cmp = ecs::Prefab::emplace_or_replace(entity);
+            auto& cmp = ecs::Prefab::EmplaceOrReplace(entity);
             cmp._data = it->second;                             // Store the prefab data in the component
-            auto load = it->second.get_item(Sc::Class).clone(); // Clone the prefab data
-            load.apply(cls);                                    // Apply the class data to the cloned prefab data
-            load_prefab_components(entity, load);               // Load the components from the class data
+            auto Load = it->second.get_item(Sc::Class).clone(); // Clone the prefab data
+            Load.apply(cls);                                    // Apply the class data to the cloned prefab data
+            LoadPrefabComponent(entity, Load);               // Load the components from the class data
         }
         else
         {
-            load_prefab_components(entity, cls); // Load the components from the class data
+            LoadPrefabComponent(entity, cls); // Load the components from the class data
         }
     }
 
-    void ComponentFactory::save_entity(Entity entity, msg::Var& data)
+    void ComponentFactory::SaveEntity(Entity entity, msg::Var& data)
     {
         data.set_item(Sc::Id, (uint32_t)entity);
         msg::Var cls;
-        if (ecs::Prefab::contains(entity))
+        if (ecs::Prefab::Contains(entity))
         {
-            auto* base = ecs::Prefab::get(entity);
-            save_prefab_components(entity, cls);
+            auto* base = ecs::Prefab::Get(entity);
+            SavePrefabComponent(entity, cls);
 
             msg::Var diff = base->_data.get_item(Sc::Class).diff(cls);
             data.set_item(Sc::Uid, base->_data.get_item(Sc::Uid));
@@ -244,12 +244,61 @@ namespace fin
         }
         else
         {
-            save_prefab_components(entity, cls);
+            SavePrefabComponent(entity, cls);
             data.set_item(Sc::Class, cls);
         }
     }
 
-    int ComponentFactory::push_prefab_data(msg::Var& obj)
+    bool ComponentFactory::SetEntityName(Entity entity, std::string_view name)
+    {
+        if (name.empty())
+        {
+            if (ecs::Name::Contains(entity))
+            {
+                auto* nme = ecs::Name::Get(entity);
+                _named.erase(std::string(nme->_name));
+                ecs::Name::Remove(entity);
+                return true;
+            }
+            return false;
+        }
+
+        auto [it, inserted] = _named.try_emplace(std::string(name), entity);
+        if (inserted)
+        {
+            if (ecs::Name::Contains(entity))
+            {
+                auto* nme = ecs::Name::Get(entity);
+                _named.erase(std::string(nme->_name));
+                nme->_name = it->first;
+            }
+            else
+            {
+                ecs::Name::Emplace(entity);
+                auto* nme  = ecs::Name::Get(entity);
+                nme->_name = it->first;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    std::string_view ComponentFactory::GetEntityName(Entity entity) const
+    {
+        if (ecs::Name::Contains(entity))
+        {
+            return ecs::Name::Get(entity)->_name;
+        }
+        return std::string_view();
+    }
+
+    Entity ComponentFactory::GetEntityByName(std::string_view entity) const
+    {
+        auto it = _named.find(entity);
+        return it == _named.end() ? entt::null : it->second;
+    }
+
+    int ComponentFactory::PushPrefabData(msg::Var& obj)
     {
         int n = _prefabs.size();
         _prefabs.push_back(obj);
@@ -258,7 +307,7 @@ namespace fin
         return n;
     }
 
-    void ComponentFactory::load_prefab_components(Entity entity, msg::Var& data)
+    void ComponentFactory::LoadPrefabComponent(Entity entity, msg::Var& data)
     {
         for (auto e : data.members())
         {
@@ -278,15 +327,15 @@ namespace fin
                 it->second.emplace(entity);
             }
 
-            ArchiveParams ap{_registry, entity, e.second};
-            if (!it->second.load(ap))
+            ArchiveParams ap{_scene, entity, e.second};
+            if (!it->second.Load(ap))
             {
                 TraceLog(LOG_WARNING, "Component %.*s not loaded", c.size(), c.data());
             }
         }
     }
 
-    void ComponentFactory::save_prefab_components(Entity entity, msg::Var& data)
+    void ComponentFactory::SavePrefabComponent(Entity entity, msg::Var& data)
     {
         data.make_object(_components.size());
         data.erase();
@@ -294,8 +343,8 @@ namespace fin
         {
             if (cmp.second.contains(entity))
             {
-                ArchiveParams ap{_registry, entity};
-                if (!cmp.second.save(ap))
+                ArchiveParams ap{_scene, entity};
+                if (!cmp.second.Save(ap))
                 {
                     TraceLog(LOG_WARNING, "Component %.*s not saved", cmp.first.size(), cmp.first.data());
                 }
@@ -304,7 +353,7 @@ namespace fin
         }
     }
 
-    void ComponentFactory::selet_prefab(Scene* scene, int32_t n)
+    void ComponentFactory::SelectPrefab(Scene* scene, int32_t n)
     {
         if (_edit != entt::null)
         {
@@ -318,53 +367,53 @@ namespace fin
         _edit = _registry.create();
         auto el = _prefabs.get_item(n);
         auto cls = el.get_item(Sc::Class);
-        load_prefab_components(_edit, cls);
+        LoadPrefabComponent(_edit, cls);
 
-        auto& prefab = ecs::Prefab::emplace_or_replace(_edit);
+        auto& prefab = ecs::Prefab::EmplaceOrReplace(_edit);
         prefab._data = el;
     }
 
-    void ComponentFactory::edit_prefab(Scene* scene, int32_t n)
+    void ComponentFactory::EditPrefab(Scene* scene, int32_t n)
     {
         if (_prefab_edit != entt::null)
         {
             if (_prefab_changed && 1 ==
                 messagebox_yes_no("Edit Prefab", "Do you want to save the current prefab before editing?"))
             {
-                save_edit_prefab(scene);
+                SaveEditPrefab(scene);
             }
-            close_edit_prefab(scene);
+            CloseEditPrefab(scene);
         }
 
         _prefab_edit_index = n;
         auto el            = _prefabs.get_item(n);
         auto cls           = el.get_item(Sc::Class);
         _prefab_edit       = _registry.create();
-        load_prefab_components(_prefab_edit, cls);
+        LoadPrefabComponent(_prefab_edit, cls);
         _prefab_changed = false;
     }
 
-    void ComponentFactory::save_edit_prefab(Scene* scene)
+    void ComponentFactory::SaveEditPrefab(Scene* scene)
     {
         if (_prefab_edit == entt::null)
             return;
 
         auto prefab = _prefabs.get_item(_prefab_edit_index);
         auto cls = prefab.get_item(Sc::Class);
-        save_prefab_components(_prefab_edit, cls);
+        SavePrefabComponent(_prefab_edit, cls);
 
     }
 
-    void ComponentFactory::close_edit_prefab(Scene* scene)
+    void ComponentFactory::CloseEditPrefab(Scene* scene)
     {
         if (_prefab_edit == entt::null)
             return;
-        scene->factory().get_registry().destroy(_prefab_edit);
+        scene->GetFactory().GetRegistry().destroy(_prefab_edit);
         _prefab_edit = entt::null;
         _prefab_edit_index = -1;
     }
 
-    void ComponentFactory::generate_prefab_map()
+    void ComponentFactory::GeneratePrefabMap()
     {
         _groups.clear();
         for (int i = 0; i < _prefabs.size(); i++)
@@ -377,14 +426,14 @@ namespace fin
 
 
 
-    void ComponentFactory::set_root(const std::string& startPath)
+    void ComponentFactory::SetRoot(const std::string& startPath)
     {
         _base_folder        = startPath;
         _s_file_dir.expanded = false;
         _s_file_dir.path     = startPath;
     }
 
-    bool ComponentFactory::load()
+    bool ComponentFactory::Load()
     {
         auto* txt = LoadFileText((_base_folder + GamePrefabFile).c_str());
         if (!txt)
@@ -398,10 +447,10 @@ namespace fin
         if (!r)
             return false;
 
-        return load(doc);
+        return Load(doc);
     }
 
-    bool ComponentFactory::load(msg::Var& ar)
+    bool ComponentFactory::Load(msg::Var& ar)
     {
         auto itm = ar.get_item("items");
         _prefabs = itm;
@@ -411,20 +460,20 @@ namespace fin
             auto key = el.get_item(Sc::Uid).get(0ull);
             _prefab_map[key] = el;
         }
-        generate_prefab_map();
+        GeneratePrefabMap();
         return true;
     }
 
-    bool ComponentFactory::save(msg::Var& ar)
+    bool ComponentFactory::Save(msg::Var& ar)
     {
         ar.set_item("items", _prefabs);
         return true;
     }
 
-    bool ComponentFactory::save()
+    bool ComponentFactory::Save()
     {
         msg::Var doc;
-        if (!save(doc))
+        if (!Save(doc))
             return false;
 
         std::string str;
@@ -432,7 +481,7 @@ namespace fin
         return SaveFileText((_base_folder + GamePrefabFile).c_str(), str.c_str());
     }
 
-    bool ComponentFactory::imgui_menu(Scene* scene)
+    bool ComponentFactory::ImguiMenu(Scene* scene)
     {
         ImGui::LineItem(ImGui::GetID("prefab"), {-1, ImGui::GetFrameHeight()}).Space();
 
@@ -488,10 +537,10 @@ namespace fin
             {
                 if (ImGui::Line().HoverId() == -3)
                 {
-                    save_edit_prefab(scene);
+                    SaveEditPrefab(scene);
                 }
-                scene->set_mode(SceneMode::Scene);
-                close_edit_prefab(scene);
+                scene->SetMode(SceneMode::Scene);
+                CloseEditPrefab(scene);
             }
             else
             {
@@ -503,7 +552,7 @@ namespace fin
         return true;
     }
 
-    bool ComponentFactory::imgui_component(Scene* scene, ComponentData* comp, Entity entity)
+    bool ComponentFactory::ImguiComponent(Scene* scene, ComponentData* comp, Entity entity)
     {
         bool ret = false;
 
@@ -541,8 +590,8 @@ namespace fin
         {
             if (ImGui::MenuItem("Reset"))
             {
-                ArchiveParams ar{_registry, entity};
-                comp->load(ar);
+                ArchiveParams ar{_scene, entity};
+                comp->Load(ar);
             }
             ImGui::Separator(); 
             if (ImGui::MenuItem("Remove Component", 0, false, comp->id != "_"))
@@ -553,8 +602,8 @@ namespace fin
             ImGui::Separator(); 
             if (ImGui::MenuItem("Copy Component"))
             {
-                ArchiveParams ar{_registry, entity};
-                comp->save(ar);
+                ArchiveParams ar{_scene, entity};
+                comp->Save(ar);
                 _s_copy = ar.data; // Store the component data in a global variable for pasting later
                 _s_comp = comp;    // Store the component pointer for pasting later
             }
@@ -562,14 +611,14 @@ namespace fin
             {
                 if (!_s_comp->contains(entity)) // Ensure the component exists for the entity
                     _s_comp->emplace(entity);   // If not, create it
-                ArchiveParams ar{_registry, entity, _s_copy};
-                _s_comp->load(ar);
+                ArchiveParams ar{_scene, entity, _s_copy};
+                _s_comp->Load(ar);
             }
             ImGui::EndPopup();
         }
 
         if (ImGui::Line().Expanded() && !ret && comp)
-            ret = comp->edit(entity);
+            ret = comp->ImguiProps(entity);
 
         ImGui::PopID();
         ImGui::PushStyleColor(ImGuiCol_Separator, ImGui::GetColorU32(ImGuiCol_ScrollbarGrabHovered));
@@ -578,16 +627,16 @@ namespace fin
         return ret;
     }
 
-    bool ComponentFactory::imgui_prefab(Scene* scene, Entity edit)
+    bool ComponentFactory::ImguiPrefab(Scene* scene, Entity ImguiProps)
     {
         bool ret = false;
         bool add = false;
 
         for (auto& component : _components)
         {
-            if (component.second.contains(edit))
+            if (component.second.contains(ImguiProps))
             {
-                ret |= imgui_component(scene, &component.second, edit);
+                ret |= ImguiComponent(scene, &component.second, ImguiProps);
             }
         }
 
@@ -612,10 +661,10 @@ namespace fin
                 add = true;
             if (ImGui::MenuItem("Paste Component", 0, false, _s_comp && _s_copy.is_object()))
             {
-                if (!_s_comp->contains(edit)) // Ensure the component exists for the entity
-                    _s_comp->emplace(edit);   // If not, create it
-                ArchiveParams ar{_registry, edit, _s_copy};
-                _s_comp->load(ar);
+                if (!_s_comp->contains(ImguiProps)) // Ensure the component exists for the entity
+                    _s_comp->emplace(ImguiProps);   // If not, create it
+                ArchiveParams ar{_scene, ImguiProps, _s_copy};
+                _s_comp->Load(ar);
             }
             ImGui::EndPopup();
         }
@@ -626,9 +675,9 @@ namespace fin
         {
             for (auto& [key, value] : _components)
             {
-                if (ImGui::MenuItem(value.label.data(), 0, false, !value.contains(edit)))
+                if (ImGui::MenuItem(value.label.data(), 0, false, !value.contains(ImguiProps)))
                 {
-                    value.emplace(edit);
+                    value.emplace(ImguiProps);
                     ret = true;
                 }
             }
@@ -639,7 +688,7 @@ namespace fin
         return ret;
     }
 
-    void ComponentFactory::imgui_props(Scene* scene)
+    void ComponentFactory::ImguiProperties(Scene* scene)
     {
         auto show_prefab_names = [&](int ent)
             {
@@ -655,7 +704,7 @@ namespace fin
                 if (ImGui::InputText("Group", &_buff))
                 {
                     proto.set_item(Sc::Group, _buff);
-                    generate_prefab_map();
+                    GeneratePrefabMap();
                 }
             };
     
@@ -663,7 +712,7 @@ namespace fin
         if (_prefab_edit != entt::null)
         {
             show_prefab_names(_prefab_edit_index);
-            if (imgui_prefab(scene, _prefab_edit))
+            if (ImguiPrefab(scene, _prefab_edit))
             {
                 _prefab_changed = true;
             }
@@ -679,9 +728,9 @@ namespace fin
         if (_edit == entt::null)
             return;
 
-        if (ecs::Base::contains(_edit))
+        if (ecs::Base::Contains(_edit))
         {
-            auto obj = ecs::Base::get(_edit);
+            auto obj = ecs::Base::Get(_edit);
             if (obj->_layer)
             {
                 _edit = entt::null;
@@ -690,11 +739,11 @@ namespace fin
 
         show_prefab_names(_selected);
         ImGui::BeginDisabled(true);
-        imgui_prefab(scene, _edit);
+        ImguiPrefab(scene, _edit);
         ImGui::EndDisabled();
     }
 
-    void ComponentFactory::imgui_prefabs(Scene* scene)
+    void ComponentFactory::ImguiPrefabs(Scene* scene)
     {
         for (auto& [groupName, indices] : _groups)
         {
@@ -709,13 +758,13 @@ namespace fin
 
                     if (ImGui::Selectable("##id", _selected == n, 0, {0, 25}))
                     {
-                        selet_prefab(scene, n);
+                        SelectPrefab(scene, n);
                     }
 
                     if (ImGui::IsMouseDoubleClicked(0) && ImGui::IsItemHovered())
                     {
-                        scene->set_mode(SceneMode::Prefab);
-                        edit_prefab(scene, n);
+                        scene->SetMode(SceneMode::Prefab);
+                        EditPrefab(scene, n);
                     }
 
                     if (ImGui::IsItemVisible())
@@ -724,7 +773,7 @@ namespace fin
                         {
                             if (_edit == entt::null || _selected != n)
                             {
-                                selet_prefab(scene, n);
+                                SelectPrefab(scene, n);
                             }
      
                             ImGui::SetDragDropPayload("ENTITY", &_edit, sizeof(Entity));
@@ -781,7 +830,7 @@ namespace fin
         return ICON_FA_FILE;
     }
 
-    void ComponentFactory::imgui_explorer(Scene* scene)
+    void ComponentFactory::ImguiExplorer(Scene* scene)
     {
         reset_atlas_cache();
 
@@ -873,14 +922,14 @@ namespace fin
                     ext = ext.substr(ext.rfind('.') + 1);
                     if (ext == "map")
                     {
-                        scene->load(_s_file_dir.path + file);
+                        scene->Load(_s_file_dir.path + file);
                     }
                 }
             }
         }
     }
 
-    void ComponentFactory::imgui_items(Scene* scene)
+    void ComponentFactory::ImguiItems(Scene* scene)
     {
         ImGui::LineItem("astmnu", {-1, ImGui::GetFrameHeight()})
             .Space()
@@ -928,13 +977,13 @@ namespace fin
                 case 10:
                 {
                     auto obj = create_empty_prefab(ImGui::FormatStr("%s_%d", "Entity", _prefabs.size()), "");
-                    int n = push_prefab_data(obj);
-                    selet_prefab(scene, n);
+                    int n = PushPrefabData(obj);
+                    SelectPrefab(scene, n);
                 }
                 break;
                 case 11:
-                    selet_prefab(scene, _selected);
-                    save();
+                    SelectPrefab(scene, _selected);
+                    Save();
                     break;
                 case 12:
                     ImGui::Dialog::Show<ImportDialog>("Import Sprites", {800,600}, 0, *this);
@@ -946,10 +995,10 @@ namespace fin
                         if (_prefab_edit == entt::null)
                         {
                             auto t = _selected;
-                            selet_prefab(scene, -1);
+                            SelectPrefab(scene, -1);
                             _prefabs.erase(t);
-                            selet_prefab(scene, t);
-                            generate_prefab_map();
+                            SelectPrefab(scene, t);
+                            GeneratePrefabMap();
                         }
                     }
                 }
@@ -962,17 +1011,17 @@ namespace fin
         {
             if (_prefab_explorer)
             {
-                imgui_prefabs(scene);
+                ImguiPrefabs(scene);
             }
             else
             {
-                imgui_explorer(scene);
+                ImguiExplorer(scene);
             }
         }
         ImGui::EndChildFrame();
     }
 
-    bool ComponentFactory::imgui_workspace(Scene* scene)
+    bool ComponentFactory::ImguiWorkspace(Scene* scene)
     {
         static bool init_canvas = true;
 
@@ -987,12 +1036,12 @@ namespace fin
             ImGui::DrawGrid(_s_canvas);
             ImGui::DrawOrigin(_s_canvas, -1);
 
-            if (_prefab_edit != entt::null && ecs::Base::contains(_prefab_edit))
+            if (_prefab_edit != entt::null && ecs::Base::Contains(_prefab_edit))
             {
-                auto* base = ecs::Base::get(_prefab_edit);
-                if (ecs::Sprite::contains(_prefab_edit))
+                auto* base = ecs::Base::Get(_prefab_edit);
+                if (ecs::Sprite::Contains(_prefab_edit))
                 {
-                    auto& spr = ecs::Sprite::get(_prefab_edit)->pack;
+                    auto& spr = ecs::Sprite::Get(_prefab_edit)->pack;
                     if (spr.sprite)
                     {
                         Region<float> reg( -spr.sprite->_origina.x,
@@ -1021,7 +1070,7 @@ namespace fin
                     if (_selected_component->contains(_prefab_edit))
                     {
                         ImGui::PushID(_selected_component);
-                        _selected_component->edit_canvas(_s_canvas, _prefab_edit);
+                        _selected_component->ImguiWorkspace(_s_canvas, _prefab_edit);
                         ImGui::PopID();
                     }
                 }
@@ -1035,5 +1084,15 @@ namespace fin
         return true;
     }
 
+
+    Entity ArchiveParams::GetOldEntity(Entity oldid) const
+    {
+        return scene.GetFactory().GetOldEntity(oldid);
+    }
+
+    bool ArchiveParams::NameEntity(Entity eid, std::string_view name)
+    {
+        return false;
+    }
 
 } // namespace fin

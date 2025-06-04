@@ -62,7 +62,7 @@ namespace fin
         static Pack       load_shared(std::string_view pth, std::string_view spr);
 
     protected:
-        bool                   load(msg::Value ar);
+        bool                   Load(msg::Value ar);
         std::string            _path;
         Texture2D              _texture{};
         std::vector<Sprite>    _sprites;
@@ -87,7 +87,7 @@ namespace fin
         if (msg::VarError::ok != r)
             return false;
 
-        return load(doc.get());
+        return Load(doc.get());
     }
 
     inline void Atlas::unload()
@@ -101,7 +101,7 @@ namespace fin
         return _path;
     }
 
-    inline bool Atlas::load(msg::Value ar)
+    inline bool Atlas::Load(msg::Value ar)
     {
         auto items      = ar["items"];
         auto composites = ar["composites"];

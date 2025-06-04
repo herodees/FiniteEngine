@@ -158,7 +158,7 @@ namespace fin
         const std::filesystem::path basePath = basePathPtr;
 #endif
 
-        _map.init("./assets/");
+        _map.Init("./assets/");
         auto path = cmd_attribute_get("/scene");
 
         SceneMode mode = SceneMode::Scene;
@@ -166,13 +166,13 @@ namespace fin
         {
             mode = SceneMode::Play;
             TraceLog(LOG_INFO, "SCENE LOAD: %s", path.data());
-            _map.activate_grid({0, 0, GetScreenWidth(), GetScreenHeight()});
-            _map.load(path);
+            _map.ActicateGrid({0, 0, GetScreenWidth(), GetScreenHeight()});
+            _map.Load(path);
         }
 
-        _map.set_mode(mode);
+        _map.SetMode(mode);
 
-        if (_map.get_mode() != SceneMode::Play)
+        if (_map.GetMode() != SceneMode::Play)
         {
             rlImGuiSetup(true);
             imgui_init(true);
@@ -183,7 +183,7 @@ namespace fin
 
     void application::on_deinit(bool result)
     {
-        if (_map.get_mode() != SceneMode::Play)
+        if (_map.GetMode() != SceneMode::Play)
         {
             rlImGuiShutdown();
         }
@@ -276,10 +276,10 @@ namespace fin
         ImGui::DockSpace(dockspace_id);
         if (!init_docking)
         {
-            _map.imgui_items();
-            _map.imgui_setup();
-            _map.imgui_props();
-            _map.imgui_work();
+            _map.ImguiItems();
+            _map.ImguiSetup();
+            _map.ImguiProps();
+            _map.ImguiWorkspace();
             ImGui::Dialog::Update();
 
             //ImGui::ShowDemoWindow();
@@ -324,26 +324,26 @@ namespace fin
             {
                 // Fixed Update
                 //--------------------------------------------------------------------------
-                _map.fixed_update(_fixed_time_step);
+                _map.FixedUpdate(_fixed_time_step);
                 _time_accumulator -= _fixed_time_step;
             }
 
             // Drawing
             //----------------------------------------------------------------------------------
-            if (_map.get_mode() == SceneMode::Play)
+            if (_map.GetMode() == SceneMode::Play)
             {
-                _map.activate_grid({0,0, GetScreenWidth(), GetScreenHeight()});
+                _map.ActicateGrid({0,0, GetScreenWidth(), GetScreenHeight()});
             }
 
-            _map.update(frameTime);
+            _map.Update(frameTime);
 
             BeginDrawing();
 
-            _map.render(_renderer);
+            _map.Render(_renderer);
 
             ClearBackground(BLACK);
 
-            if (_map.get_mode() != SceneMode::Play)
+            if (_map.GetMode() != SceneMode::Play)
             {
                 rlImGuiBegin(frameTime);
                 imgui();
@@ -351,9 +351,9 @@ namespace fin
             }
             else
             {
-                DrawTexturePro(_map.canvas().texture.texture,
-                               {0, 0, (float)_map.canvas().texture.texture.width, -(float)_map.canvas().texture.texture.height},
-                               {0, 0, (float)_map.canvas().texture.texture.width, (float)_map.canvas().texture.texture.height},
+                DrawTexturePro(_map.GetCanvas().texture.texture,
+                               {0, 0, (float)_map.GetCanvas().texture.texture.width, -(float)_map.GetCanvas().texture.texture.height},
+                               {0, 0, (float)_map.GetCanvas().texture.texture.width, (float)_map.GetCanvas().texture.texture.height},
                                {0, 0},
                                0,
                                WHITE);
@@ -378,7 +378,7 @@ namespace fin
             {
                 if (ImGui::MenuItem("New"))
                 {
-                    _map.clear();
+                    _map.Clear();
                 }
 
                 char const* filter_patterns[2] = {"*.json", "*.atlas"};
@@ -390,7 +390,7 @@ namespace fin
                     auto files = open_file_dialog("", "");
                     if (!files.empty())
                     {
-                        _map.load(files[0]);
+                        _map.Load(files[0]);
                     }
                 }
                 if (ImGui::MenuItem("Save"))
@@ -400,12 +400,12 @@ namespace fin
                         auto out = save_file_dialog("", "");
                         if (!out.empty())
                         {
-                            _map.save(out);
+                            _map.Save(out);
                         }
                     }
                     else
                     {
-                        _map.save(_map.get_path());
+                        _map.Save(_map.get_path());
                     }
                 }
                 if (ImGui::MenuItem("Save as") || open_save_as)
@@ -413,7 +413,7 @@ namespace fin
                     auto out = save_file_dialog("", "");
                     if (!out.empty())
                     {
-                        _map.save(out);
+                        _map.Save(out);
                     }
                 }
                 ImGui::EndMenu();
@@ -423,7 +423,7 @@ namespace fin
             {
                 if (ImGui::MenuItem(ICON_FA_WRENCH " Properties", NULL))
                 {
-                    _map.imgui_show_properties(true);
+                    _map.ImguiShowProperties(true);
                 }
                 ImGui::EndMenu();
             }
@@ -455,7 +455,7 @@ namespace fin
         if (!show_popup.empty())
             ImGui::OpenPopup(show_popup.data());
 
-        _map.imgui_filemenu();
+        _map.ImguiFilemenu();
     }
 
 } // namespace fin

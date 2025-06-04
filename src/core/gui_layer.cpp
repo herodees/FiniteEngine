@@ -351,7 +351,7 @@ namespace fin
     {
     }
 
-    void GuiLayer::update(float dt)
+    void GuiLayer::Update(float dt)
     {
         if (_set.size())
         {
