@@ -4,46 +4,33 @@
 
 namespace fin
 {
-    struct IBehaviorScript; // Forward declaration
-    class ObjectSceneLayer; // Forward declaration
-    class Scene;            // Forward declaration
-
-    namespace ecs
-    {
-        struct Script;  // Forward declaration
-        class Behavior; // Forward declaration
-    } // namespace ecs
-
     enum BehaviorFlags_
     {
-        BehaviorFlags_Default   = 0,
-        BehaviorFlags_Singleton = 1 << 0,
+        BehaviorFlags_Default = 0,
+        BehaviorFlags_Private = 1 << 0, // Private behavior, not visible in editor
     };
 
     using BehaviorFlags = uint32_t;
 
 
-
-    struct BehaviorInfo
+    struct BehaviorData
     {
-        std::string_view name;
-        BehaviorFlags    flags{};
-        IBehaviorScript* (*create)();
-        Scene& scene;
+        SparseSet*       storage;
+        std::string_view id;
+        std::string_view label;
+        BehaviorFlags    flags;
+        void (*update)(const SparseSet& set, float dt);
+    };
+
+    struct BehaviorTag
+    {
     };
 
 
 
     class IBehaviorScript
     {
-    protected:
-        friend class ScriptFactory;
-        friend struct ecs::Script;
-        friend struct ecs::Behavior;
-        IBehaviorScript*    next{};
-        const BehaviorInfo* info{};
-        Entity              entity{};
-
+        EntityHandle _self;
     public:
         virtual ~IBehaviorScript() {};
         virtual void OnStart() {};
@@ -53,94 +40,132 @@ namespace fin
         {
             return false;
         };
-        virtual void Load(msg::Var& ar) {};
-        virtual void Save(msg::Var& ar) const {};
-        virtual std::string_view GetType() const = 0;
-        virtual std::string_view GetLabel() const = 0;
+        virtual void                Load(msg::Var& ar) {};
+        virtual void                Save(msg::Var& ar) const {};
+        virtual std::string_view    GetType() const  = 0;
+        virtual std::string_view    GetLabel() const = 0;
+        virtual const BehaviorData& GetData() const  = 0;
+
+        EntityHandle&               Self();
     };
 
 
 
-    template <typename CLASS, std::string_literal ID, std::string_literal LABEL>
-    class Behavior : public IBehaviorScript
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    struct Behavior : public IBehaviorScript, BehaviorTag
     {
     public:
-        Behavior() = default;
+        using self_type      = Behavior<C, ID, LABEL>;
+        using Storage        = entt::storage_for_t<C>;
+        ~Behavior() override = default;
 
-        std::string_view GetType() const
-        {
-            return ID.data;
-        };
-        std::string_view GetLabel() const
-        {
-            return LABEL.data;
-        };
+        static Storage&      GetStorage();
+        static void          Emplace(Entity e);
+        static void          Remove(Entity e);
+        static bool          Contains(Entity e);
+        static C*            Get(Entity e);
 
-        template <typename C>
-        C* GetComponent();
-        template <typename C>
-        void AddComponent();
-        template <typename C>
-        void RemoveComponent();
-        template <typename C>
-        bool HasComponent() const;
-
-        template <typename B>
-        B* GetBehavior();
-        template <typename B>
-        B* AddBehavior();
-        template <typename B>
-        void RemoveBehavior(B* bh);
-        void RemoveBehavior(std::string_view name);
-        template <typename B>
-        bool HasBehavior() const;
-        bool HasBehavior(std::string_view name) const;
-
-        ObjectSceneLayer*   GetLayer();
-        Scene*              GetScene();
-        Entity              GetEntity() const;
-        const BehaviorInfo* GetInfo() const;
-
-        Vec2f GetPosition() const;
-        void  SetPosition(Vec2f pos);
-        bool  IsActive() const;
-    };
-
-
-
-    class ScriptFactory
-    {
-    public:
-        ScriptFactory(Scene& scene);
-        ~ScriptFactory();
-
-        template <class Script>
-        void RegisterScript(std::string_view name, BehaviorFlags flags);
-
-        IBehaviorScript* Enplace(Entity ent, std::string_view name) const;
-        bool             Contains(Entity ent, std::string_view name) const;
-        IBehaviorScript* Get(Entity ent, std::string_view name) const;
-        void             Remove(Entity ent, IBehaviorScript* script) const;
-
-        IBehaviorScript* Create(std::string_view name) const;
+        void                 OnUpdate(float dt) override = 0;
+        std::string_view     GetType() const override;
+        std::string_view     GetLabel() const override;
+        const BehaviorData&  GetData() const override;
+        static BehaviorData& GetData(Registry& reg, BehaviorFlags flags);
+        static void          Update(const SparseSet& set, float dt);
 
     private:
-        Scene&                                                                           _scene;
-        std::unordered_map<std::string, BehaviorInfo, std::string_hash, std::equal_to<>> _registry;
+        static BehaviorData _data;
     };
 
 
 
-    template <class Script>
-    inline void ScriptFactory::RegisterScript(std::string_view name, BehaviorFlags flags)
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    BehaviorData Behavior<C, ID, LABEL>::_data{};
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline BehaviorData& Behavior<C, ID, LABEL>::GetData(Registry& reg, BehaviorFlags flags)
     {
-        static_assert(std::is_base_of_v<IBehaviorScript, Script>, "Script must derive from IBehaviorScript");
-        auto [it, inserted] = _registry.emplace(std::string(name), {"", flags, nullptr, _scene});
-        if (inserted)
+        _data.storage  = &reg.storage<C>();
+        _data.id       = ID.value;
+        _data.label    = LABEL.value;
+        _data.flags    = flags;
+        _data.update   = &C::Update;
+        return _data;
+    }
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline void Behavior<C, ID, LABEL>::Update(const SparseSet& set, float dt)
+    {
+        if (set.size() > _data.storage->size())
         {
-            it->second.name   = it->first;
-            it->second.create = []() -> IBehaviorScript* { return new Script(); };
+            for (auto ent : *_data.storage)
+            {
+                if (!set.contains(ent))
+                    continue;
+                Get(ent)->OnUpdate(dt);
+            }
+        }
+        else
+        {
+            for (auto ent : set)
+            {
+                if (!_data.storage->contains(ent))
+                    continue;
+                Get(ent)->OnUpdate(dt);
+            }
         }
     }
 
-} // namespace fin
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline Behavior<C, ID, LABEL>::Storage& Behavior<C, ID, LABEL>::GetStorage()
+    {
+        return static_cast<Storage&>(*_data.storage);
+    }
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline C* Behavior<C, ID, LABEL>::Get(Entity e)
+    {
+        return static_cast<C*>(_data.storage->get(e));
+    }
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline bool Behavior<C, ID, LABEL>::Contains(Entity e)
+    {
+        return _data.storage->contains(e);
+    }
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline void Behavior<C, ID, LABEL>::Remove(Entity e)
+    {
+        _data.storage->remove(e);
+    }
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline void Behavior<C, ID, LABEL>::Emplace(Entity e)
+    {
+        _data.storage->emplace(e);
+    }
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline std::string_view Behavior<C, ID, LABEL>::GetLabel() const
+    {
+        return _data.label;
+    }
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline const BehaviorData& Behavior<C, ID, LABEL>::GetData() const
+    {
+        return _data;
+    }
+
+    inline EntityHandle& IBehaviorScript::Self()
+    {
+        return _self;
+    }
+
+    template <typename C, std::string_literal ID, std::string_literal LABEL>
+    inline std::string_view Behavior<C, ID, LABEL>::GetType() const
+    {
+        return _data.id;
+    }
+}
+

@@ -215,7 +215,7 @@ namespace fin
 
 
 
-    Scene::Scene() : ScriptFactory(*this), SystemManager(*this), ComponentFactory(*this), LayerManager(*this)
+    Scene::Scene() : SystemManager(*this), ComponentFactory(*this), LayerManager(*this)
     {
 
     }
@@ -393,11 +393,6 @@ namespace fin
     }
 
     SystemManager& Scene::GetSystems()
-    {
-        return *this;
-    }
-
-    ScriptFactory& Scene::GetScripts()
     {
         return *this;
     }

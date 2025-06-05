@@ -25,19 +25,6 @@ namespace fin::ecs
 
 
 
-    class Behavior : public System
-    {
-    public:
-        Behavior(Scene& s);
-        ~Behavior() override = default;
-
-        void Update(float dt) override;
-        void UpdateObjects(float dt, ObjectSceneLayer* layer);
-        bool ImguiSetup() override;
-    };
-
-
-
     class CameraController : public System
     {
     public:

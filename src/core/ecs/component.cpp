@@ -170,9 +170,14 @@ namespace fin
         return _registry;
     }
 
-    ComponentFactory::Map& ComponentFactory::GetComponents()
+    ComponentFactory::ComponentMap& ComponentFactory::GetComponents()
     {
         return _components;
+    }
+
+    ComponentFactory::BehaviorMap& ComponentFactory::GetBehaviors()
+    {
+        return _behaviors;
     }
 
     Entity ComponentFactory::GetOldEntity(Entity old_id)

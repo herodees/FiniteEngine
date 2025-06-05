@@ -18,8 +18,7 @@ namespace fin::ecs
         fact.RegisterComponent<Camera>(ComponentFlags_NoWorkspaceEditor);
         fact.RegisterComponent<Body>(ComponentFlags_NoWorkspaceEditor); 
         fact.RegisterComponent<Prefab>(ComponentFlags_Private); // Prefab is not editable in the editor
-        fact.RegisterComponent<Script>(
-            ComponentFlags_NoWorkspaceEditor | ComponentFlags_NoEditor); // Prefab is not editable in the editor
+
     }
 
     fin::Region<float> Base::GetBoundingBox() const
@@ -417,139 +416,6 @@ namespace fin::ecs
     }
 
     bool Path::ImguiProps(Entity self)
-    {
-        return false;
-    }
-
-    Script::~Script()
-    {
-        auto* script = _script;
-        while (script)
-        {
-            auto* next = script->next;
-            delete script;
-            script = next;
-        }
-    }
-
-    IBehaviorScript* Script::AddScript(std::string_view name) const
-    {
-        auto* script = _script;
-        while (script)
-        {
-            if (name == script->info->name)
-            {
-                return script;
-            }
-            script = script->next;
-        }
-        return nullptr;
-    }
-
-    void Script::AddScript(IBehaviorScript* scr)
-    {
-        scr->next = _script;
-        _script = scr;
-    }
-
-    void Script::RemoveScript(IBehaviorScript* scr)
-    {
-        if (_script == scr)
-        {
-            _script = scr->next;
-            return;
-        }
-        auto* script = _script;
-        while (script && script->next)
-        {
-            if (script->next == scr)
-            {
-                script->next = scr->next;
-                return;
-            }
-            script = script->next;
-        }
-    }
-
-void Script::MoveScript(IBehaviorScript* scr, int dir)
-    {
-        if (!scr || !_script || dir == 0)
-            return;
-
-        // Moving up (dir < 0)
-        if (dir < 0)
-        {
-            // If it's already the first element, can't move up
-            if (_script == scr)
-                return;
-
-            // Find the previous node
-            IBehaviorScript* prev    = nullptr;
-            IBehaviorScript* current = _script;
-            while (current && current->next != scr)
-            {
-                prev    = current;
-                current = current->next;
-            }
-
-            // If we found the node to move
-            if (current && current->next == scr)
-            {
-                if (prev)
-                {
-                    // Normal case - node is in middle of list
-                    IBehaviorScript* scrNext = scr->next;
-                    prev->next               = scr;
-                    scr->next                = current;
-                    current->next            = scrNext;
-                }
-                else
-                {
-                    // Special case - moving second node to first
-                    IBehaviorScript* scrNext = scr->next;
-                    _script                  = scr;
-                    scr->next                = current;
-                    current->next            = scrNext;
-                }
-            }
-        }
-        // Moving down (dir > 0)
-        else
-        {
-            // Find the node and its previous
-            IBehaviorScript* prev    = nullptr;
-            IBehaviorScript* current = _script;
-            while (current && current != scr)
-            {
-                prev    = current;
-                current = current->next;
-            }
-
-            // If we found the node and it has a next node to swap with
-            if (current == scr && scr->next)
-            {
-                IBehaviorScript* scrNext = scr->next;
-                scr->next                = scrNext->next;
-                scrNext->next            = scr;
-
-                if (prev)
-                {
-                    prev->next = scrNext;
-                }
-                else
-                {
-                    _script = scrNext;
-                }
-            }
-        }
-    }
-
-    bool Script::Load(ArchiveParams& ar)
-    {
-        return false;
-    }
-
-    bool Script::Save(ArchiveParams& ar)
     {
         return false;
     }

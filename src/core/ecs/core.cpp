@@ -8,7 +8,6 @@ namespace fin::ecs
     void RegisterCoreSystems(SystemManager& fact)
     {
         fact.RegisterSystem<Navigation, "navs", "Navigation">(SystemFlags_Default);
-        fact.RegisterSystem<Behavior, "bhvs", "Behavior">(SystemFlags_Default);
         fact.RegisterSystem<CameraController, "cmrs", "Camera Controller">(SystemFlags_Default);
     }
 
@@ -139,50 +138,6 @@ namespace fin::ecs
     }
 
     bool Navigation::ImguiSetup()
-    {
-        return false;
-    }
-
-
-
-    Behavior::Behavior(Scene& s) : System(s)
-    {
-    }
-
-    void Behavior::Update(float dt)
-    {
-        auto layers = GetScene().GetLayers().GetLayers();
-        for (auto* layer : layers)
-        {
-            if (layer->IsDisabled())
-                continue;
-
-            if (layer->GetType() != LayerType::Object)
-                continue;
-
-            UpdateObjects(dt,static_cast<ObjectSceneLayer*>(layer));
-        }
-    }
-
-    void Behavior::UpdateObjects(float dt, ObjectSceneLayer* layer)
-    {
-        auto& objects = layer->GetObjects(true);
-        for (auto ent : objects)
-        {
-            if (ecs::Script::Contains(ent))
-            {
-                auto* scr = ecs::Script::Get(ent);
-                auto* s = scr->_script;
-                while (s)
-                {
-                    s->OnUpdate(dt);
-                    s = s->next;
-                }
-            }
-        }
-    }
-
-    bool Behavior::ImguiSetup()
     {
         return false;
     }

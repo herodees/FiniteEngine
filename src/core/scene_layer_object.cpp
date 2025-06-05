@@ -220,7 +220,18 @@ namespace fin
 
     void ObjectSceneLayer::Update(float dt)
     {
-    }
+        if (IsDisabled())
+            return;
+
+        auto& objects = GetObjects(true);
+        auto& fact = Scene().GetFactory();
+        auto& map = fact.GetBehaviors();
+
+        for (auto& [k, v] : map)
+        {
+            v.update(objects, dt);
+        }
+    }        
 
     void ObjectSceneLayer::Clear()
     {

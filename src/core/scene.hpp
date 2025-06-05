@@ -27,7 +27,7 @@ namespace fin
         Prefab,
     };
 
-    class Scene : private ScriptFactory, private SystemManager, private ComponentFactory, private LayerManager
+    class Scene : private SystemManager, private ComponentFactory, private LayerManager
     {
         friend class SpriteSceneObject;
 
@@ -64,7 +64,6 @@ namespace fin
         RenderTexture2D&  GetCanvas();
         ComponentFactory& GetFactory();
         SystemManager&    GetSystems();
-        ScriptFactory&    GetScripts();
         LayerManager&     GetLayers();
 
         void ImguiWorkspace();

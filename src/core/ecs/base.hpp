@@ -133,23 +133,6 @@ namespace fin::ecs
 
 
 
-    struct Script : Component<Script, "scr", "Script">
-    {
-        IBehaviorScript* _script{};
-
-        Script() = default;
-        ~Script();
-        IBehaviorScript* AddScript(std::string_view name) const;
-        void             AddScript(IBehaviorScript* scr);
-        void             RemoveScript(IBehaviorScript* scr);
-        void             MoveScript(IBehaviorScript* scr, int dir);
-
-        static bool Load(ArchiveParams& ar);
-        static bool Save(ArchiveParams& ar);
-    };
-
-
-
     struct Name : Component<Name, "nme", "Named Object">
     {
         std::string_view _name;
