@@ -94,6 +94,20 @@ namespace ImGui
             }
         }
 
+        template <typename T, typename... Args>
+        static void ShowOnce(const char* label, ImVec2 size, ImGuiWindowFlags flags, Args&&... args)
+        {
+            for (auto el : s_activeDialogs)
+            {
+                if (el.label == label)
+                    return;
+            }
+            if (auto dialog = Create<T>(std::forward<Args>(args)...))
+            {
+                Show(label, size, flags, dialog); // Call the existing Show(Ptr) method
+            }
+        }
+
         virtual bool OnUpdate()
         {
             return true;

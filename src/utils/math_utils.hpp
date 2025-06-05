@@ -577,6 +577,12 @@ namespace fin
             return { (point1.x + point2.x) / 2, (point1.y + point2.y) / 2 };
         }
     };
+
+    template <typename T>
+    T lerp(const T& a, const T& b, float t)
+    {
+        return a * (1.0f - t) + b * t;
+    }
 }
 
 namespace std

@@ -97,12 +97,12 @@ namespace fin
             Entity ent{entt::null};
             fact.LoadEntity(ent, obj);
             if (ent != entt::null)
-                insert(ent);
+                Insert(ent);
         }
-        update_navmesh();
+        UpdateNavmesh();
     }
 
-    void ObjectSceneLayer::insert(Entity ent)
+    void ObjectSceneLayer::Insert(Entity ent)
     {
         if (ecs::Base::Contains(ent))
         {
@@ -111,7 +111,7 @@ namespace fin
                 return;
 
             if (obj->_layer)
-                obj->_layer->remove(ent);
+                obj->_layer->Remove(ent);
 
             obj->_layer = this;
             _spatial_db.update_for_new_location(obj);
@@ -120,7 +120,7 @@ namespace fin
         _objects.emplace(ent);
     }
 
-    void ObjectSceneLayer::remove(Entity ent)
+    void ObjectSceneLayer::Remove(Entity ent)
     {
         if (ecs::Base::Contains(ent))
         {
@@ -135,7 +135,7 @@ namespace fin
         parent()->GetFactory().GetRegistry().destroy(ent);
     }
 
-    Entity ObjectSceneLayer::find_at(Vec2f position) const
+    Entity ObjectSceneLayer::FindAt(Vec2f position) const
     {
         Entity ret = entt::null;
         auto   cb  = [&ret, position](lq::SpatialDatabase::Proxy* obj, float dist)
@@ -161,7 +161,7 @@ namespace fin
         return entt::null;
     }
 
-    Entity ObjectSceneLayer::find_active_at(Vec2f position) const
+    Entity ObjectSceneLayer::FindActiveAt(Vec2f position) const
     {
         for (auto it = _iso.rbegin(); it != _iso.rend(); ++it)
         {
@@ -192,12 +192,12 @@ namespace fin
         return entt::null;
     }
 
-    void ObjectSceneLayer::select_edit(Entity ent)
+    void ObjectSceneLayer::SelectEdit(Entity ent)
     {
         _edit = ent;
     }
 
-    void ObjectSceneLayer::moveto(Entity ent, Vec2f pos)
+    void ObjectSceneLayer::MoveTo(Entity ent, Vec2f pos)
     {
         auto* obj      = ecs::Base::Get(ent);
         obj->_position = pos;
@@ -205,7 +205,7 @@ namespace fin
         _dirty_navmesh = true;
     }
 
-    void ObjectSceneLayer::move(Entity ent, Vec2f pos)
+    void ObjectSceneLayer::Move(Entity ent, Vec2f pos)
     {
         auto* obj      = ecs::Base::Get(ent);
         obj->_position += pos;
@@ -381,8 +381,8 @@ namespace fin
 
         if (ImGui::IsItemClicked(0))
         {
-            auto el = find_active_at(mouse_pos);
-            select_edit(el);
+            auto el = FindActiveAt(mouse_pos);
+            SelectEdit(el);
 
             if (ecs::Base::Contains(_edit))
             {
@@ -394,7 +394,7 @@ namespace fin
 
         if (ImGui::IsItemClicked(1))
         {
-            select_edit(entt::null);
+            SelectEdit(entt::null);
         }
 
         if (ecs::Base::Contains(_edit))
@@ -403,7 +403,7 @@ namespace fin
             ImVec2 pos{base->_position.x, base->_position.y};
             if (canvas.EndDrag(pos, base))
             {
-                moveto(_edit, pos);
+                MoveTo(_edit, pos);
             }
         }
    
@@ -433,7 +433,7 @@ namespace fin
                 {
                     auto* obj      = ecs::Base::Get(_drop);
                     obj->_position = {mouse_pos.x, mouse_pos.y};
-                    insert(_drop);
+                    Insert(_drop);
                 }
 
                 _drop = entt::null;
@@ -446,7 +446,7 @@ namespace fin
 
         if (g_settings.visible_navgrid)
         {
-            update_navmesh();
+            UpdateNavmesh();
             auto& txt = _navmesh.getDebugTexture();
             ImGui::DrawTexture(canvas,
                                (ImTextureID)&txt,
@@ -541,7 +541,7 @@ namespace fin
             {
                 if (_edit != entt::null && ImGui::Line().HoverId() == 1)
                 {
-                    remove(_edit);
+                    Remove(_edit);
                     _edit = entt::null;
                     return;
                 }
@@ -563,7 +563,7 @@ namespace fin
 
                         if (ImGui::Selectable(name, el->_ptr == _edit))
                         {
-                            select_edit(el->_ptr);
+                            SelectEdit(el->_ptr);
                         }
                         ImGui::PopID();
                     }
@@ -583,7 +583,7 @@ namespace fin
 
                             if (ImGui::Selectable(name, el == _edit))
                             {
-                                select_edit(el);
+                                SelectEdit(el);
                             }
                             ImGui::PopID();
                         }
@@ -599,18 +599,33 @@ namespace fin
             parent()->GetFactory().ImguiPrefab(parent(), _edit);
         }
     }
-
-    Entity ObjectSceneLayer::get_active(size_t n)
+    /*
+    Entity ObjectSceneLayer::GetActive(size_t n) const
     {
         return _iso[n]->_ptr;
     }
 
-    size_t ObjectSceneLayer::get_active_count() const
+    size_t ObjectSceneLayer::GetActiveCount() const
     {
         return _iso.size();
+    }**/
+
+    Navmesh& ObjectSceneLayer::GetNavmesh()
+    {
+        return _navmesh;
     }
 
-    void ObjectSceneLayer::update_navmesh()
+    const Navmesh& ObjectSceneLayer::GetNavmesh() const
+    {
+        return _navmesh;
+    }
+
+    const SparseSet& ObjectSceneLayer::GetObjects(bool active_only) const
+    {
+        return active_only ? _selected : _objects;
+    }
+
+    void ObjectSceneLayer::UpdateNavmesh()
     {
         if (!_dirty_navmesh)
             return;
@@ -635,7 +650,7 @@ namespace fin
         }
     }
 
-    bool ObjectSceneLayer::find_path(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const
+    bool ObjectSceneLayer::FindPath(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const
     {
         return _navmesh.findPath(from, to, path);
     }

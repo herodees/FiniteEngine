@@ -4,8 +4,15 @@
 
 namespace fin
 {
-    struct IBehaviorScript;
-    class Scene;
+    struct IBehaviorScript; // Forward declaration
+    class ObjectSceneLayer; // Forward declaration
+    class Scene;            // Forward declaration
+
+    namespace ecs
+    {
+        struct Script;  // Forward declaration
+        class Behavior; // Forward declaration
+    } // namespace ecs
 
     enum BehaviorFlags_
     {
@@ -27,21 +34,76 @@ namespace fin
 
 
 
-    struct IBehaviorScript
+    class IBehaviorScript
     {
+    protected:
+        friend class ScriptFactory;
+        friend struct ecs::Script;
+        friend struct ecs::Behavior;
         IBehaviorScript*    next{};
         const BehaviorInfo* info{};
+        Entity              entity{};
 
+    public:
         virtual ~IBehaviorScript() {};
-        virtual void OnStart(Entity e) {};
-        virtual void OnUpdate(Entity e, float dt) = 0;
-        virtual void OnDestroy(Entity e) {};
-        virtual bool OnEdit(Entity e)
+        virtual void OnStart() {};
+        virtual void OnUpdate(float dt) = 0;
+        virtual void OnDestroy() {};
+        virtual bool OnEdit()
         {
             return false;
         };
         virtual void Load(msg::Var& ar) {};
         virtual void Save(msg::Var& ar) const {};
+        virtual std::string_view GetType() const = 0;
+        virtual std::string_view GetLabel() const = 0;
+    };
+
+
+
+    template <typename CLASS, std::string_literal ID, std::string_literal LABEL>
+    class Behavior : public IBehaviorScript
+    {
+    public:
+        Behavior() = default;
+
+        std::string_view GetType() const
+        {
+            return ID.data;
+        };
+        std::string_view GetLabel() const
+        {
+            return LABEL.data;
+        };
+
+        template <typename C>
+        C* GetComponent();
+        template <typename C>
+        void AddComponent();
+        template <typename C>
+        void RemoveComponent();
+        template <typename C>
+        bool HasComponent() const;
+
+        template <typename B>
+        B* GetBehavior();
+        template <typename B>
+        B* AddBehavior();
+        template <typename B>
+        void RemoveBehavior(B* bh);
+        void RemoveBehavior(std::string_view name);
+        template <typename B>
+        bool HasBehavior() const;
+        bool HasBehavior(std::string_view name) const;
+
+        ObjectSceneLayer*   GetLayer();
+        Scene*              GetScene();
+        Entity              GetEntity() const;
+        const BehaviorInfo* GetInfo() const;
+
+        Vec2f GetPosition() const;
+        void  SetPosition(Vec2f pos);
+        bool  IsActive() const;
     };
 
 

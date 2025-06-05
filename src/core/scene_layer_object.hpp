@@ -31,37 +31,38 @@ namespace fin
         ObjectSceneLayer();
         ~ObjectSceneLayer() override;
 
-        void   Serialize(msg::Var& ar) override;
-        void   Deserialize(msg::Var& ar) override;
-        void   Clear() override;
-        void   Resize(Vec2f size) override;
-        void   Activate(const Rectf& region) override;
-        void   insert(Entity ent);
-        void   remove(Entity ent);
-        void   moveto(Entity ent, Vec2f pos);
-        void   move(Entity ent, Vec2f pos);
-        void   Update(void* obj);
-        Entity find_at(Vec2f position) const;
-        Entity find_active_at(Vec2f position) const;
-        bool   find_path(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const;
-        void   select_edit(Entity ent);
-        void   Update(float dt) override;
-        void   Render(Renderer& dc) override;
-        void   ImguiWorkspace(ImGui::CanvasParams& canvas) override;
-        void   ImguiWorkspaceMenu() override;
-        void   ImguiSetup() override;
-        void   ImguiUpdate(bool items) override;
-        Entity get_active(size_t n);
-        size_t get_active_count() const;
-        Navmesh& get_navmesh() { return _navmesh; }
-        const Navmesh& get_navmesh() const { return _navmesh; }
+        void             Insert(Entity ent);
+        void             Remove(Entity ent);
+        void             MoveTo(Entity ent, Vec2f pos);
+        void             Move(Entity ent, Vec2f pos);
+        void             Update(void* obj);
+        Entity           FindAt(Vec2f position) const;
+        Entity           FindActiveAt(Vec2f position) const;
+        bool             FindPath(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const;
+        Navmesh&         GetNavmesh();
+        const Navmesh&   GetNavmesh() const;
+        const SparseSet& GetObjects(bool active_only = false) const;
+
+        void Update(float dt) override;
+        void Render(Renderer& dc) override;
+        void Activate(const Rectf& region) override;
+        void Serialize(msg::Var& ar) override;
+        void Deserialize(msg::Var& ar) override;
+        void Clear() override;
+        void Resize(Vec2f size) override;
+
+        void ImguiWorkspace(ImGui::CanvasParams& canvas) override;
+        void ImguiWorkspaceMenu() override;
+        void ImguiSetup() override;
+        void ImguiUpdate(bool items) override;
 
     protected:
-        void update_navmesh();
+        void UpdateNavmesh();
+        void SelectEdit(Entity ent);
 
-        entt::sparse_set        _objects;
-        entt::sparse_set        _selected;
-        Vec2i                   _grid_size{0,0};
+        SparseSet               _objects;
+        SparseSet               _selected;
+        Vec2i                   _grid_size{0, 0};
         Vec2i                   _cell_size{16, 8};
         Vec2f                   _size;
         lq::SpatialDatabase     _spatial_db;

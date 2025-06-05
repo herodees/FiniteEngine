@@ -9,6 +9,212 @@ namespace fin
 {
     ImGui::CanvasParams _s_canvas;
 
+    class SceneProperties : public ImGui::Dialog
+    {
+        enum
+        {
+            PropertyUndefined = -1,
+            PropertyBasic     = 0,
+            PropertyLayout,
+            PropertySystem,
+        };
+    public:
+        SceneProperties(Scene& scene) : _scene(scene)
+        {
+        }
+
+        bool OnUpdate() override
+        {
+            if (selected == PropertyUndefined)
+            {
+                _new_size = _scene.GetSceneSize();
+                selected = PropertyBasic;
+            }
+
+            // Left
+            if (ImGui::BeginChild("left pane", ImVec2(140, 0), ImGuiChildFlags_FrameStyle | ImGuiChildFlags_ResizeX, 0))
+            {
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 15)); // Wider/taller padding
+                ImGui::Dummy({1, 1});
+                if (ImGui::Selectable(" " ICON_FA_GEAR " Basic", selected == PropertyBasic))
+                    selected = PropertyBasic;
+
+                if (ImGui::Selectable(" " ICON_FA_LAYER_GROUP " Layout", selected == PropertyLayout))
+                    selected = PropertyLayout;
+
+                if (ImGui::Selectable(" " ICON_FA_GEARS " System", selected == PropertySystem))
+                    selected = PropertySystem;
+                ImGui::PopStyleVar();
+            }
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+
+            // Right
+            if (ImGui::BeginChild("item view",
+                                  ImVec2(0, 0),
+                                  ImGuiChildFlags_AlwaysUseWindowPadding,
+                                  ImGuiWindowFlags_NoBackground)) // Leave room for 1 line below us
+            {
+                auto show_header = [](const char* label, const char* desc)
+                {
+                    ImGui::NewLine();
+                    ImGui::SetWindowFontScale(1.3f); // Only affects current window
+                    ImGui::Text(label);
+                    ImGui::SetWindowFontScale(1.0f);
+                    ImGui::NewLine();
+                    ImGui::TextWrapped(desc);
+                    ImGui::NewLine();
+                };
+
+                if (selected == PropertyBasic)
+                {
+                    show_header("Basic Settings",
+                                "Scene size will resize all layers without destroying objects. Background color sets "
+                                "the "
+                                "scene background.");
+
+                    Vec2i old_size(_scene.GetSceneSize());
+                    ImGui::InputInt2("Size", &_new_size.x);
+                    if (old_size != _new_size)
+                    {
+                        ImGui::SameLine();
+                        if (ImGui::Button(ICON_FA_ROTATE_LEFT " Revert"))
+                            selected = PropertyUndefined;
+                        ImGui::SameLine();
+                        if (ImGui::Button(ICON_FA_FLOPPY_DISK " Save"))
+                        {
+                            _scene.SetSize(_new_size);
+                            selected = PropertyUndefined;
+                        }
+                    }
+
+                    auto bg = _scene.GetBackgroundColor();
+                    float clr[4] = {bg.r / 255.f, bg.g / 255.f, bg.b / 255.f, bg.a / 255.f};
+                    if (ImGui::ColorEdit4("Color", clr, ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_PickerHueWheel))
+                    {
+                        bg.r = clr[0] * 255;
+                        bg.g = clr[1] * 255;
+                        bg.b = clr[2] * 255;
+                        bg.a = clr[3] * 255;
+                        _scene.SetBackgroundColor(bg);
+                    }
+                }
+                else if (selected == PropertyLayout)
+                {
+                    show_header("Layout Settings",
+                                "You can create and manage custom layers in the scene to control drawing and logic "
+                                "order. "
+                                "Layers can represent different types like regions, sprites, or object layers. "
+                                "Use this to organize your scene more efficiently and define how elements overlap.");
+
+                    if (ImGui::BeginChild("left pane",
+                                          ImVec2(250, 0),
+                                          ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX,
+                                          ImGuiWindowFlags_NoBackground))
+                    {
+                        _scene.GetLayers().ImguiSetup();
+                    }
+                    ImGui::EndChild();
+                    ImGui::SameLine();
+                    if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_FrameStyle, ImGuiWindowFlags_NoBackground))
+                    {
+                        if (auto* lyr = _scene.GetLayers().GetActiveLayer())
+                        {
+                            lyr->ImguiSetup();
+                        }
+                    }
+                    ImGui::EndChild();
+                }
+                else if (selected == PropertySystem)
+                {
+                    show_header("System Settings",
+                                "Manage all active systems in the scene. Systems define logic and behavior using the "
+                                "ECS "
+                                "(Entity-Component-System) model.\n"
+                                "You can add, remove, or reorder systems to control how your scene updates and "
+                                "reacts.");
+
+                    if (ImGui::BeginChild("left pane",
+                                          ImVec2(250, 0),
+                                          ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX,
+                                          ImGuiWindowFlags_NoBackground))
+                    {
+                        if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
+                                .PushStyle(ImStyle_Button, 1)
+                                .Text(ICON_FA_LAPTOP " Add ")
+                                .PopStyle()
+                                .PushStyle(ImStyle_Button, 2)
+                                .Text(ICON_FA_ARROW_UP)
+                                .PopStyle()
+                                .PushStyle(ImStyle_Button, 3)
+                                .Text(ICON_FA_ARROW_DOWN)
+                                .PopStyle()
+                                .Spring()
+                                .PushStyle(ImStyle_Button, 4)
+                                .Text(ICON_FA_BAN)
+                                .PopStyle()
+                                .End())
+                        {
+                            if (ImGui::Line().HoverId() == 1)
+                            {
+                                ImGui::OpenPopup("SystemMenu");
+                            }
+
+                            if (ImGui::Line().HoverId() == 2)
+                            {
+                                _active_system = _scene.GetSystems().MoveSystem(_active_system, false);
+                            }
+                            if (ImGui::Line().HoverId() == 3)
+                            {
+                                _active_system = _scene.GetSystems().MoveSystem(_active_system, true);
+                            }
+                            if (ImGui::Line().HoverId() == 4)
+                            {
+                                _scene.GetSystems().DeleteSystem(_active_system);
+                            }
+                        }
+
+                        if (ImGui::BeginPopup("SystemMenu"))
+                        {
+                            _active_system = _scene.GetSystems().ImguiMenu();
+                            ImGui::EndPopup();
+                        }
+
+                        if (ImGui::BeginChildFrame(ImGui::GetID("sysi"), {-1, -1}))
+                        {
+                            _scene.GetSystems().ImguiSystems(&_active_system);
+                        }
+                        ImGui::EndChildFrame();
+                    }
+                    ImGui::EndChild();
+                    ImGui::SameLine();
+                    if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground))
+                    {
+                        if (_scene.GetSystems().IsValid(_active_system))
+                        {
+                            _scene.GetSystems().GetSystem(_active_system)->ImguiSetup();
+                        }
+                    }
+
+                    ImGui::EndChild();
+                }
+            }
+            ImGui::EndChild();
+
+            return _valid;
+        }
+
+    private:
+        int   _active_system{-1};
+        int   selected = PropertyUndefined;
+        Vec2i _new_size;
+        bool   _valid{true};
+        Scene& _scene;
+    };
+
+
+
     Scene::Scene() : ScriptFactory(*this), SystemManager(*this), ComponentFactory(*this), LayerManager(*this)
     {
 
@@ -25,12 +231,9 @@ namespace fin
         GetFactory().Load();
         ecs::RegisterCoreSystems(GetSystems());
         GetSystems().AddDefaults();
-
-        ecs::Base::GetStorage().on_update().connect<&Scene::on_new_position>(this);
-        ecs::Base::GetStorage().on_destroy().connect<&Scene::on_destroy_position>(this);
     }
 
-    const std::string& Scene::get_path() const
+    const std::string& Scene::GetPath() const
     {
         return _path;
     }
@@ -52,7 +255,7 @@ namespace fin
         if (_size != size)
         {
             _size = size;
-            GetLayers().set_size(size);
+            GetLayers().SetSize(size);
         }
     }
 
@@ -93,6 +296,16 @@ namespace fin
     const Camera& Scene::GetCamera() const
     {
         return _camera;
+    }
+
+    Color Scene::GetBackgroundColor() const
+    {
+        return _background;
+    }
+
+    void Scene::SetBackgroundColor(Color clr)
+    {
+        _background = clr;
     }
 
     void Scene::Render(Renderer& dc)
@@ -344,25 +557,6 @@ namespace fin
         ImGui::End();
     }
 
-    void Scene::ImguiSetup()
-    {
-        if (_show_properties)
-        { // Get main viewport
-            ImGuiViewport* viewport = ImGui::GetMainViewport();
-            ImVec2         center   = viewport->GetCenter();
-            ImVec2         win_size(800, 600);
-            ImVec2         win_pos = ImVec2(center.x - win_size.x * 0.5f, center.y - win_size.y * 0.5f);
-            ImGui::SetNextWindowPos(win_pos, ImGuiCond_Appearing);
-            ImGui::SetNextWindowSize(win_size, ImGuiCond_Appearing);
-
-            if (ImGui::Begin("Scene Properties", &_show_properties, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse))
-            {
-                imgui_props_setup();
-            }
-            ImGui::End();
-        }
-    }
-
     void Scene::ImguiItems()
     {
         if (ImGui::Begin("Explorer"))
@@ -382,242 +576,10 @@ namespace fin
                 _edit_prefabs = false;
             }
 
-            imgui_scene();
+            GetLayers().ImguiScene();
         }
         ImGui::End();
         
-    }
-
-    void Scene::on_new_position(Registry& reg, Entity ent)
-    {
-        auto& base = ecs::Base::GetStorage().get(ent);
-    }
-
-    void Scene::on_destroy_position(Registry& reg, Entity ent)
-    {
-        auto& base = ecs::Base::GetStorage().get(ent);
-    }
-
-    void Scene::imgui_scene()
-    {
-        GetLayers().ImguiScene();
-    }
-
-    void Scene::imgui_props_object()
-    {
-        if (ImGui::CollapsingHeader("Layers", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            GetLayers().ImguiLayers(nullptr);
-        }
-
-        if (ImGui::CollapsingHeader("Items", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (auto* lyr = GetActiveLayer())
-            {
-                ImGui::PushID("lyit");
-                lyr->ImguiUpdate(true);
-                ImGui::PopID();
-            }
-        }
-
-        if (ImGui::CollapsingHeader("Properties", ImGuiTreeNodeFlags_DefaultOpen))
-        {
-            if (auto* lyr = GetActiveLayer())
-            {
-                ImGui::PushID("lypt");
-                lyr->ImguiUpdate(false);
-                ImGui::PopID();
-            }
-        }
-    }
-
-    void Scene::imgui_props_setup()
-    {
-        enum
-        {
-            PropertyUndefined= -1,
-            PropertyBasic = 0,
-            PropertyLayout,
-            PropertySystem,
-        };
-        static int   selected = PropertyUndefined;
-        static Vec2i new_size;
-        if (selected == PropertyUndefined)
-        {
-            new_size = _size;
-            selected = PropertyBasic;
-        }
-
-        // Left
-
-        if (ImGui::BeginChild("left pane",
-                              ImVec2(140, 0),
-                              ImGuiChildFlags_FrameStyle | ImGuiChildFlags_ResizeX,
-                              0))
-        {
-            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 15)); // Wider/taller padding
-            ImGui::Dummy({1,1});
-            if (ImGui::Selectable( " " ICON_FA_GEAR " Basic", selected == PropertyBasic))
-                selected = PropertyBasic;
-
-            if (ImGui::Selectable(" " ICON_FA_LAYER_GROUP " Layout", selected == PropertyLayout))
-                selected = PropertyLayout;
-
-            if (ImGui::Selectable(" " ICON_FA_GEARS " System", selected == PropertySystem))
-                selected = PropertySystem;
-            ImGui::PopStyleVar();
-        }
-        ImGui::EndChild();
-
-
-        ImGui::SameLine();
-
-        // Right
-        if (ImGui::BeginChild("item view",
-                              ImVec2(0, 0),
-                              ImGuiChildFlags_AlwaysUseWindowPadding,
-                              ImGuiWindowFlags_NoBackground)) // Leave room for 1 line below us
-        {
-            auto show_header = [](const char* label, const char* desc)
-                {
-                ImGui::NewLine();
-                ImGui::SetWindowFontScale(1.3f); // Only affects current window
-                ImGui::Text(label);
-                ImGui::SetWindowFontScale(1.0f);
-                ImGui::NewLine();
-                ImGui::TextWrapped(desc);
-                ImGui::NewLine();
-                };
-
-            if (selected == PropertyBasic)
-            {
-                show_header("Basic Settings",
-                            "Scene size will resize all layers without destroying objects. Background color sets the "
-                            "scene background.");
-
-                Vec2i old_size(_size);
-                ImGui::InputInt2("Size", &new_size.x);
-                if (old_size != new_size)
-                {
-                    ImGui::SameLine();
-                    if (ImGui::Button(ICON_FA_ROTATE_LEFT " Revert"))
-                        selected = PropertyUndefined;
-                    ImGui::SameLine();
-                    if(ImGui::Button(ICON_FA_FLOPPY_DISK " Save"))
-                    {
-                        SetSize(new_size);
-                        selected = PropertyUndefined;
-                    }
-                }
-
-                float clr[4] = {_background.r / 255.f, _background.g / 255.f, _background.b / 255.f, _background.a / 255.f};
-                if (ImGui::ColorEdit4("Color", clr, ImGuiColorEditFlags_AlphaBar | ImGuiColorEditFlags_PickerHueWheel))
-                {
-                    _background.r = clr[0] * 255;
-                    _background.g = clr[1] * 255;
-                    _background.b = clr[2] * 255;
-                    _background.a = clr[3] * 255;
-                }
-            }
-            else if (selected == PropertyLayout)
-            {
-                show_header("Layout Settings",
-                            "You can create and manage custom layers in the scene to control drawing and logic order. "
-                            "Layers can represent different types like regions, sprites, or object layers. "
-                            "Use this to organize your scene more efficiently and define how elements overlap.");
-
-                if (ImGui::BeginChild("left pane",
-                                      ImVec2(250, 0),
-                                      ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX,
-                                      ImGuiWindowFlags_NoBackground))
-                {
-                    GetLayers().ImguiSetup();
-                }
-                ImGui::EndChild();
-                ImGui::SameLine();
-                if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_FrameStyle, ImGuiWindowFlags_NoBackground))
-                {
-                    if (auto* lyr = GetActiveLayer())
-                    {
-                        lyr->ImguiSetup();
-                    }
-                }
-                ImGui::EndChild();
-            }
-            else if (selected == PropertySystem)
-            {
-                show_header("System Settings",
-                            "Manage all active systems in the scene. Systems define logic and behavior using the ECS "
-                            "(Entity-Component-System) model.\n"
-                            "You can add, remove, or reorder systems to control how your scene updates and reacts.");
-
-                if (ImGui::BeginChild("left pane",
-                                      ImVec2(250, 0),
-                                      ImGuiChildFlags_Border | ImGuiChildFlags_ResizeX,
-                                      ImGuiWindowFlags_NoBackground))
-                {
-                    if (ImGui::LineItem(ImGui::GetID("mnu"), {-1, ImGui::GetFrameHeight()})
-                            .PushStyle(ImStyle_Button, 1)
-                            .Text(ICON_FA_LAPTOP " Add ")
-                            .PopStyle()
-                            .PushStyle(ImStyle_Button, 2)
-                            .Text(ICON_FA_ARROW_UP)
-                            .PopStyle()
-                            .PushStyle(ImStyle_Button, 3)
-                            .Text(ICON_FA_ARROW_DOWN)
-                            .PopStyle()
-                            .Spring()
-                            .PushStyle(ImStyle_Button, 4)
-                            .Text(ICON_FA_BAN)
-                            .PopStyle()
-                            .End())
-                    {
-                        if (ImGui::Line().HoverId() == 1)
-                        {
-                            ImGui::OpenPopup("SystemMenu");
-                        }
-
-                        if (ImGui::Line().HoverId() == 2)
-                        {
-                            _active_system = GetSystems().MoveSystem(_active_system, false);
-                        }
-                        if (ImGui::Line().HoverId() == 3)
-                        {
-                            _active_system = GetSystems().MoveSystem(_active_system, true);
-                        }
-                        if (ImGui::Line().HoverId() == 4 && GetActiveLayer())
-                        {
-                            RemoveLayer(_active_system);
-                        }
-                    }
-
-                    if (ImGui::BeginPopup("SystemMenu"))
-                    {
-                        _active_system = GetSystems().ImguiMenu();
-                        ImGui::EndPopup();
-                    }
-
-                    if (ImGui::BeginChildFrame(ImGui::GetID("sysi"), {-1, -1}))
-                    {
-                        GetSystems().ImguiSystems(&_active_system);
-                    }
-                    ImGui::EndChildFrame();
-                }
-                ImGui::EndChild();
-                ImGui::SameLine();
-                if (ImGui::BeginChild("right pane", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_NoBackground))
-                {
-                    if (GetSystems().IsValid(_active_system))
-                    {
-                        GetSystems().GetSystem(_active_system)->ImguiSetup();
-                    }
-                }
-                
-                ImGui::EndChild();
-             }
-        }
-        ImGui::EndChild();
-
     }
 
     void Scene::ImguiMenu()
@@ -636,7 +598,7 @@ namespace fin
                     .Space()
                     .PopStyle()
                     .Spring()
-                    .Text(get_path().c_str())
+                    .Text(GetPath().c_str())
                     .Space()
                     .End())
             {
@@ -655,31 +617,10 @@ namespace fin
         }
     }
 
-    void Scene::ImguiFilemenu()
-    {
-        if (ImGui::BeginPopupModal("Scene Properties", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-        {
-            imgui_props_setup();
-
-            if (ImGui::LineItem("itms", { -1, ImGui::GetFrameHeight() })
-                .Spring()
-                .PushStyle(ImStyle_Button, 1)
-                .Text("   OK   ")
-                .PopStyle()
-                .Space()
-                .End())
-            {
-                if (ImGui::Line().HoverId())
-                    ImGui::CloseCurrentPopup();
-            }
-
-            ImGui::EndPopup();
-        }
-    }
-
     void Scene::ImguiShowProperties(bool show)
     {
-        _show_properties = true;
+      //  _show_properties = true;
+        ImGui::Dialog::ShowOnce<SceneProperties>("Scene Properties", {800, 600}, 0, *this);
     }
 
 } // namespace fin

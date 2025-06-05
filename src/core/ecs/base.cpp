@@ -314,11 +314,15 @@ namespace fin::ecs
 
     bool Camera::Load(ArchiveParams& ar)
     {
-        auto& cam       = *Camera::Get(ar.entity);
-        cam._position.x = ar.data["x"].get(0.f);
-        cam._position.y = ar.data["y"].get(0.f);
-        cam._size.x     = ar.data["w"].get(0.f);
-        cam._size.y     = ar.data["h"].get(0.f);
+        auto& cam         = *Camera::Get(ar.entity);
+        cam._position.x   = ar.data["x"].get(0.f);
+        cam._position.y   = ar.data["y"].get(0.f);
+        cam._size.x       = ar.data["w"].get(0.f);
+        cam._size.y       = ar.data["h"].get(0.f);
+        cam._moveSpeed    = ar.data["ms"].get(0.f);
+        cam._zoom         = ar.data["z"].get(0.f);
+        cam._zoomSpeed    = ar.data["zs"].get(0.f);
+        cam._smoothFactor = ar.data["sf"].get(0.f);
         return true;
     }
 
@@ -329,6 +333,10 @@ namespace fin::ecs
         ar.data.set_item("y", cam._position.y);
         ar.data.set_item("w", cam._size.x);
         ar.data.set_item("h", cam._size.y);
+        ar.data.set_item("ms", cam._moveSpeed);
+        ar.data.set_item("z", cam._zoom);
+        ar.data.set_item("zs", cam._zoomSpeed);
+        ar.data.set_item("sf", cam._smoothFactor);
         return true;
     }
 
@@ -337,6 +345,12 @@ namespace fin::ecs
         auto& base = GetStorage().get(self);
         auto  r    = ImGui::InputFloat2("Position", &base._position.x);
         r |= ImGui::InputFloat2("Size", &base._size.x);
+
+        r |= ImGui::DragFloat("Zoom", &base._zoom, 0.1f, 0.1f, 10.0f);
+        r |= ImGui::InputFloat("Zoom Speed", &base._zoomSpeed, 0.01f, 1.0f);
+        r |= ImGui::InputFloat("Move Speed", &base._moveSpeed, 0.01f, 1.0f);
+        r |= ImGui::DragFloat("Smoothing", &base._smoothFactor, 0.1f, 0.0f, 20.0f);
+
         return r;
     }
 

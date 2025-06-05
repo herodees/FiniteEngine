@@ -49,6 +49,7 @@ set(PLATFORM "Desktop" CACHE STRING "" FORCE) # build Raylib for Desktop
 set(OPENGL_VERSION "ES 3.0" CACHE STRING "" FORCE) # build Raylib for OpenGL ES 2.0
 set(CUSTOMIZE_BUILD ON CACHE BOOL "" FORCE) # build Raylib with custom frame control
 set(SUPPORT_CUSTOM_FRAME_CONTROL ON CACHE BOOL "" FORCE) # build Raylib with custom frame control
+set(RLGL_SHOW_GL_DETAILS_INFO TRUE)
 FetchContent_Declare(
         raylib
         GIT_REPOSITORY https://github.com/raysan5/raylib.git

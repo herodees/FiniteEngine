@@ -13,11 +13,20 @@ namespace fin
 {
     class Renderer;
     class Scene;
-    class IsoSceneObject;
-    struct Params;
-    struct DragData;
 
     constexpr int32_t tile_size(512);
+
+
+    enum LayerFlags_
+    {
+        LayerFlags_Default  = 0,
+        LayerFlags_Disabled = 1 << 0,
+        LayerFlags_Hidden   = 1 << 1,
+    };
+
+    using LayerFlags = uint32_t;
+
+
 
     namespace LayerType
     {
@@ -68,10 +77,12 @@ namespace fin
         virtual void ImguiWorkspaceMenu();
 
         bool IsHidden() const;
-        bool IsActive() const;
-
         void Hide(bool b);
-        void Activate(bool a);
+        bool IsDisabled() const;
+        void Disable(bool b);
+
+        void SetFlag(LayerFlags flag, bool v);
+        bool GetFlag(LayerFlags flag) const;
 
     protected:
         Scene*           _parent{};
@@ -81,8 +92,7 @@ namespace fin
         std::string_view _icon;
         uint32_t         _color{0xffffffff};
         Rectf            _region;
-        bool             _hidden{};
-        bool             _active{};
+        LayerFlags       _flags{};
         friend class LayerManager;
     };
 
@@ -98,9 +108,10 @@ namespace fin
         void        RemoveLayer(int32_t n);
         int32_t     MoveLayer(int32_t layer, bool up);
         SceneLayer* GetActiveLayer();
+        void        SetActiveLayer(SceneLayer* layer);
         SceneLayer* FindLayer(std::string_view name) const;
 
-        void set_size(Vec2f size);
+        void SetSize(Vec2f size);
         void Activate(const Rectf& region);
         void Render(Renderer& dc);
         void Update(float dt);

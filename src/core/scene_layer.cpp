@@ -132,17 +132,18 @@ namespace fin
     {
         ar.set_item("type", _type);
         ar.set_item("name", _name);
-        ar.set_item("hidden", _hidden);
-        if (_active)
-            ar.set_item("active", _active);
+        if (IsHidden())
+            ar.set_item("hidden", true);
+        if (IsDisabled())
+            ar.set_item("disabled", true);
     }
 
     void SceneLayer::Deserialize(msg::Var& ar)
     {
         _type = ar["type"].str();
         _name = ar["name"].str();
-        _hidden = ar["hidden"].get(false);
-        _active = ar["active"].get(false);
+        Hide(ar.get_item("hidden").get(false));
+        Disable(ar.get_item("disabled").get(false));
     }
 
     void SceneLayer::Resize(Vec2f size)
@@ -197,22 +198,39 @@ namespace fin
 
     bool SceneLayer::IsHidden() const
     {
-        return _hidden;
-    }
-
-    bool SceneLayer::IsActive() const
-    {
-        return _active;
+        return GetFlag(LayerFlags_Hidden);
     }
 
     void SceneLayer::Hide(bool b)
     {
-        _hidden = b;
+        SetFlag(LayerFlags_Hidden, b);
     }
 
-    void SceneLayer::Activate(bool a)
+    bool SceneLayer::IsDisabled() const
     {
-        _active = a;
+        return GetFlag(LayerFlags_Disabled);
+    }
+
+    void SceneLayer::Disable(bool b)
+    {
+        SetFlag(LayerFlags_Disabled, b);
+    }
+
+    void SceneLayer::SetFlag(LayerFlags flag, bool v)
+    {
+        if (v)
+        {
+            _flags |= flag;
+        }
+        else
+        {
+            _flags &= ~flag;
+        }
+    }
+
+    bool SceneLayer::GetFlag(LayerFlags flag) const
+    {
+        return _flags & flag;
     }
 
 
@@ -270,6 +288,14 @@ namespace fin
         return nullptr;
     }
 
+    void LayerManager::SetActiveLayer(SceneLayer* layer)
+    {
+        if (!layer)
+            _active_layer = -1;
+        else
+            _active_layer = layer->_index;
+    }
+
     SceneLayer* LayerManager::FindLayer(std::string_view name) const
     {
         for (auto* ly : _layers)
@@ -280,7 +306,7 @@ namespace fin
         return nullptr;
     }
 
-    void LayerManager::set_size(Vec2f size)
+    void LayerManager::SetSize(Vec2f size)
     {
         for (auto* ly : _layers)
         {

@@ -22,7 +22,8 @@ namespace fin
 
         auto* scr = ecs::Script::Get(ent);
         scr->AddScript(s);
-        s->OnStart(ent);
+        s->entity = ent;
+        s->OnStart();
         return s;
     }
 
@@ -44,7 +45,7 @@ namespace fin
         if (!ecs::Script::Contains(ent))
             return;
 
-        script->OnDestroy(ent);
+        script->OnDestroy();
         ecs::Script::Get(ent)->RemoveScript(script);   
     }
 

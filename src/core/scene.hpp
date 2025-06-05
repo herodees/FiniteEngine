@@ -35,9 +35,11 @@ namespace fin
         Scene();
         ~Scene();
 
-        const std::string& get_path() const;
+        const std::string& GetPath() const;
         void               Init(std::string_view root);
         void               SetSize(Vec2f size);
+        void               SetMode(SceneMode sm);
+        SceneMode          GetMode() const;
         void               ActicateGrid(const Recti& screen);
         Vec2i              GetActiveSize() const;
         Vec2i              GetSceneSize() const;
@@ -45,6 +47,8 @@ namespace fin
         void               SetCameraCenter(Vec2f pos, float speed = 1.f);
         Vec2f              GetCameraCenter() const;
         const Camera&      GetCamera() const;
+        Color              GetBackgroundColor() const;
+        void               SetBackgroundColor(Color clr);
 
         void Init();
         void Deinit();
@@ -52,6 +56,10 @@ namespace fin
         void Update(float dt);
         void FixedUpdate(float dt);
         void Clear();
+        void Serialize(msg::Var& ar);
+        void Deserialize(msg::Var& ar);
+        void Load(std::string_view path);
+        void Save(std::string_view path, bool change_path = true);
 
         RenderTexture2D&  GetCanvas();
         ComponentFactory& GetFactory();
@@ -59,31 +67,14 @@ namespace fin
         ScriptFactory&    GetScripts();
         LayerManager&     GetLayers();
 
-        void Serialize(msg::Var& ar);
-        void Deserialize(msg::Var& ar);
-
-        void Load(std::string_view path);
-        void Save(std::string_view path, bool change_path = true);
-
-        void      SetMode(SceneMode sm);
-        SceneMode GetMode() const;
-
         void ImguiWorkspace();
         void ImguiProps();
-        void ImguiSetup();
         void ImguiItems();
         void ImguiMenu();
-        void ImguiFilemenu();
         void ImguiShowProperties(bool show);
 
     private:
-        void on_new_position(Registry& reg, Entity ent);
-        void on_destroy_position(Registry& reg, Entity ent);
-        void imgui_scene();
-        void imgui_props_object();
-        void imgui_props_setup();
 
-        int32_t                  _active_system{0};
         bool                     _show_properties{};
         bool                     _edit_region{};
         bool                     _edit_prefabs{};

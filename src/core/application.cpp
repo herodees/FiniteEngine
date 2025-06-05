@@ -277,7 +277,6 @@ namespace fin
         if (!init_docking)
         {
             _map.ImguiItems();
-            _map.ImguiSetup();
             _map.ImguiProps();
             _map.ImguiWorkspace();
             ImGui::Dialog::Update();
@@ -395,7 +394,7 @@ namespace fin
                 }
                 if (ImGui::MenuItem("Save"))
                 {
-                    if (_map.get_path().empty())
+                    if (_map.GetPath().empty())
                     {
                         auto out = save_file_dialog("", "");
                         if (!out.empty())
@@ -405,7 +404,7 @@ namespace fin
                     }
                     else
                     {
-                        _map.Save(_map.get_path());
+                        _map.Save(_map.GetPath());
                     }
                 }
                 if (ImGui::MenuItem("Save as") || open_save_as)
@@ -423,7 +422,7 @@ namespace fin
             {
                 if (ImGui::MenuItem(ICON_FA_WRENCH " Properties", NULL))
                 {
-                    _map.ImguiShowProperties(true);
+                   _map.ImguiShowProperties(true);
                 }
                 ImGui::EndMenu();
             }
@@ -455,7 +454,6 @@ namespace fin
         if (!show_popup.empty())
             ImGui::OpenPopup(show_popup.data());
 
-        _map.ImguiFilemenu();
     }
 
 } // namespace fin

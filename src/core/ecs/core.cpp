@@ -9,6 +9,7 @@ namespace fin::ecs
     {
         fact.RegisterSystem<Navigation, "navs", "Navigation">(SystemFlags_Default);
         fact.RegisterSystem<Behavior, "bhvs", "Behavior">(SystemFlags_Default);
+        fact.RegisterSystem<CameraController, "cmrs", "Camera Controller">(SystemFlags_Default);
     }
 
 
@@ -23,7 +24,7 @@ namespace fin::ecs
         auto layers = GetScene().GetLayers().GetLayers();
         for (auto* layer : layers)
         {
-            if (!layer->IsActive())
+            if (layer->IsDisabled())
                 continue;
             if (layer->GetType() != LayerType::Object)
                 continue;
@@ -76,12 +77,11 @@ namespace fin::ecs
         auto&      factory  = GetScene().GetFactory();
         auto&      registry = factory.GetRegistry();
         const auto view     = registry.view<ecs::Base, ecs::Body>();
-        auto&      navmesh  = layer->get_navmesh();
+        auto&      navmesh  = layer->GetNavmesh();
+        auto&      objects  = layer->GetObjects(true);
 
-        for (size_t n = 0; n < layer->get_active_count(); ++n)
+        for (auto ent : objects)
         {
-            auto ent = layer->get_active(n);
-
             if (!registry.valid(ent) || !view.contains(ent))
                 continue;
 
@@ -154,28 +154,28 @@ namespace fin::ecs
         auto layers = GetScene().GetLayers().GetLayers();
         for (auto* layer : layers)
         {
-            if (!layer->IsActive())
+            if (layer->IsDisabled())
                 continue;
+
             if (layer->GetType() != LayerType::Object)
                 continue;
 
-            update_objects(dt,static_cast<ObjectSceneLayer*>(layer));
+            UpdateObjects(dt,static_cast<ObjectSceneLayer*>(layer));
         }
     }
 
-    void Behavior::update_objects(float dt, ObjectSceneLayer* layer)
+    void Behavior::UpdateObjects(float dt, ObjectSceneLayer* layer)
     {
-        for (size_t n = 0; n < layer->get_active_count(); ++n)
+        auto& objects = layer->GetObjects(true);
+        for (auto ent : objects)
         {
-            auto ent = layer->get_active(n);
-
             if (ecs::Script::Contains(ent))
             {
                 auto* scr = ecs::Script::Get(ent);
                 auto* s = scr->_script;
                 while (s)
                 {
-                    s->OnUpdate(ent, dt);
+                    s->OnUpdate(dt);
                     s = s->next;
                 }
             }
@@ -185,6 +185,81 @@ namespace fin::ecs
     bool Behavior::ImguiSetup()
     {
         return false;
+    }
+
+
+
+    CameraController::CameraController(Scene& s) : System(s)
+    {
+    }
+
+    void CameraController::SetCamera(Entity cam)
+    {
+        m_Camera = cam;
+    }
+
+    void CameraController::Update(float dt)
+    {
+        auto& reg = GetRegistry();
+
+        if (!reg.valid(m_Camera) || !ecs::Camera::Contains(m_Camera) || !ecs::Base::Contains(m_Camera))
+            return;
+
+        auto& camera    = *ecs::Camera::Get(m_Camera);
+        auto& transform = *ecs::Base::Get(m_Camera);
+
+      //  Zoom control (mouse wheel or whatever)
+      //  float scrollDelta = Input::GetScrollDelta();
+      //  camera._zoom -= scrollDelta * camera._zoomSpeed;
+      //  camera._zoom = std::clamp(camera._zoom, 0.1f, 10.0f);
+
+        if (reg.valid(camera._target))
+        {
+            if (ecs::Base::Contains(camera._target))
+            {
+                auto& targetTransform = *ecs::Base::Get(camera._target);
+                transform._position   = lerp(transform._position, targetTransform._position, dt * camera._smoothFactor);
+                transform.UpdateSparseGrid();
+            }
+        }
+        else
+        {
+            /*
+            // No target: manual camera movement example (WASD)
+            Vec2f moveDir{0.f, 0.f};
+            if (Input::IsKeyDown(KEY_W))
+                moveDir.y += 1.f;
+            if (Input::IsKeyDown(KEY_S))
+                moveDir.y -= 1.f;
+            if (Input::IsKeyDown(KEY_A))
+                moveDir.x -= 1.f;
+            if (Input::IsKeyDown(KEY_D))
+                moveDir.x += 1.f;
+
+            if (moveDir != Vec2f{0.f, 0.f})
+            {
+                moveDir = glm::normalize(moveDir);
+                transform.position += moveDir * camera._moveSpeed * dt;
+            }
+            */
+        }
+    }
+
+    void CameraController::OnStartRunning()
+    {
+        if (m_Camera == entt::null)
+        {
+           auto cams = GetRegistry().view<ecs::Camera>();
+           if (!cams.empty())
+           {
+               m_Camera = *cams.begin();
+           }
+        }
+    }
+
+    bool CameraController::ImguiSetup()
+    {
+        return true;
     }
 
 } // namespace fin::ecs

@@ -13,6 +13,7 @@ namespace fin
 {
     using Entity = entt::registry::entity_type;
     using Registry = entt::registry;
+    using SparseSet = entt::sparse_set;
 } // namespace fin
 
 // Utils

@@ -106,11 +106,15 @@ namespace fin::ecs
     };
 
 
-
     struct Camera : Component<Camera, "cam", "Camera">
     {
-        Vec2f _position;
-        Vec2f _size;
+        Vec2f  _position{0, 0};
+        Vec2f  _size{800, 600};
+        float  _zoom         = 1.0f;
+        float  _zoomSpeed    = 0.1f;
+        float  _moveSpeed    = 400.0f;
+        float  _smoothFactor = 5.0f;
+        Entity _target       = entt::null;
 
         static bool Load(ArchiveParams& ar);
         static bool Save(ArchiveParams& ar);
