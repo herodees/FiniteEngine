@@ -1,28 +1,19 @@
 #include "application.hpp"
-
-#include "atlas.hpp"
+#include "utils/dialog_utils.hpp"
+#include "utils/lib_utils.hpp"
+#include "utils/imguiline.hpp"
+#include "editor/imgui_control.hpp"
 #include "imgui_internal.h"
 
 #if defined(PLATFORM_DESKTOP) && defined(GRAPHICS_API_OPENGL_ES3)
 #include "GLFW/glfw3.h"
 #endif
-#include <utils/dialog_utils.hpp>
-#include <utils/imguiline.hpp>
-#include "editor/imgui_control.hpp"
 
 namespace fin
 {
     Settings g_settings;
 
-    application::application()
-    {
-    }
-
-    application::~application()
-    {
-    }
-
-    void application::imgui_init(bool dark_theme)
+    void Application::ImguiInit(bool dark_theme)
     {
         ImGuiIO& io = ImGui::GetIO();
         (void)io;
@@ -128,7 +119,7 @@ namespace fin
         colors[ImGuiCol_ModalWindowDimBg]      = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
     }
 
-    bool application::on_init(char* argv[], size_t argc)
+    bool Application::OnInit(char* argv[], size_t argc)
     {
         _argv = decltype(_argv)(argv, argv + argc);
 
@@ -157,9 +148,10 @@ namespace fin
         }
         const std::filesystem::path basePath = basePathPtr;
 #endif
-
-        _map.Init("./assets/");
-        auto path = cmd_attribute_get("/scene");
+        
+        _map.Init(_asset_path);
+        InitPlugins();
+        auto path = CmdAttributeGet("/scene");
 
         SceneMode mode = SceneMode::Scene;
         if (!path.empty())
@@ -175,13 +167,13 @@ namespace fin
         if (_map.GetMode() != SceneMode::Play)
         {
             rlImGuiSetup(true);
-            imgui_init(true);
+            ImguiInit(true);
         }
 
         return true;
     }
 
-    void application::on_deinit(bool result)
+    void Application::OnDeinit(bool result)
     {
         if (_map.GetMode() != SceneMode::Play)
         {
@@ -192,7 +184,7 @@ namespace fin
         CloseWindow();
     }
 
-    bool application::cmd_attribute_exists(std::string_view cmd) const
+    bool Application::CmdAttributeExists(std::string_view cmd) const
     {
         for (std::string_view c : _argv)
         {
@@ -204,7 +196,7 @@ namespace fin
         return false;
     }
 
-    std::string_view application::cmd_attribute_get(std::string_view cmd) const
+    std::string_view Application::CmdAttributeGet(std::string_view cmd) const
     {
         for (std::string_view c : _argv)
         {
@@ -224,7 +216,7 @@ namespace fin
         return std::string_view();
     }
 
-    void application::imgui()
+    void Application::Imgui()
     {
         static bool init_docking = true;
 
@@ -244,7 +236,7 @@ namespace fin
 
         if (ImGui::BeginMenuBar())
         {
-            imgui_file_menu();
+            ImguiFileMenu();
             ImGui::EndMenuBar();
         }
 
@@ -288,7 +280,7 @@ namespace fin
         ImGui::PopStyleVar();
     }
 
-    bool application::on_iterate()
+    bool Application::OnIterate()
     {
         while (!WindowShouldClose())
         {
@@ -345,7 +337,7 @@ namespace fin
             if (_map.GetMode() != SceneMode::Play)
             {
                 rlImGuiBegin(frameTime);
-                imgui();
+                Imgui();
                 rlImGuiEnd();
             }
             else
@@ -367,7 +359,7 @@ namespace fin
         return true;
     }
 
-    void application::imgui_file_menu()
+    void Application::ImguiFileMenu()
     {
         std::string_view show_popup;
 
@@ -454,6 +446,36 @@ namespace fin
         if (!show_popup.empty())
             ImGui::OpenPopup(show_popup.data());
 
+    }
+
+    void Application::InitPlugins()
+    {
+#if defined(_WIN32)
+        const char* ext = ".dll";
+#elif defined(__APPLE__)
+        const char* ext = ".dylib";
+#else
+        const char* ext = ".so";
+#endif
+
+        std::string plugin_dir = _asset_path + "plugins";
+        auto        list       = LoadDirectoryFilesEx(plugin_dir.c_str(), ext, false);
+        TraceLog(LOG_INFO, "GAME PLUGINS:");
+        for (int i = 0; i < list.count; i++)
+        {
+            auto*          file = GetFileNameWithoutExt(list.paths[i]);
+            DynamicLibrary lib;
+            if (lib.Load(plugin_dir, file))
+            {
+                if (auto fn = lib.GetFunction<GamePluginInfo*()>("GetGamePluginInfoProc"))
+                {
+                    auto* info = fn();
+                    
+                    TraceLog(LOG_INFO, "    > %s v%s by %s", info->name, info->version, info->author);
+                }
+            }
+        }
+        UnloadDirectoryFiles(list);
     }
 
 } // namespace fin

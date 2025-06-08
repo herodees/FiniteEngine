@@ -1,5 +1,4 @@
 #include "shared_resource.hpp"
-
 #include "atlas.hpp"
 
 namespace fin

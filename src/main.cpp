@@ -3,14 +3,14 @@
 
 int main(int argc, char *argv[])
 {
-    fin::application app;
+    fin::Application app;
 
-    if (app.on_init(argv, argc))
+    if (app.OnInit(argv, argc))
     {
-        app.on_deinit(app.on_iterate());
+        app.OnDeinit(app.OnIterate());
         return EXIT_SUCCESS;
     }
 
-    app.on_deinit(false);
+    app.OnDeinit(false);
     return EXIT_FAILURE;
 }

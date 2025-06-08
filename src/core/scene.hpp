@@ -4,7 +4,6 @@
 #include "ecs/system.hpp"
 #include "ecs/behavior.hpp"
 #include "include.hpp"
-#include "path_finder.h"
 #include "renderer.hpp"
 #include "scene_layer.hpp"
 #include "shared_resource.hpp"
