@@ -2,10 +2,10 @@
 include(FetchContent)
 
 project(finite
-	VERSION 0.1.0
-	DESCRIPTION "Raylib Engine using Angle for rendering"
-	HOMEPAGE_URL "https://github.com/herodees/finite"
-	LANGUAGES CXX
+    VERSION 0.1.0
+    DESCRIPTION "Raylib Engine using Angle for rendering"
+    HOMEPAGE_URL "https://github.com/herodees/finite"
+    LANGUAGES CXX
 )
 
 # set the output directory for built objects.
@@ -25,7 +25,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 # Define PROJECT_INCLUDE to be the path to the include directory of the project
 set(PROJECT_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/src")
-set(PLUGIN_TARGETS)
+set(PROJECT_ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/assets/")
 
 if (APPLE)
     set(ANGLE_DIR "${CMAKE_CURRENT_LIST_DIR}/external/angle/macos")
@@ -63,7 +63,8 @@ if (WIN32)
 endif()
 
 add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/plugins/example_plugin")
-list(APPEND PLUGIN_TARGETS example_plugin)
+
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/plugins/gm_plugin")
 
 add_executable(${PROJECT_NAME})
 
@@ -147,8 +148,8 @@ endif()
 
 
 if (MSVC)
-	set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
-	set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
+    set_property(TARGET ${PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
     # Ensure that hot-reload is enabled for VS
     # set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /ZI")
     # set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SAFESEH:NO")
@@ -187,18 +188,4 @@ endforeach()
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/external/portable-file-dialogs")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/external/entt")
 target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}/external/dylib")
-
-# Loop through PLUGIN_TARGETS and add copy commands automatically
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets/plugins"
-)
-foreach(PLUGIN_TARGET IN LISTS PLUGIN_TARGETS)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:${PLUGIN_TARGET}>
-            "${CMAKE_CURRENT_SOURCE_DIR}/assets/plugins/"
-        COMMENT "Copying plugin ${PLUGIN_TARGET} to executable directory"
-    )
-endforeach()
-
 

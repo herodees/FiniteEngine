@@ -1,6 +1,7 @@
 #pragma once
 
-#include "game_api.h"
+#include "game.hpp"
+#include "types.hpp"
 
 namespace fin
 {
@@ -24,39 +25,47 @@ namespace fin
         virtual void OnPostUpdate(float dt) {};
     };
 
+
+
     struct IGamePluginFactory
     {
-        IGamePluginFactory()
-        {
-            _Root(this);
-        };
-
-        virtual ~IGamePluginFactory()        = default;
-        virtual IGamePlugin*    Create()     = 0;
-        virtual GamePluginInfo& Info() const = 0;
-
-        static IGamePlugin* _Create()
-        {
-            IGamePluginFactory* factory = _Root();
-            if (factory)
-                return factory->Create();
-            return nullptr;
-        }
-
-        static GamePluginInfo* _Info()
-        {
-            IGamePluginFactory* factory = _Root();
-            if (factory)
-                return &factory->Info();
-            return nullptr;
-        }
-
-        static IGamePluginFactory* _Root(IGamePluginFactory* to_set = 0)
-        {
-            static IGamePluginFactory* _root = nullptr;
-            if (to_set)
-                _root = to_set;
-            return _root;
-        }
+        IGamePluginFactory();
+        virtual IGamePlugin*       Create()     = 0;
+        virtual GamePluginInfo&    Info() const = 0;
+        static IGamePlugin*        _Create();
+        static GamePluginInfo*     _Info();
+        static IGamePluginFactory* _Root(IGamePluginFactory* to_set = nullptr);
     };
+
+
+
+    inline IGamePluginFactory::IGamePluginFactory()
+    {
+        _Root(this);
+    }
+
+    inline IGamePlugin* fin::IGamePluginFactory::_Create()
+    {
+        IGamePluginFactory* factory = _Root();
+        if (factory)
+            return factory->Create();
+        return nullptr;
+    }
+
+    inline GamePluginInfo* IGamePluginFactory::_Info()
+    {
+        IGamePluginFactory* factory = _Root();
+        if (factory)
+            return &factory->Info();
+        return nullptr;
+    }
+
+    inline IGamePluginFactory* IGamePluginFactory::_Root(IGamePluginFactory* to_set)
+    {
+        static IGamePluginFactory* _root = nullptr;
+        if (to_set)
+            _root = to_set;
+        return _root;
+    }
+
 } // namespace fin

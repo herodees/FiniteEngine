@@ -1,4 +1,5 @@
 #include "game.hpp"
+#include "plugin.hpp"
 
 #ifdef BUILDING_DLL
 

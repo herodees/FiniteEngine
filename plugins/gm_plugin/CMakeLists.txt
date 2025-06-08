@@ -1,10 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(example_plugin
+project(gm_plugin
     VERSION 0.1.0
     LANGUAGES CXX
 )
-
 
 # Collect all source files recursively inside the plugin directory
 file(GLOB_RECURSE PLUGIN_SOURCES CONFIGURE_DEPENDS

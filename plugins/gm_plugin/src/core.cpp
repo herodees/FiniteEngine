@@ -4,10 +4,21 @@
 
 namespace fin
 {
+    struct TextScript : public ScriptComponent
+    {
+
+    };
+
     class ExamplePlugin : public IGamePlugin
     {
     public:
-        ExamplePlugin()  = default;
+        ExamplePlugin()
+        {
+            auto& api = CGameAPI::Get();
+            api.RegisterComponent<TextScript>();
+            api.GetComponent<TextScript>(1);
+        }
+
         ~ExamplePlugin() override = default;
     };
 
@@ -24,9 +35,9 @@ namespace fin
         GamePluginInfo& Info() const override
         {
             static GamePluginInfo info{};
-            info.name        = "Finite Game Plugin";
-            info.description = "A plugin for the Finite game engine.";
-            info.author      = "Finite Team";
+            info.name        = "Guild Master Plugin";
+            info.description = "Guild Master main logic.";
+            info.author      = "Martin Maceovic";
             info.version     = "1.0.0";
             return info;
         }
