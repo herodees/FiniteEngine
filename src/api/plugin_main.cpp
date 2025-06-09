@@ -10,12 +10,12 @@ extern "C"
     LIB_EXPORT fin::IGamePlugin* CreateGamePluginProc(GameAPI* api)
     {
         fin::CGameAPI::Get().InitAPI(api);
-        return fin::IGamePluginFactory::_Create();
+        return fin::IGamePluginFactory::InternalCreate();
     }
 
     LIB_EXPORT GamePluginInfo* GetGamePluginInfoProc()
     {
-        return fin::IGamePluginFactory::_Info();
+        return fin::IGamePluginFactory::InternalInfo();
     }
 
 } // extern "C"

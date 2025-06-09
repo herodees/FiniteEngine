@@ -4,7 +4,7 @@
 
 namespace fin
 {
-    class ExamplePlugin : public IGamePlugin
+    class ExamplePlugin : public GamePlugin
     {
     public:
         ExamplePlugin()  = default;

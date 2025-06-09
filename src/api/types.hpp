@@ -8,63 +8,47 @@
 
 #include <cstdint>
 #include <string_view>
+#include <vector>
+#include <entt.hpp>
 
 #define FINCFN(name) (*name)
 
-using Entity = uint32_t; // Entity is represented by a 32-bit unsigned integer
+struct ComponentInfo;
+using Entity = entt::entity; // Entity is represented by a 32-bit unsigned integer
 using ComponentId = uint32_t;
 using StringView = std::string_view;
-using RegistryHandle = void*; 
-
-
-
-constexpr std::uint32_t fnv1a_hash(StringView str)
-{
-    std::uint32_t hash = 2166136261u; // FNV offset basis
-    std::size_t   size = str.size();  // FNV offset basis
-    for (std::size_t i = 0; i < size; ++i)
-    {
-        hash ^= static_cast<std::uint32_t>(str[i]);
-        hash *= 16777619u; // FNV prime
-    }
-    return hash;
-}
-
-
-
-template <typename T>
-constexpr StringView type_name()
-{
-#if defined(__clang__) || defined(__GNUC__)
-    return StringView(__PRETTY_FUNCTION__);
-#elif defined(_MSC_VER)
-    return StringView(__FUNCSIG__);
-#else
-    static_assert(false, "Unsupported compiler");
-#endif
-    return StringView("");
-}
-
-template <typename T>
-constexpr ComponentId type_hash()
-{
-    return fnv1a_hash(type_name<T>());
-}
+using RegistryHandle = entt::registry*;
+using ComponentListHandle = std::vector<ComponentInfo>*; 
+using SparseSet = entt::sparse_set;
 
 struct GamePluginInfo
 {
-    const char* name;        // Plugin name
-    const char* description; // Plugin description
-    const char* author;      // Plugin author
-    const char* version;     // Plugin version
+    StringView name;        // Plugin name
+    StringView description; // Plugin description
+    StringView author;      // Plugin author
+    StringView version;     // Plugin version
+};
+
+struct ComponentInfo
+{
+    std::string_view name;
+    std::string_view id;
+    std::string_view label;
+    uint32_t         size     = 0;
+    uint32_t         index    = 0;
+    SparseSet*       storage  = nullptr; // owned only if !external
+    bool             external = false;   // if true, we don’t own the storage
 };
 
 struct GameAPI
 {
-    uint32_t       version; // API_VERSION
-    const char*    FINCFN(ClassName)(void);
-    RegistryHandle registry;
-    ComponentId    FINCFN(RegisterComponent)(RegistryHandle reg, StringView name, uint32_t size);
-    void*          FINCFN(GetComponent)(RegistryHandle reg, Entity entity, ComponentId component);
-    void*          FINCFN(EmplaceComponent)(RegistryHandle reg, Entity entity, ComponentId component);
+    uint32_t            version; // API_VERSION
+    RegistryHandle      registry;
+    ComponentListHandle components;
+    StringView          FINCFN(ClassName)(void);
+    ComponentId         FINCFN(RegisterComponent)(GameAPI& self, StringView name, uint32_t size);
+    void*               FINCFN(GetComponent)(GameAPI& self, Entity entity, ComponentId component);
+    void*               FINCFN(EmplaceComponent)(GameAPI& self, Entity entity, ComponentId component);
+    ComponentInfo*      FINCFN(GetComponentInfo)(GameAPI& self, StringView name);
+    bool                FINCFN(RegisterComponentInfo)(GameAPI& self, ComponentInfo* info);
 };

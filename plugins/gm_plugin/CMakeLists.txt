@@ -32,6 +32,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src
 # Make sure the plugin can see the engine's public API
 target_include_directories(${PROJECT_NAME} PUBLIC  ${CMAKE_SOURCE_DIR}/src/api)
 
+# Make sure the plugin can see the entt
+target_include_directories(${PROJECT_NAME} PUBLIC  ${CMAKE_SOURCE_DIR}/external/entt)
+
 # Set C++ standard
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
@@ -47,7 +50,9 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 target_compile_definitions(${PROJECT_NAME} PRIVATE BUILDING_DLL)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory
+        "${PROJECT_ASSETS}plugins/"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:${PROJECT_NAME}>
-        "${PROJECT_ASSETS}/plugins/"
+        "${PROJECT_ASSETS}plugins/"
 )

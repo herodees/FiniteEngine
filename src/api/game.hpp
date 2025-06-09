@@ -14,36 +14,30 @@ namespace fin
         virtual void Update(float deltaTime) = 0; // Update the component logic
     };
 
-
-
-
     template <typename T>
     struct ScriptTraits 
     {
-        static ComponentId __component_id; // Unique ID for the component type
+        static ComponentId component_id; // Unique ID for the component type
+        static SparseSet*  storage;
     };
 
     template <typename T>
-    ComponentId ScriptTraits<T>::__component_id{};
-
-
+    ComponentId ScriptTraits<T>::component_id{};
+    template <typename T>
+    SparseSet* ScriptTraits<T>::storage{};
 
     class CGameAPI : private GameAPI
     {
     public:
-        CGameAPI() = default;
+        CGameAPI()  = default;
         ~CGameAPI() = default;
 
         static CGameAPI& Get();
-        void        InitAPI(GameAPI*);
-        const char* ClassName() const;
-        uint32_t    GetVersion() const;
-
-        template <typename C>
-        uint32_t RegisterComponent();
-
-        template <typename C>
-        C* GetComponent(Entity entity);
+        void             InitAPI(GameAPI*);
+        StringView       ClassName() const;
+        uint32_t         GetVersion() const;
+        bool             RegisterComponentInfo(ComponentInfo* info);
+        ComponentInfo*   GetComponentInfo(StringView name);
 
     private:
         static CGameAPI _instance;
@@ -59,7 +53,7 @@ namespace fin
         *static_cast<GameAPI*>(this) = *api; // Copy the GameAPI structure to this instance
     }
 
-    inline const char* CGameAPI::ClassName() const
+    inline StringView CGameAPI::ClassName() const
     {
         return GameAPI::ClassName();
     }
@@ -69,22 +63,14 @@ namespace fin
         return GameAPI::version;
     }
 
-    template <typename C>
-    inline uint32_t CGameAPI::RegisterComponent()
+    inline bool CGameAPI::RegisterComponentInfo(ComponentInfo* info)
     {
-        static_assert(std::is_base_of_v<ScriptComponent, C>, "Component must derive from ScriptComponent");
-
-        ScriptTraits<C>::__component_id = GameAPI::RegisterComponent(GameAPI::registry, type_name<C>(), (uint32_t)sizeof(C));
-
-        return ScriptTraits<C>::__component_id;
+        return GameAPI::RegisterComponentInfo(static_cast<GameAPI&>(*this), info);
     }
 
-    template <typename C>
-    inline C* CGameAPI::GetComponent(Entity entity)
+    inline ComponentInfo* CGameAPI::GetComponentInfo(StringView name)
     {
-        static_assert(std::is_base_of_v<ScriptComponent, C>, "Component must derive from ScriptComponent");
-
-        return static_cast<C*>(GameAPI::GetComponent(GameAPI::registry, entity, ScriptTraits<C>::__component_id));
+        return GameAPI::GetComponentInfo(static_cast<GameAPI&>(*this), name);
     }
 
 } // namespace fin

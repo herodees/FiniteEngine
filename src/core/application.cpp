@@ -152,6 +152,7 @@ namespace fin
 #endif
         
         _map.Init(_asset_path);
+        InitApi();
         InitPlugins();
         auto path = CmdAttributeGet("/scene");
 
@@ -449,15 +450,34 @@ namespace fin
             ImGui::OpenPopup(show_popup.data());
     }
 
+    void Application::InitApi()
+    {
+        g_api.version               = 1;
+        g_api.components            = &_components;
+        g_api.registry              = &_map.GetFactory().GetRegistry();
+        g_api.ClassName             = []() -> StringView { return "FiniteEngine"; };
+        g_api.RegisterComponent     = [](GameAPI& self, StringView name, uint32_t size) -> ComponentId { return 0; };
+        g_api.GetComponent          = [](GameAPI& self, Entity ent, ComponentId cmp) -> void* { return 0; };
+        g_api.EmplaceComponent      = [](GameAPI& self, Entity ent, ComponentId cmp) -> void* { return 0; };
+        g_api.RegisterComponentInfo = [](GameAPI& self, ComponentInfo* info) -> bool
+        {
+            info->index = self.components->size();
+            self.components->emplace_back(std::move(*info));
+            return true;
+        };
+        g_api.GetComponentInfo      = [](GameAPI& self, StringView name) -> ComponentInfo*
+        {
+            for (auto& el : *self.components)
+            {
+                if (el.name == name)
+                    return &el;
+            }
+            return nullptr;
+        };
+    }
+
     void Application::InitPlugins()
     {
-        g_api.version           = 1;
-        g_api.registry          = &_map.GetFactory().GetRegistry();
-        g_api.ClassName         = []() -> const char* { return "FiniteEngine"; };
-        g_api.RegisterComponent = [](RegistryHandle reg, StringView name, uint32_t size) -> ComponentId { return 0; };
-        g_api.GetComponent      = [](RegistryHandle reg, uint32_t ent, ComponentId cmp) -> void* { return 0; };
-        g_api.EmplaceComponent  = [](RegistryHandle reg, uint32_t ent, ComponentId cmp) -> void* { return 0; };
-
 #if defined(_WIN32)
         const char* ext = ".dll";
 #elif defined(__APPLE__)
@@ -479,7 +499,7 @@ namespace fin
                 {
                     auto* info = fn();
                     
-                    TraceLog(LOG_INFO, "    > %s v%s by %s", info->name, info->version, info->author);
+                    TraceLog(LOG_INFO, "    > %s v%s by %s", info->name.data(), info->version.data(), info->author.data());
                 }
 
                 if (auto fn = lib.GetFunction<IGamePlugin*(GameAPI* api)>("CreateGamePluginProc"))

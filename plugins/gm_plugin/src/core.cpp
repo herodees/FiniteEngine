@@ -9,14 +9,12 @@ namespace fin
 
     };
 
-    class ExamplePlugin : public IGamePlugin
+    class ExamplePlugin : public GamePlugin
     {
     public:
         ExamplePlugin()
         {
-            auto& api = CGameAPI::Get();
-            api.RegisterComponent<TextScript>();
-            api.GetComponent<TextScript>(1);
+            RegisterComponent<TextScript>("Text");
         }
 
         ~ExamplePlugin() override = default;

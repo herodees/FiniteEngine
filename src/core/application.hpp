@@ -22,32 +22,34 @@ namespace fin
     class Application : public std::enable_shared_from_this<Application>
     {
     public:
-        Application() = default;
+        Application()  = default;
         ~Application() = default;
 
         bool OnIterate();
         bool OnInit(char* argv[], size_t argc);
         void OnDeinit(bool result);
 
-        bool CmdAttributeExists(std::string_view cmd) const;
+        bool             CmdAttributeExists(std::string_view cmd) const;
         std::string_view CmdAttributeGet(std::string_view cmd) const;
 
     private:
         void Imgui();
         void ImguiInit(bool dark_theme);
         void ImguiFileMenu();
+        void InitApi();
         void InitPlugins();
 
-        std::span<char*> _argv;
-        Renderer         _renderer;
-        Scene            _map;
-        std::string      _asset_path       = "./assets/";
-        int32_t          _target_fps       = 60;
-        float            _fixed_fps        = 30.0f;
-        float            _max_fps          = 1200.0f;
-        double           _fixed_time_step  = 1.0f / _fixed_fps;
-        double           _max_time_step    = 1.0f / _max_fps;
-        double           _current_time     = GetTime();
-        double           _time_accumulator = 0.0;
+        std::span<char*>           _argv;
+        Renderer                   _renderer;
+        Scene                      _map;
+        std::string                _asset_path       = "./assets/";
+        int32_t                    _target_fps       = 60;
+        float                      _fixed_fps        = 30.0f;
+        float                      _max_fps          = 1200.0f;
+        double                     _fixed_time_step  = 1.0f / _fixed_fps;
+        double                     _max_time_step    = 1.0f / _max_fps;
+        double                     _current_time     = GetTime();
+        double                     _time_accumulator = 0.0;
+        std::vector<ComponentInfo> _components;
     };
 } // namespace fin
