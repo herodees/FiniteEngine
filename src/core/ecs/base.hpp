@@ -14,22 +14,6 @@ namespace fin::ecs
 {
     void RegisterBaseComponents(ComponentFactory& fact);
 
-    enum class BultinType
-    {
-        Base,
-        Body,
-        Path,
-        Isometric,
-        Collider,
-        Sprite,
-        Region,
-        Camera,
-        Prefab,
-        Name,
-    };
-
-
-
     struct Base : lq::SpatialDatabase::Proxy, Component<Base, "_", "Base">
     {
         static constexpr auto in_place_delete = true;

@@ -246,7 +246,7 @@ namespace fin
                             1.0f);
             }
 
-            if (g_settings.visible_grid)
+            if (gSettings.visible_grid)
             {
                 auto* dc = ImGui::GetWindowDrawList();
                 auto cb = [&dc, &canvas](const Rectf& rc)
@@ -277,8 +277,8 @@ namespace fin
 
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
-                .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
-                .Text(g_settings.list_visible_items ? " " ICON_FA_EYE " " : " " ICON_FA_EYE_SLASH " ")
+                .PushStyle(ImStyle_Button, 10, gSettings.list_visible_items)
+                .Text(gSettings.list_visible_items ? " " ICON_FA_EYE " " : " " ICON_FA_EYE_SLASH " ")
                 .PopStyle()
                 .Spring()
                 .PushStyle(ImStyle_Button, 1, false)
@@ -295,7 +295,7 @@ namespace fin
                 }
                 if (ImGui::Line().HoverId() == 10)
                 {
-                    g_settings.list_visible_items = !g_settings.list_visible_items;
+                    gSettings.list_visible_items = !gSettings.list_visible_items;
                 }
             }
 
@@ -310,7 +310,7 @@ namespace fin
 
             if (ImGui::BeginChildFrame(ImGui::GetID("sprpt"), {-1, -1}, 0))
             {
-                if (g_settings.list_visible_items)
+                if (gSettings.list_visible_items)
                 {
                     for (auto n : _spatial.get_active())
                     {

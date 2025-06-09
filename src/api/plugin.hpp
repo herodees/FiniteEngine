@@ -23,10 +23,6 @@ namespace fin
         virtual void OnPreUpdate(float dt) {};
         virtual void OnUpdate(float dt) {};
         virtual void OnPostUpdate(float dt) {};
-
-        virtual void* Emplace(Entity ent, ComponentId cmp) = 0;
-        virtual void  Remove(Entity ent, ComponentId cmp)  = 0;
-        virtual void* Get(Entity ent, ComponentId cmp)     = 0;
     };
 
 
@@ -36,13 +32,10 @@ namespace fin
         ~GamePlugin() override;
 
         template <typename C>
-        ComponentId RegisterComponent(StringView name, StringView label = StringView());
+        ComponentId RegisterComponent(StringView name, StringView label = StringView(), ComponentFlags flags = ComponentFlags_Default);
 
-        void* Emplace(Entity ent, ComponentId cmp) final;
-        void* Get(Entity ent, ComponentId cmp) final;
-        void  Remove(Entity ent, ComponentId cmp) final;
     private:
-        std::vector<ComponentInfo> _components;
+        std::vector<ComponentInfo*> _items;
     };
 
 
@@ -91,51 +84,38 @@ namespace fin
 
     inline GamePlugin::~GamePlugin()
     {
-        for (const auto& nfo : _components)
+        for (const auto* nfo : _items)
         {
-            if (!nfo.external)
-                delete nfo.storage;
+            if (nfo->owner == static_cast<const IGamePlugin*>(this))
+                delete nfo;
         }
     }
 
-    inline void* GamePlugin::Emplace(Entity ent, ComponentId cmp)
-    {
-        auto it = _components[cmp].storage->emplace(ent);
-        return _components[cmp].storage->get(ent);
-    }
-
-    inline void* GamePlugin::Get(Entity ent, ComponentId cmp)
-    {
-        return _components[cmp].storage->get(ent);
-    }
-
-    inline void GamePlugin::Remove(Entity ent, ComponentId cmp)
-    {
-        _components[cmp].storage->remove(ent);
-    }
-
     template <typename C>
-    inline ComponentId GamePlugin::RegisterComponent(StringView name, StringView label)
+    inline ComponentId GamePlugin::RegisterComponent(StringView name, StringView label, ComponentFlags flags)
     {
         static_assert(std::is_base_of_v<ScriptComponent, C>, "Component must derive from ScriptComponent");
 
-        if (auto* info = CGameAPI::Get().GetComponentInfo(entt::internal::stripped_type_name<C>()))
+        if (auto* info = gGameAPI.GetComponentInfo(gGameAPI, entt::internal::stripped_type_name<C>()))
         {
             throw std::runtime_error("Component already registered!");
         }
         else
         {
-            ComponentInfo& comp = _components.emplace_back();
-            comp.name           = entt::internal::stripped_type_name<C>();
-            comp.id             = name;
-            comp.label          = label.empty() ? name : label;
-            comp.size           = uint32_t(sizeof(C));
-            comp.external       = false;
-            comp.storage        = new entt::storage<C>();
+            auto* nfo    = new ComponentInfoStorage<C>();
+            nfo->index   = uint32_t(_items.size());
+            nfo->name    = entt::internal::stripped_type_name<C>();
+            nfo->label   = label.empty() ? nfo->name : label;
+            nfo->flags   = flags;
+            nfo->owner   = static_cast<IGamePlugin*>(this);
+            nfo->storage = &nfo->set;
+            _items.push_back(nfo);
 
-            ScriptTraits<C>::storage = comp.storage;
-            CGameAPI::Get().RegisterComponentInfo(&comp);
-            ScriptTraits<C>::component_id = comp.index;
+            ScriptTraits<C>::info         = nfo;
+            ScriptTraits<C>::storage      = &nfo->set;
+            ScriptTraits<C>::component_id = nfo->index;
+
+            gGameAPI.RegisterComponentInfo(gGameAPI, nfo);
         }
 
         return ScriptTraits<C>::component_id;

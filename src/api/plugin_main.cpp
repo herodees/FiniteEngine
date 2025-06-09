@@ -3,13 +3,16 @@
 
 #ifdef BUILDING_DLL
 
+namespace fin
+{
+    GameAPI gGameAPI = {};
+}
+
 extern "C"
 {
-    fin::CGameAPI fin::CGameAPI::_instance{};
-
     LIB_EXPORT fin::IGamePlugin* CreateGamePluginProc(GameAPI* api)
     {
-        fin::CGameAPI::Get().InitAPI(api);
+        fin::gGameAPI = *api;
         return fin::IGamePluginFactory::InternalCreate();
     }
 
@@ -21,7 +24,5 @@ extern "C"
 } // extern "C"
 
 #else // BUILDING_DLL
-
-fin::CGameAPI fin::CGameAPI::_instance{};
 
 #endif

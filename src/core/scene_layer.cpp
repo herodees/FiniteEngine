@@ -18,32 +18,32 @@ namespace fin
     {
         ImGui::Line()
             .Spring()
-            .PushStyle(ImStyle_Button, -100, g_settings.visible_grid)
+            .PushStyle(ImStyle_Button, -100, gSettings.visible_grid)
             .Text(ICON_FA_BORDER_ALL)
             .PopStyle()
             .Space()
-            .PushStyle(ImStyle_Button, -101, g_settings.visible_isometric)
+            .PushStyle(ImStyle_Button, -101, gSettings.visible_isometric)
             .Text(ICON_FA_MAP_LOCATION_DOT)
             .PopStyle()
             .Space()
-            .PushStyle(ImStyle_Button, -102, g_settings.visible_collision)
+            .PushStyle(ImStyle_Button, -102, gSettings.visible_collision)
             .Text(ICON_FA_VECTOR_SQUARE)
             .PopStyle()
             .Space()
-            .PushStyle(ImStyle_Button, -103, g_settings.visible_navgrid)
+            .PushStyle(ImStyle_Button, -103, gSettings.visible_navgrid)
             .Text(ICON_FA_MOUNTAIN_SUN)
             .PopStyle();
 
         if (ImGui::Line().End())
         {
             if (ImGui::Line().HoverId() == -100)
-                g_settings.visible_grid = !g_settings.visible_grid;
+                gSettings.visible_grid = !gSettings.visible_grid;
             if (ImGui::Line().HoverId() == -101)
-                g_settings.visible_isometric = !g_settings.visible_isometric;
+                gSettings.visible_isometric = !gSettings.visible_isometric;
             if (ImGui::Line().HoverId() == -102)
-                g_settings.visible_collision = !g_settings.visible_collision;
+                gSettings.visible_collision = !gSettings.visible_collision;
             if (ImGui::Line().HoverId() == -103)
-                g_settings.visible_navgrid = !g_settings.visible_navgrid;
+                gSettings.visible_navgrid = !gSettings.visible_navgrid;
             return true;
         }
         return false;

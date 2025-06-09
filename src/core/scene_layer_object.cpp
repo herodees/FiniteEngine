@@ -455,7 +455,7 @@ namespace fin
 
         auto* dc = ImGui::GetWindowDrawList();
 
-        if (g_settings.visible_navgrid)
+        if (gSettings.visible_navgrid)
         {
             UpdateNavmesh();
             auto& txt = _navmesh.getDebugTexture();
@@ -475,7 +475,7 @@ namespace fin
 
             auto* base = ecs::Base::Get(ent);
 
-            if (g_settings.visible_isometric && ecs::Isometric::Contains(ent))
+            if (gSettings.visible_isometric && ecs::Isometric::Contains(ent))
             {
                 auto* iso = ecs::Isometric::Get(ent);
                 auto  a   = iso->_a + base->_position;
@@ -491,7 +491,7 @@ namespace fin
                 }
             }
 
-            if (g_settings.visible_collision && ecs::Collider::Contains(ent))
+            if (gSettings.visible_collision && ecs::Collider::Contains(ent))
             {
                 auto* col = ecs::Collider::Get(ent);
             }
@@ -508,7 +508,7 @@ namespace fin
             }
         }
 
-        if (g_settings.visible_grid)
+        if (gSettings.visible_grid)
         {
 
         }
@@ -538,8 +538,8 @@ namespace fin
         {
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
-                .PushStyle(ImStyle_Button, 10, g_settings.list_visible_items)
-                .Text(g_settings.list_visible_items ? " " ICON_FA_EYE " " : " " ICON_FA_EYE_SLASH " ")
+                .PushStyle(ImStyle_Button, 10, gSettings.list_visible_items)
+                .Text(gSettings.list_visible_items ? " " ICON_FA_EYE " " : " " ICON_FA_EYE_SLASH " ")
                 .PopStyle()
                 .Spring()
                 .PushStyle(ImStyle_Button, 1, false)
@@ -558,13 +558,13 @@ namespace fin
                 }
                 if (ImGui::Line().HoverId() == 10)
                 {
-                    g_settings.list_visible_items = !g_settings.list_visible_items;
+                    gSettings.list_visible_items = !gSettings.list_visible_items;
                 }
             }
 
             if (ImGui::BeginChildFrame(ImGui::GetID("obj"), {-1, -1}, 0))
             {
-                if (g_settings.list_visible_items)
+                if (gSettings.list_visible_items)
                 {
                     for (auto& el : _iso)
                     {

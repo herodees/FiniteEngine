@@ -12,8 +12,8 @@
 
 namespace fin
 {
-    Settings g_settings;
-    GameAPI  g_api{};
+    Settings gSettings;
+    GameAPI  gGameAPI{};
 
     void Application::ImguiInit(bool dark_theme)
     {
@@ -178,6 +178,14 @@ namespace fin
 
     void Application::OnDeinit(bool result)
     {
+        for (auto& el : _components)
+        {
+            if (el->owner == nullptr)
+            {
+                delete el;
+            }
+        }
+
         if (_map.GetMode() != SceneMode::Play)
         {
             rlImGuiShutdown();
@@ -424,21 +432,21 @@ namespace fin
 
             if (ImGui::BeginMenu("View"))
             {
-                if (ImGui::MenuItem(ICON_FA_BORDER_ALL " Visible grid", NULL, g_settings.visible_grid))
+                if (ImGui::MenuItem(ICON_FA_BORDER_ALL " Visible grid", NULL, gSettings.visible_grid))
                 {
-                    g_settings.visible_grid = !g_settings.visible_grid;
+                    gSettings.visible_grid = !gSettings.visible_grid;
                 }
-                if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Visible isometric guide", NULL, g_settings.visible_isometric))
+                if (ImGui::MenuItem(ICON_FA_MAP_LOCATION_DOT " Visible isometric guide", NULL, gSettings.visible_isometric))
                 {
-                    g_settings.visible_isometric = !g_settings.visible_isometric;
+                    gSettings.visible_isometric = !gSettings.visible_isometric;
                 }
-                if (ImGui::MenuItem(ICON_FA_VECTOR_SQUARE " Visible collision", NULL, g_settings.visible_collision))
+                if (ImGui::MenuItem(ICON_FA_VECTOR_SQUARE " Visible collision", NULL, gSettings.visible_collision))
                 {
-                    g_settings.visible_collision = !g_settings.visible_collision;
+                    gSettings.visible_collision = !gSettings.visible_collision;
                 }
-                if (ImGui::MenuItem(ICON_FA_MAP " Visible navigation grid", NULL, g_settings.visible_navgrid))
+                if (ImGui::MenuItem(ICON_FA_MAP " Visible navigation grid", NULL, gSettings.visible_navgrid))
                 {
-                    g_settings.visible_navgrid = !g_settings.visible_navgrid;
+                    gSettings.visible_navgrid = !gSettings.visible_navgrid;
                 }
                 ImGui::EndMenu();
             }
@@ -450,30 +458,30 @@ namespace fin
             ImGui::OpenPopup(show_popup.data());
     }
 
+    static bool RegisterComponentInfo(GameAPI& self, ComponentInfo* info)
+    {
+        self.components->emplace_back(info);
+        return true;
+    }
+
+    static ComponentInfo* GetComponentInfo(GameAPI& self, StringView name)
+    {
+        for (auto& el : *self.components)
+        {
+            if (el->name == name)
+                return el;
+        }
+        return nullptr;
+    }
+
     void Application::InitApi()
     {
-        g_api.version               = 1;
-        g_api.components            = &_components;
-        g_api.registry              = &_map.GetFactory().GetRegistry();
-        g_api.ClassName             = []() -> StringView { return "FiniteEngine"; };
-        g_api.RegisterComponent     = [](GameAPI& self, StringView name, uint32_t size) -> ComponentId { return 0; };
-        g_api.GetComponent          = [](GameAPI& self, Entity ent, ComponentId cmp) -> void* { return 0; };
-        g_api.EmplaceComponent      = [](GameAPI& self, Entity ent, ComponentId cmp) -> void* { return 0; };
-        g_api.RegisterComponentInfo = [](GameAPI& self, ComponentInfo* info) -> bool
-        {
-            info->index = self.components->size();
-            self.components->emplace_back(std::move(*info));
-            return true;
-        };
-        g_api.GetComponentInfo      = [](GameAPI& self, StringView name) -> ComponentInfo*
-        {
-            for (auto& el : *self.components)
-            {
-                if (el.name == name)
-                    return &el;
-            }
-            return nullptr;
-        };
+        gGameAPI.version               = 1;
+        gGameAPI.components            = &_components;
+        gGameAPI.registry              = &_map.GetFactory().GetRegistry();
+        gGameAPI.classname             = "FiniteEngine";
+        gGameAPI.RegisterComponentInfo = RegisterComponentInfo;
+        gGameAPI.GetComponentInfo      = GetComponentInfo;
     }
 
     void Application::InitPlugins()
@@ -504,7 +512,7 @@ namespace fin
 
                 if (auto fn = lib.GetFunction<IGamePlugin*(GameAPI* api)>("CreateGamePluginProc"))
                 {
-                    fn(&g_api)->Release();
+                    fn(&gGameAPI)->Release();
                 }
             }
         }

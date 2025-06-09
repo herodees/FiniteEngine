@@ -17,7 +17,7 @@ namespace fin
         bool        list_visible_items{};
     };
 
-    extern Settings g_settings;
+    extern Settings gSettings;
 
     class Application : public std::enable_shared_from_this<Application>
     {
@@ -50,6 +50,7 @@ namespace fin
         double                     _max_time_step    = 1.0f / _max_fps;
         double                     _current_time     = GetTime();
         double                     _time_accumulator = 0.0;
-        std::vector<ComponentInfo> _components;
+
+        std::vector<ComponentInfo*> _components;
     };
 } // namespace fin
