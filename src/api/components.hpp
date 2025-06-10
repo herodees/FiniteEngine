@@ -20,15 +20,6 @@ namespace fin
 
     struct ComponentInfo
     {
-        void Serialize(Entity e, fin::msg::Var& ar) const;
-        void Deserialize(Entity e, fin::msg::Var& ar) const;
-        void Edit(Entity e) const;
-        void EditCanvas(Entity e, ImGui::CanvasParams& cp) const;
-
-        using serialize_fn   = void (*)(void*, Entity, fin::msg::Var&);
-        using entity_fn      = void (*)(void*, Entity);
-        using entity_edit_fn = void (*)(void*, Entity, ImGui::CanvasParams&);
-
         std::string_view name;
         std::string_view id;
         std::string_view label;
@@ -36,11 +27,29 @@ namespace fin
         ComponentsFlags  flags       = 0;       // flags for the component
         SparseSet*       storage     = nullptr; // owned only if not external
         PluginHandle     owner       = nullptr; // owner plugin of the component
-        serialize_fn     serialize   = nullptr;
-        serialize_fn     deserialize = nullptr;
-        entity_fn        edit        = nullptr;
-        entity_edit_fn   edit_canvas = nullptr;
+
+        IComponent* Get(const Entity ent) const
+        {
+            return static_cast<IComponent*>(storage->get(ent));
+        }
+
+        bool Contains(const Entity ent) const
+        {
+            return storage->contains(ent);
+        }
+
+        void Emplace(Entity ent) const
+        {
+            storage->emplace(ent);
+        }
+
+        void Erase(Entity ent) const
+        {
+            storage->erase(ent);
+        }
     };
+
+
 
     template <typename T>
     struct ComponentInfoStorage : ComponentInfo
@@ -49,19 +58,31 @@ namespace fin
     };
 
 
-    class ScriptComponent
+    struct ArchiveParams2
     {
-    public:
-        ScriptComponent()                    = default;
-        virtual ~ScriptComponent()           = default;
-        virtual void Init(Entity entity)     = 0; // Initialize the component for the given entity
-        virtual void Update(float deltaTime) = 0; // Update the component logic
+        msg::Var& data;   // Archive variable to serialize/deserialize data
+        Entity    entity; // Entity being serialized/deserialized
+    };
+        
+
+
+    struct IComponent
+    {
+        virtual void OnSerialize(ArchiveParams2& ar) {};
+        virtual bool OnDeserialize(ArchiveParams2& ar){ return false;};
+        virtual bool OnEdit(Entity ent){ return false;};
+        virtual bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas){ return false;};
     };
 
 
 
-    struct DataComponent
+    class IScriptComponent : public IComponent
     {
+    public:
+        IScriptComponent()                   = default;
+        virtual ~IScriptComponent()          = default;
+        virtual void Init(Entity entity)     = 0; // Initialize the component for the given entity
+        virtual void Update(float deltaTime) = 0; // Update the component logic
     };
 
 
@@ -69,116 +90,47 @@ namespace fin
     template <typename T>
     struct ComponentTraits
     {
-        static ComponentId              component_id; // Unique ID for the component type
-        static entt::storage<T>*        storage;
-        static ComponentInfoStorage<T>* info;
-    };
+        static ComponentInfo*    info;
+        static SparseSet*        set;
 
-    template <typename T>
-    ComponentId ComponentTraits<T>::component_id{0xffffffff};
-
-    template <typename T>
-    entt::storage<T>* ComponentTraits<T>::storage{};
-
-    template <typename T>
-    ComponentInfoStorage<T>* ComponentTraits<T>::info{};
-
-
-
-
-    template <typename T>
-    concept HasSerialize = requires(const T& t, Entity e, fin::msg::Var& v)
-    {
+        static T& Get(const Entity ent)
         {
-            t.Serialize(e, v)
-        } -> std::same_as<void>;
-    };
-
-    template <typename T>
-    concept HasDeserialize = requires(T & t, Entity e, fin::msg::Var& v)
-    {
-        {
-            t.Deserialize(e, v)
-        } -> std::same_as<void>;
-    };
-
-    template <typename T>
-    concept HasEdit = requires(T & t, Entity e)
-    {
-        {
-            t.ImguiProps(e)
-        } -> std::same_as<void>;
-    };
-
-    template <typename T>
-    concept HasEditCanvas = requires(T & t, Entity e, ImGui::CanvasParams& c)
-    {
-        {
-            t.ImguiWorkspace(e, c)
-        } -> std::same_as<void>;
-    };
-
-    inline void ComponentInfo::Serialize(Entity e, fin::msg::Var& ar) const
-    {
-        serialize(storage->get(e), e, ar);
-    }
-
-    inline void ComponentInfo::Deserialize(Entity e, fin::msg::Var& ar) const
-    {
-        deserialize(storage->get(e), e, ar);
-    }
-
-    inline void ComponentInfo::Edit(Entity e) const
-    {
-        edit(storage->get(e), e);
-    }
-
-    inline void ComponentInfo::EditCanvas(Entity e, ImGui::CanvasParams& cp) const
-    {
-        edit_canvas(storage->get(e), e, cp);
-    }
-
-
-    template <typename C>
-    ComponentInfo* RegisterComponentInt(StringView name, StringView label, ComponentsFlags flags, IGamePlugin* owner)
-    {
-        auto* nfo    = new ComponentInfoStorage<C>();
-        nfo->index   = 0;
-        nfo->name    = entt::internal::stripped_type_name<C>();
-        nfo->id      = name;
-        nfo->label   = label.empty() ? nfo->name : label;
-        nfo->flags   = flags;
-        nfo->owner   = owner;
-        nfo->storage = &nfo->set;
-
-        if constexpr (HasSerialize<C>)
-        {
-            nfo->serialize = [](void* self, Entity e, msg::Var& ar) { static_cast<const C*>(self)->Serialize(e, ar); };
+            return static_cast<entt::storage<T>*>(set)->get(ent);
         }
 
-        if constexpr (HasDeserialize<C>)
+        static bool Contains(const Entity ent)
         {
-            nfo->deserialize = [](void* self, Entity e, msg::Var& ar) { static_cast<C*>(self)->Deserialize(e, ar); };
+            return static_cast<entt::storage<T>*>(set)->contains(ent);
         }
 
-        if constexpr (HasEdit<C>)
+        static T& Emplace(Entity ent)
         {
-            nfo->edit = [](void* self, Entity e) { static_cast<C*>(self)->ImguiProps(e); };
+            if constexpr (std::is_constructible_v<T>)
+            {
+                // If T is Interface, use set->emplace
+                return static_cast<entt::storage<T>*>(set)->emplace(ent);
+            }
+            else
+            {
+                // Fallback for incomplete or non-constructible types
+                set->emplace(ent);
+                return *static_cast<T*>(set->get(ent));
+            }
         }
 
-        if constexpr (HasEditCanvas<C>)
+        static void Erase(Entity ent)
         {
-            nfo->edit_canvas = [](void* self, Entity e, ImGui::CanvasParams& cp)
-            { static_cast<C*>(self)->ImguiWorkspace(e, cp); };
+            static_cast<entt::storage<T>*>(set)->erase(ent);
         }
+    };
 
-        gGameAPI.RegisterComponentInfo(gGameAPI, nfo);
-        ComponentTraits<C>::info         = nfo;
-        ComponentTraits<C>::storage      = &nfo->set;
-        ComponentTraits<C>::component_id = nfo->index;
+    template <typename T>
+    using CT = ComponentTraits<T>;
 
-        return nfo;
-    }
+    template <typename T>
+    SparseSet* ComponentTraits<T>::set{};
+    template <typename T>
+    ComponentInfo* ComponentTraits<T>::info{};
 
 
 } // namespace fin

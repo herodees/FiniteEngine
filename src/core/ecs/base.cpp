@@ -3,6 +3,7 @@
 #include <core/scene_layer.hpp>
 #include <core/scene_layer_object.hpp>
 #include <core/scene.hpp>
+#include "builtin.hpp"
 
 namespace fin::ecs
 {

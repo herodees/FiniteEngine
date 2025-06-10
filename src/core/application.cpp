@@ -3,6 +3,7 @@
 #include "utils/lib_utils.hpp"
 #include "utils/imguiline.hpp"
 #include "editor/imgui_control.hpp"
+#include "ecs/builtin.hpp"
 #include "imgui_internal.h"
 
 #if defined(PLATFORM_DESKTOP) && defined(GRAPHICS_API_OPENGL_ES3)
@@ -10,6 +11,7 @@
 #endif
 #include <api/plugin.hpp>
 #include <api/register.hpp>
+
 
 namespace fin
 {
@@ -465,20 +467,26 @@ namespace fin
         return true;
     }
 
-    static ComponentInfo* GetComponentInfo(GameAPI& self, StringView name)
+    static ComponentInfo* GetComponentInfoType(GameAPI& self, StringView name)
     {
-        return self.registry->GetComponentInfo(name);
+        return self.registry->GetComponentInfoByType(name);
+    }
+
+    static ComponentInfo* GetComponentInfoId(GameAPI& self, StringView name)
+    {
+        return self.registry->GetComponentInfoById(name);
     }
 
     void Application::InitApi()
     {
-        gGameAPI.version               = 1;
-        gGameAPI.registry              = &_register;
-        gGameAPI.classname             = "FiniteEngine";
-        gGameAPI.RegisterComponentInfo = RegisterComponentInfo;
-        gGameAPI.GetComponentInfo      = GetComponentInfo;
+        gGameAPI.version                = 1;
+        gGameAPI.registry               = &_register;
+        gGameAPI.classname              = "FiniteEngine";
+        gGameAPI.RegisterComponentInfo  = RegisterComponentInfo;
+        gGameAPI.GetComponentInfoByType = GetComponentInfoType;
+        gGameAPI.GetComponentInfoById   = GetComponentInfoId;
 
-        RegisterBuiltinComponents();
+        RegisterBaseComponents(_register);
     }
 
     void Application::InitPlugins()

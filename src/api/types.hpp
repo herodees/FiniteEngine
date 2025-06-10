@@ -19,6 +19,8 @@
 namespace fin
 {
     struct ComponentInfo;
+    struct IComponent;
+    struct IScriptComponent;
     class IGamePlugin;
     class Register;
     class ObjectSceneLayer;
@@ -28,6 +30,7 @@ namespace ImGui
 {
     struct CanvasParams;
 } // namespace ImGui
+
 
 using Entity           = entt::entity;
 using ComponentId      = uint32_t;
@@ -49,6 +52,7 @@ struct GameAPI
     uint32_t            version; // API_VERSION
     RegisterHandle      registry;
     StringView          classname;
-    fin::ComponentInfo* FINCFN(GetComponentInfo)(GameAPI& self, StringView name);
+    fin::ComponentInfo* FINCFN(GetComponentInfoByType)(GameAPI& self, StringView type);
+    fin::ComponentInfo* FINCFN(GetComponentInfoById)(GameAPI& self, StringView id);
     bool                FINCFN(RegisterComponentInfo)(GameAPI& self, fin::ComponentInfo* info);
 };

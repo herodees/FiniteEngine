@@ -4,46 +4,51 @@
 
 namespace fin
 {
-    struct CBase : DataComponent 
+    struct IBase : IComponent
     {
         Entity            _self;
         ObjectSceneLayer* _layer{};
+
+        virtual Region<float> GetBoundingBox() const   = 0;
+        virtual bool          HitTest(Vec2f pos) const = 0;
+        virtual void          UpdateSparseGrid()       = 0;
+        virtual Vec2f         GetPosition() const      = 0;
+        virtual void          SetPosition(Vec2f pos)   = 0;
     };
 
-    struct CBody : DataComponent
+    struct IBody : IComponent
     {
         Vec2f _previous_position;
         Vec2f _speed;
     };
 
-    struct CPath : DataComponent
+    struct IPath : IComponent
     {
-        std::vector<Vec2i> _path;
+        virtual std::span<const Vec2f> GetPath() const = 0;
     };
 
-    struct CIsometric : DataComponent
+    struct IIsometric : IComponent
     {
         Vec2f _a;
         Vec2f _b;
     };
 
-    struct CCollider : DataComponent
+    struct ICollider : IComponent
     {
-        std::vector<Vec2f> _points;
+        virtual std::span<const Vec2f> GetPath() const = 0;
     };
 
-    struct CSprite : DataComponent
+    struct ISprite : IComponent
     {
-        
     };
 
-    struct CRegion : DataComponent
+    struct IRegion : IComponent
     {
-        std::vector<Vec2f> _points;
-        bool               _local{};
+        virtual std::span<const Vec2f> GetPath() const = 0;
+        bool                           _local{};
     };
 
-    struct CCamera : DataComponent
+    struct ICamera : IComponent
     {
         Vec2f  _position{0, 0};
         Vec2f  _size{800, 600};
@@ -54,44 +59,44 @@ namespace fin
         Entity _target       = entt::null;
     };
 
+    struct IPrefab : IComponent
+    {
+    };
+
+    struct IName : IComponent
+    {
+    };
+
     extern GameAPI gGameAPI;
 
-#ifdef BUILDING_DLL
-
     template <typename C>
-    bool RegisterBuiltinComponent(StringView, StringView, ComponentsFlags)
+    bool RegisterBuiltinComponent(StringView name)
     {
-        if (auto* nfo = gGameAPI.GetComponentInfo(gGameAPI, entt::internal::stripped_type_name<C>()))
+        if (auto* nfo = gGameAPI.GetComponentInfoById(gGameAPI, name))
         {
-            ComponentTraits<C>::info         = static_cast<ComponentInfoStorage<C>*>(nfo);
-            ComponentTraits<C>::storage      = &ComponentTraits<C>::info->set;
-            ComponentTraits<C>::component_id = nfo->index;
+            ComponentTraits<C>::info    = nfo;
+            ComponentTraits<C>::set     = nfo->storage;
             return true;
+        }
+        else
+        {
+            ENTT_ASSERT(false, "Component is not registered!");
         }
         return false;
     }
 
-#else
-
-    template <typename C>
-    bool RegisterBuiltinComponent(StringView name, StringView label, ComponentsFlags flags)
-    {
-        RegisterComponentInt<C>(name, label, flags, nullptr);
-        return false;
-    }
-
-#endif
-
     inline void RegisterBuiltinComponents()
     {
-        RegisterBuiltinComponent<CBase>("bse", "Base", 0);
-        RegisterBuiltinComponent<CBody>("bdy", "Body", 0);
-        RegisterBuiltinComponent<CPath>("pth", "Path", 0);
-        RegisterBuiltinComponent<CIsometric>("iso", "Isometric", 0);
-        RegisterBuiltinComponent<CCollider>("cld", "Collider", 0);
-        RegisterBuiltinComponent<CSprite>("spr", "Sprite", 0);
-        RegisterBuiltinComponent<CRegion>("reg", "Region", 0);
-        RegisterBuiltinComponent<CCamera>("cam", "Camera", 0);
+        RegisterBuiltinComponent<IBase>("_");
+        RegisterBuiltinComponent<IBody>("bdy");
+        RegisterBuiltinComponent<IPath>("pth");
+        RegisterBuiltinComponent<IIsometric>("iso");
+        RegisterBuiltinComponent<ICollider>("cld");
+        RegisterBuiltinComponent<ISprite>("spr");
+        RegisterBuiltinComponent<IRegion>("reg");
+        RegisterBuiltinComponent<ICamera>("cam");
+        RegisterBuiltinComponent<IPrefab>("pfb");
+        RegisterBuiltinComponent<IName>("nme");
     }
 
 } // namespace fin

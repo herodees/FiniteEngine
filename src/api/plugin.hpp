@@ -34,13 +34,7 @@ namespace fin
         ~GamePlugin() override;
 
         template <typename C>
-        ComponentId RegisterScriptComponent(StringView     name,
-                                            StringView     label = StringView(),
-                                            ComponentsFlags flags = ComponentsFlags_Default);
-        template <typename C>
-        ComponentId RegisterComponent(StringView     name,
-                                      StringView     label = StringView(),
-                                      ComponentsFlags flags = ComponentsFlags_Default);
+        ComponentInfo* RegisterComponent(StringView id, StringView label = StringView(), ComponentsFlags flags = ComponentsFlags_Default);
 
     private:
         std::vector<ComponentInfo*> _items;
@@ -100,31 +94,32 @@ namespace fin
     }
 
     template <typename C>
-    inline ComponentId GamePlugin::RegisterScriptComponent(StringView name, StringView label, ComponentsFlags flags)
+    inline ComponentInfo* GamePlugin::RegisterComponent(StringView name, StringView label, ComponentsFlags flags)
     {
-        static_assert(std::is_base_of_v<ScriptComponent, C>, "Component must derive from ScriptComponent");
+        static_assert(std::is_base_of_v<IComponent, C>, "Component must derive from IComponent");
 
-        if (auto* info = gGameAPI.GetComponentInfo(gGameAPI, entt::internal::stripped_type_name<C>()))
+        static_assert(std::is_default_constructible_v<C>, "Component is not default constructible, or is incomplete");
+
+        if (auto* info = gGameAPI.GetComponentInfoByType(gGameAPI, entt::internal::stripped_type_name<C>()))
         {
             throw std::runtime_error("Component already registered!");
         }
-        auto* p = RegisterComponentInt<C>(name, label, flags, this);
-        _items.emplace_back(p);
-        return p->index;
-    }
 
-    template <typename C>
-    inline ComponentId GamePlugin::RegisterComponent(StringView name, StringView label, ComponentsFlags flags)
-    {
-        static_assert(std::is_base_of_v<DataComponent, C>, "Component must derive from DataComponent");
+        auto* info    = new ComponentInfoStorage<C>();
+        info->name    = entt::internal::stripped_type_name<C>();
+        info->id      = name;
+        info->label   = label.empty() ? name : label;
+        info->flags   = flags;
+        info->owner   = static_cast<IGamePlugin*>(this);
+        info->storage = &info->set;
 
-        if (auto* info = gGameAPI.GetComponentInfo(gGameAPI, entt::internal::stripped_type_name<C>()))
-        {
-            throw std::runtime_error("Component already registered!");
-        }
-        auto* p = RegisterComponentInt<C>(name, label, flags, this);
-        _items.emplace_back(p);
-        return p->index;
+        ComponentTraits<C>::info = info; 
+        ComponentTraits<C>::set     = info->storage;
+
+        gGameAPI.RegisterComponentInfo(gGameAPI, info);
+
+        _items.emplace_back(info);
+        return info;
     }
 
 } // namespace fin

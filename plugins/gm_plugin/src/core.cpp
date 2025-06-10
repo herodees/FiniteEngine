@@ -4,36 +4,14 @@
 
 namespace fin
 {
-    struct TextScript : public ScriptComponent
+    struct TextScript : IScriptComponent
     {
-        void Serialize(Entity e, msg::Var& ar) const
-        {
-            ar.set_item("ss", "");
-        }
-
-        void Deserialize(Entity e, msg::Var& ar)
-        {
-        }
-
-        void ImguiProps(Entity e)
-        {
-        }
-
-        void ImguiWorkspace(Entity e, ImGui::CanvasParams& cp)
-        {
-        }
+        void Init(Entity entity) override {};
+        void Update(float deltaTime) override {};
     };
 
-    struct Test : DataComponent
+    struct Test : IComponent
     {
-        void Serialize(Entity e, msg::Var& ar) const
-        {
-            ar.set_item("ss", "");
-        }
-
-        void Deserialize(Entity e, msg::Var& ar)
-        {
-        }
     };
 
     class ExamplePlugin : public GamePlugin
@@ -41,8 +19,23 @@ namespace fin
     public:
         ExamplePlugin()
         {
-            RegisterScriptComponent<TextScript>("Text");
+            RegisterComponent<TextScript>("Text");
             RegisterComponent<Test>("test");
+
+            auto ent = gGameAPI.registry->Create();
+            CT<IBase>::Emplace(ent);
+            IBase& base = CT<IBase>::Get(ent);
+            if (CT<IBase>::Contains(ent))
+            {
+                CT<IBase>::Erase(ent);
+            }
+            CT<Test>::Emplace(ent);
+            CT<TextScript>::Emplace(ent);
+            gGameAPI.registry->Destroy(ent);
+            if (CT<TextScript>::Contains(ent))
+            {
+                CT<TextScript>::Erase(ent);
+            }
         }
 
         ~ExamplePlugin() override = default;

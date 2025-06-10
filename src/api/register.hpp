@@ -42,8 +42,8 @@ namespace fin
 
         void            AddComponentInfo(ComponentInfo* info);
         componets_type& GetComponents();
-        ComponentInfo*  GetComponentInfo(StringView name) const;
-
+        ComponentInfo*  GetComponentInfoByType(StringView name) const;
+        ComponentInfo*  GetComponentInfoById(StringView name) const;
     private:
         Entity       GenerateIdentifier(const std::size_t pos) noexcept;
         Entity       RecycleIdentifier() noexcept;
@@ -123,11 +123,21 @@ namespace fin
         _components.push_back(info);
     }
 
-    inline ComponentInfo* Register::GetComponentInfo(StringView name) const
+    inline ComponentInfo* Register::GetComponentInfoByType(StringView name) const
     {
         for (auto& el : _components)
         {
             if (el->name == name)
+                return el;
+        }
+        return nullptr;
+    }
+
+    inline ComponentInfo* Register::GetComponentInfoById(StringView name) const
+    {
+        for (auto& el : _components)
+        {
+            if (el->id == name)
                 return el;
         }
         return nullptr;
