@@ -8,7 +8,7 @@
 #include <vector>
 #include <cassert>
 
-#include "msgvar.hpp"
+#include <api/msgvar.hpp>
 
 namespace fin::mustache
 {

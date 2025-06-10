@@ -9,6 +9,7 @@
 #include "GLFW/glfw3.h"
 #endif
 #include <api/plugin.hpp>
+#include <api/register.hpp>
 
 namespace fin
 {
@@ -178,7 +179,7 @@ namespace fin
 
     void Application::OnDeinit(bool result)
     {
-        for (auto& el : _components)
+        for (auto& el : _register.GetComponents())
         {
             if (el->owner == nullptr)
             {
@@ -460,28 +461,24 @@ namespace fin
 
     static bool RegisterComponentInfo(GameAPI& self, ComponentInfo* info)
     {
-        self.components->emplace_back(info);
+        self.registry->AddComponentInfo(info);
         return true;
     }
 
     static ComponentInfo* GetComponentInfo(GameAPI& self, StringView name)
     {
-        for (auto& el : *self.components)
-        {
-            if (el->name == name)
-                return el;
-        }
-        return nullptr;
+        return self.registry->GetComponentInfo(name);
     }
 
     void Application::InitApi()
     {
         gGameAPI.version               = 1;
-        gGameAPI.components            = &_components;
-        gGameAPI.registry              = &_map.GetFactory().GetRegistry();
+        gGameAPI.registry              = &_register;
         gGameAPI.classname             = "FiniteEngine";
         gGameAPI.RegisterComponentInfo = RegisterComponentInfo;
         gGameAPI.GetComponentInfo      = GetComponentInfo;
+
+        RegisterBuiltinComponents();
     }
 
     void Application::InitPlugins()

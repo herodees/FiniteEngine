@@ -6,7 +6,34 @@ namespace fin
 {
     struct TextScript : public ScriptComponent
     {
+        void Serialize(Entity e, msg::Var& ar) const
+        {
+            ar.set_item("ss", "");
+        }
 
+        void Deserialize(Entity e, msg::Var& ar)
+        {
+        }
+
+        void ImguiProps(Entity e)
+        {
+        }
+
+        void ImguiWorkspace(Entity e, ImGui::CanvasParams& cp)
+        {
+        }
+    };
+
+    struct Test : DataComponent
+    {
+        void Serialize(Entity e, msg::Var& ar) const
+        {
+            ar.set_item("ss", "");
+        }
+
+        void Deserialize(Entity e, msg::Var& ar)
+        {
+        }
     };
 
     class ExamplePlugin : public GamePlugin
@@ -14,7 +41,8 @@ namespace fin
     public:
         ExamplePlugin()
         {
-            RegisterComponent<TextScript>("Text");
+            RegisterScriptComponent<TextScript>("Text");
+            RegisterComponent<Test>("test");
         }
 
         ~ExamplePlugin() override = default;

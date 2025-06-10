@@ -2,7 +2,7 @@
 
 #include "shared_resource.hpp"
 #include "utils/matrix2d.hpp"
-#include "utils/msgbuff.hpp"
+#include "api/msgbuff.hpp"
 
 namespace fin
 {

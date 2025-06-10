@@ -27,7 +27,6 @@ namespace fin
     } // namespace Sc
 
 
-
     enum ComponentFlags_
     {
         ComponentFlags_Default           = 0,      // Default component flags

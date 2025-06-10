@@ -13,6 +13,7 @@ extern "C"
     LIB_EXPORT fin::IGamePlugin* CreateGamePluginProc(GameAPI* api)
     {
         fin::gGameAPI = *api;
+        fin::RegisterBuiltinComponents();
         return fin::IGamePluginFactory::InternalCreate();
     }
 

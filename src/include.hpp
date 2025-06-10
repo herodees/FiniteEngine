@@ -44,8 +44,5 @@ namespace fin
 
 // Utils
 #include "utils/std_utils.hpp"
-#include "utils/math_utils.hpp"
 #include "utils/matrix2d.hpp"
-#include "utils/msgvar.hpp"
-
 #include <api/game.hpp>
