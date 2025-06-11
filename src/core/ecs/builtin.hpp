@@ -1,12 +1,26 @@
 #pragma once
 
 #include "api/components.hpp"
-#include "behavior.hpp"
 #include "core/atlas.hpp"
 #include "utils/lquery.hpp"
 
 namespace fin
 {
+    namespace Sc
+    {
+        constexpr std::string_view Id("$id");
+        constexpr std::string_view Group("$grp");
+        constexpr std::string_view Name("$nme");
+        constexpr std::string_view Uid("$uid");
+        constexpr std::string_view Diff("$diff");
+        constexpr std::string_view Class("$cls");
+        constexpr std::string_view Flag("$fl");
+        constexpr std::string_view Atlas("atl");
+        constexpr std::string_view Sprite("spr");
+    } // namespace Sc
+
+
+
     class ObjectSceneLayer;
 
     void RegisterBaseComponents(Register& fact);

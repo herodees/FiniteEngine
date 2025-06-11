@@ -12,34 +12,8 @@
 namespace fin
 {
     using Entity = entt::registry::entity_type;
-    using Registry = entt::registry;
     using SparseSet = entt::sparse_set;
 
-    struct EntityHandle
-    {
-        template <typename T>
-        T& Get()
-        {
-            return registry->get<T>(entity);
-        }
-        template <typename T>
-        bool Has() const
-        {
-            return registry->all_of<T>(entity);
-        }
-        template <typename T>
-        void Remove()
-        {
-            registry->remove<T>(entity);
-        }
-        operator Entity() const
-        {
-            return entity;
-        }
-
-        Entity    entity{};
-        Registry* registry{};
-    };
 } // namespace fin
 
 // Utils

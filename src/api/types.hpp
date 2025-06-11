@@ -18,9 +18,12 @@
 
 namespace fin
 {
+    struct ArchiveParams2;
     struct ComponentInfo;
     struct IComponent;
     struct IScriptComponent;
+    struct IComponent;
+    class IScriptComponent;
     class IGamePlugin;
     class Application;
     class ObjectSceneLayer;

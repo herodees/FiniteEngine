@@ -1,7 +1,8 @@
 #include "core.hpp"
-#include "base.hpp"
+#include "builtin.hpp"
 #include "core/scene.hpp"
 #include "core/scene_layer_object.hpp"
+
 
 namespace fin::ecs
 {
@@ -32,16 +33,16 @@ namespace fin::ecs
         }
     }
 
-    inline void update_path(ecs::Base* base, ecs::Body* body, ecs::Path* path, Navmesh& navmesh)
+    inline void update_path(CBase& base, CBody& body, CPath& path, Navmesh& navmesh)
     {
-        if (path->_path.empty())
+        if (path._path.empty())
         {
-            body->_speed = {}; // stop
+            body._speed = {}; // stop
             return;
         }
 
-        Vec2f pos         = base->_position;
-        Vec2i target_cell = path->_path.front();
+        Vec2f pos         = base._position;
+        Vec2i target_cell = path._path.front();
         Vec2f target_pos  = navmesh.cellToWorld(target_cell);
 
         Vec2f delta = target_pos - pos;
@@ -52,55 +53,55 @@ namespace fin::ecs
         if (dist < threshold)
         {
             // Reached current target
-            path->_path.erase(path->_path.begin());
+            path._path.erase(path._path.begin());
 
-            if (path->_path.empty())
+            if (path._path.empty())
             {
-                body->_speed = {};
+                body._speed = {};
                 return;
             }
 
             // Update to next target
-            target_cell = path->_path.front();
+            target_cell = path._path.front();
             target_pos  = navmesh.cellToWorld(target_cell);
             delta       = target_pos - pos;
         }
 
         Vec2f dir        = delta.normalized();
         float move_speed = 60.0f; // or body->max_speed
-        body->_speed     = dir * move_speed;
+        body._speed     = dir * move_speed;
     }
 
     void Navigation::update_objects(float dt, ObjectSceneLayer* layer)
     {
         auto&      factory  = GetScene().GetFactory();
-        auto&      registry = factory.GetRegistry();
-        const auto view     = registry.view<ecs::Base, ecs::Body>();
+        auto&      registry = factory.GetRegister();
+        const auto view     = View<CBase, CBody>();
         auto&      navmesh  = layer->GetNavmesh();
         auto&      objects  = layer->GetObjects(true);
 
         for (auto ent : objects)
         {
-            if (!registry.valid(ent) || !view.contains(ent))
+            if (!registry.Valid(ent) || !view.Contains(ent))
                 continue;
 
-            Base* base = ecs::Base::Get(ent);
-            Body* body = ecs::Body::Get(ent);
+            CBase& base = Get<CBase>(ent);
+            CBody& body = Get<CBody>(ent);
 
-            if (ecs::Path::Contains(ent))
+            if (Contains<CPath>(ent))
             {
-                update_path(base, body, ecs::Path::Get(ent), navmesh);
+                update_path(base, body, Get<CPath>(ent), navmesh);
             }
 
-            if (body->_speed == Vec2f())
+            if (body._speed == Vec2f())
             {
                 continue;
             }
 
-            body->_previous_position = base->_position;
+            body._previous_position = base._position;
 
-            Vec2f from = base->_position;
-            Vec2f to   = from + body->_speed * dt;
+            Vec2f from = base._position;
+            Vec2f to   = from + body._speed * dt;
 
             Vec2i grid_from = navmesh.worldToCell(from);
             Vec2i grid_to   = navmesh.worldToCell(to);
@@ -133,7 +134,7 @@ namespace fin::ecs
                     result = probe;
                 }
             }
-            base->_position = result;
+            base._position = result;
         }
     }
 
@@ -155,24 +156,24 @@ namespace fin::ecs
 
     void CameraController::Update(float dt)
     {
-        auto& reg = GetRegistry();
+        auto& reg = GetRegister();
 
-        if (!reg.valid(m_Camera) || !ecs::Camera::Contains(m_Camera) || !ecs::Base::Contains(m_Camera))
+        if (!reg.Valid(m_Camera) || !Contains<CCamera>(m_Camera) || !Contains<CBase>(m_Camera))
             return;
 
-        auto& camera    = *ecs::Camera::Get(m_Camera);
-        auto& transform = *ecs::Base::Get(m_Camera);
+        auto& camera    = Get<CCamera>(m_Camera);
+        auto& transform = Get<CBase>(m_Camera);
 
       //  Zoom control (mouse wheel or whatever)
       //  float scrollDelta = Input::GetScrollDelta();
       //  camera._zoom -= scrollDelta * camera._zoomSpeed;
       //  camera._zoom = std::clamp(camera._zoom, 0.1f, 10.0f);
 
-        if (reg.valid(camera._target))
+        if (reg.Valid(camera._target))
         {
-            if (ecs::Base::Contains(camera._target))
+            if (Contains<CBase>(camera._target))
             {
-                auto& targetTransform = *ecs::Base::Get(camera._target);
+                auto& targetTransform = Get<CBase>(camera._target);
                 transform._position   = lerp(transform._position, targetTransform._position, dt * camera._smoothFactor);
                 transform.UpdateSparseGrid();
             }
@@ -204,10 +205,9 @@ namespace fin::ecs
     {
         if (m_Camera == entt::null)
         {
-           auto cams = GetRegistry().view<ecs::Camera>();
-           if (!cams.empty())
+            if (!ComponentTraits<CCamera>::set->empty())
            {
-               m_Camera = *cams.begin();
+                m_Camera = *ComponentTraits<CCamera>::set->begin();
            }
         }
     }

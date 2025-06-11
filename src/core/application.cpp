@@ -186,14 +186,6 @@ namespace fin
             plg.second->Release();
         }
 
-        for (auto& el : _register.GetComponents())
-        {
-            if (el->owner == nullptr)
-            {
-                delete el;
-            }
-        }
-
         if (_map.GetMode() != SceneMode::Play)
         {
             rlImGuiShutdown();
@@ -480,7 +472,8 @@ namespace fin
         gGameAPI.DestroyEntity          = DestroyEntity;
         gGameAPI.ValidEntity            = ValidEntity;
         gGameAPI.GetOldEntity           = GetOldEntity;
-        RegisterBaseComponents(_register);
+
+        RegisterBaseComponents(_map.GetFactory().GetRegister());
     }
 
     void Application::InitPlugins()
@@ -536,33 +529,36 @@ namespace fin
     {
         if (!info)
             return false;
-        self->_register.AddComponentInfo(info);
+        self->_map.GetFactory().GetRegister().AddComponentInfo(info);
         return true;
     }
 
     ComponentInfo* Application::GetComponentInfoType(AppHandle self, StringView name)
     {
-        return self->_register.GetComponentInfoByType(name);
+        return self->_map.GetFactory().GetRegister().GetComponentInfoByType(name);
     }
 
     ComponentInfo* Application::GetComponentInfoId(AppHandle self, StringView name)
     {
-        return self->_register.GetComponentInfoById(name);
+        return self->_map.GetFactory().GetRegister().GetComponentInfoById(name);
     }
 
     Entity Application::FindNamedEntity(AppHandle self, StringView name)
     {
-        return self->_register.FindNamed(std::string{name});
+        return self->_map.GetFactory().GetEntityByName(name);
     }
 
     bool Application::SetNamedEntity(AppHandle self, Entity ent, StringView name)
     {
-        return self->_register.SetNamed(ent, std::string{name});
+        return self->_map.GetFactory().SetEntityName(ent, name);
     }
 
     void Application::ClearNamededEntity(AppHandle self, StringView name)
     {
-        self->_register.ClearNamed(std::string{name});
+        auto ent = self->_map.GetFactory().GetEntityByName(name);
+        if (ent == entt::null)
+            return;
+        self->_map.GetFactory().SetEntityName(ent, {});
     }
 
     Entity Application::GetOldEntity(AppHandle self, Entity oldent)
@@ -572,17 +568,17 @@ namespace fin
 
     Entity Application::CreateEntity(AppHandle self)
     {
-        return self->_register.Create();
+        return self->_map.GetFactory().GetRegister().Create();
     }
 
     void Application::DestroyEntity(AppHandle self, Entity ent)
     {
-        self->_register.Destroy(ent);
+        self->_map.GetFactory().GetRegister().Destroy(ent);
     }
 
     bool Application::ValidEntity(AppHandle self, Entity ent)
     {
-        return self->_register.Valid(ent);
+        return self->_map.GetFactory().GetRegister().Valid(ent);
     }
 
 } // namespace fin

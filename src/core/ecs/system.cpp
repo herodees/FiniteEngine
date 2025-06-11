@@ -7,9 +7,9 @@ namespace fin
     {
     }
 
-    Registry& System::GetRegistry()
+    Register& System::GetRegister()
     {
-        return _scene.GetFactory().GetRegistry();
+        return _scene.GetFactory().GetRegister();
     }
 
     Scene& System::GetScene()

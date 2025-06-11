@@ -2,7 +2,6 @@
 
 #include "ecs/component.hpp"
 #include "ecs/system.hpp"
-#include "ecs/behavior.hpp"
 #include "include.hpp"
 #include "renderer.hpp"
 #include "scene_layer.hpp"

@@ -1,7 +1,7 @@
 #include "scene_layer_object.hpp"
 #include "editor/imgui_control.hpp"
 #include "utils/imguiline.hpp"
-#include "ecs/base.hpp"
+#include "ecs/builtin.hpp"
 #include "application.hpp"
 #include "renderer.hpp"
 #include "scene.hpp"
@@ -31,19 +31,18 @@ namespace fin
 
     void ObjectSceneLayer::IsoObject::setup(Entity ent)
     {
-        auto* base = ecs::Base::Get(ent);
+        auto& base = Get<CBase>(ent);
 
         _ptr           = ent;
         _depth        = 0;
         _depth_active = false;
-        _origin.point1 = base->_position;
+        _origin.point1 = base._position;
         _origin.point2 = _origin.point1;
 
-        _bbox = base->GetBoundingBox();
+        _bbox = base.GetBoundingBox();
 
-        if (ecs::Isometric::Contains(ent))
+        if (auto* iso = Find<CIsometric>(ent))
         {
-            auto* iso = ecs::Isometric::Get(ent);
             _origin.point1 += iso->_a;
             _origin.point2 += iso->_b;
         }
@@ -104,9 +103,8 @@ namespace fin
 
     void ObjectSceneLayer::Insert(Entity ent)
     {
-        if (ecs::Base::Contains(ent))
+        if (auto* obj = Find<CBase>(ent))
         {
-            auto* obj = ecs::Base::Get(ent);
             if (obj->_layer == this)
                 return;
 
@@ -122,9 +120,8 @@ namespace fin
 
     void ObjectSceneLayer::Remove(Entity ent)
     {
-        if (ecs::Base::Contains(ent))
+        if (auto* obj = Find<CBase>(ent))
         {
-            auto* obj = ecs::Base::Get(ent);
             if (obj->_layer)
             {
                 obj->_layer->_spatial_db.remove_from_bin(obj);
@@ -132,30 +129,29 @@ namespace fin
             }
             _dirty_navmesh = true;
         }
-        parent()->GetFactory().GetRegistry().destroy(ent);
+        parent()->GetFactory().GetRegister().Destroy(ent);
     }
 
     Entity ObjectSceneLayer::FindAt(Vec2f position) const
     {
         Entity ret = entt::null;
         auto   cb  = [&ret, position](lq::SpatialDatabase::Proxy* obj, float dist)
+        {
+            auto ent = static_cast<CBase*>(obj)->_self;
+            if (auto* spr = Find<CSprite>(ent))
             {
-                auto ent = static_cast<ecs::Base*>(obj)->_self;
-                if (ecs::Sprite::Contains(ent))
+                if (spr->_pack.sprite)
                 {
-                    auto* spr = ecs::Sprite::Get(ent);
-                    if (spr->pack.sprite)
+                    Vec2f bbox;
+                    bbox.x = static_cast<CBase*>(obj)->_position.x - spr->_pack.sprite->_origina.x;
+                    bbox.y = static_cast<CBase*>(obj)->_position.y - spr->_pack.sprite->_origina.y;
+                    if (spr->_pack.is_alpha_visible(position.x - bbox.x, position.y - bbox.y))
                     {
-                        Vec2f bbox;
-                        bbox.x = static_cast<ecs::Base*>(obj)->_position.x - spr->pack.sprite->_origina.x;
-                        bbox.y = static_cast<ecs::Base*>(obj)->_position.y - spr->pack.sprite->_origina.y;
-                        if (spr->pack.is_alpha_visible(position.x - bbox.x, position.y - bbox.y))
-                        {
-                            ret = ent;
-                        }
+                        ret = ent;
                     }
                 }
-            };
+            }
+        };
 
         _spatial_db.map_over_all_objects_in_locality(position.x, position.y, tile_size, cb);
         return entt::null;
@@ -170,12 +166,11 @@ namespace fin
 
             if (bbox.contains(position))
             {
-                if (ecs::Sprite::Contains(obj))
+                if (auto* spr = Find<CSprite>(obj))
                 {
-                    auto* spr = ecs::Sprite::Get(obj);
-                    if (spr->pack.sprite)
+                    if (spr->_pack.sprite)
                     {
-                        if (spr->pack.is_alpha_visible(position.x - bbox.x1, position.y - bbox.y1))
+                        if (spr->_pack.is_alpha_visible(position.x - bbox.x1, position.y - bbox.y1))
                         {
                             return obj;
                         }
@@ -199,23 +194,23 @@ namespace fin
 
     void ObjectSceneLayer::MoveTo(Entity ent, Vec2f pos)
     {
-        auto* obj      = ecs::Base::Get(ent);
-        obj->_position = pos;
-        Update(obj);
+        auto& obj      = Get<CBase>(ent);
+        obj._position = pos;
+        Update(&obj);
         _dirty_navmesh = true;
     }
 
     void ObjectSceneLayer::Move(Entity ent, Vec2f pos)
     {
-        auto* obj      = ecs::Base::Get(ent);
-        obj->_position += pos;
-        Update(obj);
+        auto& obj = Get<CBase>(ent);
+        obj._position += pos;
+        Update(&obj);
         _dirty_navmesh = true;
     }
 
     void ObjectSceneLayer::Update(void* obj)
     {
-        _spatial_db.update_for_new_location(reinterpret_cast<ecs::Base*>(obj));
+        _spatial_db.update_for_new_location(reinterpret_cast<CBase*>(obj));
     }
 
     void ObjectSceneLayer::Update(float dt)
@@ -223,14 +218,7 @@ namespace fin
         if (IsDisabled())
             return;
 
-        auto& objects = GetObjects(true);
-        auto& fact = Scene().GetFactory();
-        auto& map = fact.GetBehaviors();
 
-        for (auto& [k, v] : map)
-        {
-            v.update(objects, dt);
-        }
     }        
 
     void ObjectSceneLayer::Clear()
@@ -253,9 +241,8 @@ namespace fin
 
         for (Entity et : _objects)
         {
-            if (ecs::Base::Contains(et))
+            if (auto* obj = Find<CBase>(et))
             {
-                auto* obj = ecs::Base::Get(et);
                 obj->_bin   = nullptr;
                 obj->_prev  = nullptr;
                 obj->_next  = nullptr;
@@ -271,7 +258,7 @@ namespace fin
 
         _selected.clear();
         _iso_pool_size = 0;
-        auto& reg = parent()->GetFactory().GetRegistry();
+        auto& reg = parent()->GetFactory().GetRegister();
 
         auto cb = [&](lq::SpatialDatabase::Proxy* item)
         {
@@ -279,7 +266,7 @@ namespace fin
                 _iso_pool.resize(_iso_pool_size + 64);
 
             auto& obj = _iso_pool[_iso_pool_size++];
-            auto ent = static_cast<ecs::Base*>(item)->_self;
+            auto ent = static_cast<CBase*>(item)->_self;
 
             obj.setup(ent);
         };
@@ -357,25 +344,25 @@ namespace fin
 
         dc.set_color(WHITE);
 
-        auto& reg = parent()->GetFactory().GetRegistry();
-        auto sprites = reg.view<ecs::Sprite, ecs::Base>();
+        auto& reg = parent()->GetFactory().GetRegister();
+        auto sprites = View<CSprite, CBase>();
 
         for (auto ent : _iso)
         {
-            if (sprites.contains(ent->_ptr))
+            if (sprites.Contains(ent->_ptr))
             {
-                auto* base   = ecs::Base::Get(ent->_ptr);
-                auto* sprite = ecs::Sprite::Get(ent->_ptr);
+                auto& base   = Get<CBase>(ent->_ptr);
+                auto& sprite = Get<CSprite>(ent->_ptr);
 
-                if (sprite->pack.sprite)
+                if (sprite._pack.sprite)
                 {
                     Rectf dest;
-                    dest.x      = base->_position.x - sprite->pack.sprite->_origina.x;
-                    dest.y      = base->_position.y - sprite->pack.sprite->_origina.y;
-                    dest.width  = sprite->pack.sprite->_source.width;
-                    dest.height = sprite->pack.sprite->_source.height;
+                    dest.x      = base._position.x - sprite._pack.sprite->_origina.x;
+                    dest.y      = base._position.y - sprite._pack.sprite->_origina.y;
+                    dest.width  = sprite._pack.sprite->_source.width;
+                    dest.height = sprite._pack.sprite->_source.height;
 
-                    dc.render_texture(sprite->pack.sprite->_texture, sprite->pack.sprite->_source, dest);
+                    dc.render_texture(sprite._pack.sprite->_texture, sprite._pack.sprite->_source, dest);
                 }
             }
         }
@@ -395,9 +382,8 @@ namespace fin
             auto el = FindActiveAt(mouse_pos);
             SelectEdit(el);
 
-            if (ecs::Base::Contains(_edit))
+            if (auto* base = Find<CBase>(_edit))
             {
-                auto*  base = ecs::Base::Get(_edit);
                 ImVec2 pos{base->_position.x, base->_position.y};
                 canvas.BeginDrag(pos, base);
             }
@@ -408,9 +394,8 @@ namespace fin
             SelectEdit(entt::null);
         }
 
-        if (ecs::Base::Contains(_edit))
+        if (auto* base = Find<CBase>(_edit))
         {
-            auto*   base = ecs::Base::Get(_edit);
             ImVec2 pos{base->_position.x, base->_position.y};
             if (canvas.EndDrag(pos, base))
             {
@@ -426,9 +411,8 @@ namespace fin
             {
                 IM_ASSERT(payload->DataSize == sizeof(Entity));
                 _drop = *(const Entity*)payload->Data;
-                if (ecs::Base::Contains(_drop))
+                if (auto* obj = Find<CBase>(_drop))
                 {
-                    auto* obj      = ecs::Base::Get(_drop);
                     obj->_position = {mouse_pos.x, mouse_pos.y};
                 }
                 else
@@ -440,9 +424,8 @@ namespace fin
             {
                 IM_ASSERT(payload->DataSize == sizeof(Entity));
                 _drop = *(const Entity*)payload->Data;
-                if (ecs::Base::Contains(_drop))
+                if (auto* obj = Find<CBase>(_drop))
                 {
-                    auto* obj      = ecs::Base::Get(_drop);
                     obj->_position = {mouse_pos.x, mouse_pos.y};
                     Insert(_drop);
                 }
@@ -470,16 +453,16 @@ namespace fin
 
         for (auto ent : _selected)
         {
-            if (!ecs::Base::Contains(ent))
+            if (!Contains<CBase>(ent))
                 continue;
 
-            auto* base = ecs::Base::Get(ent);
+            auto& base = Get<CBase>(ent);
 
-            if (gSettings.visible_isometric && ecs::Isometric::Contains(ent))
+            if (gSettings.visible_isometric && Contains<CIsometric>(ent))
             {
-                auto* iso = ecs::Isometric::Get(ent);
-                auto  a   = iso->_a + base->_position;
-                auto  b   = iso->_b + base->_position;
+                auto& iso = Get<CIsometric>(ent);
+                auto  a   = iso._a + base._position;
+                auto  b   = iso._b + base._position;
                 auto  aa  = canvas.WorldToScreen({a.x, a.y});
                 auto  bb  = canvas.WorldToScreen({b.x, b.y});
                 dc->AddLine(aa, bb, IM_COL32(255, 255, 255, 255), 2);
@@ -491,14 +474,14 @@ namespace fin
                 }
             }
 
-            if (gSettings.visible_collision && ecs::Collider::Contains(ent))
+            if (gSettings.visible_collision && Contains<CCollider>(ent))
             {
-                auto* col = ecs::Collider::Get(ent);
+                auto& col = Get<CCollider>(ent);
             }
 
             if (ent == _edit)
             {
-                auto bb = base->GetBoundingBox();
+                auto bb = base.GetBoundingBox();
                 dc->AddRect(canvas.WorldToScreen({bb.x1, bb.y1}),
                             canvas.WorldToScreen({bb.x2, bb.y2}),
                             IM_COL32(255, 255, 255, 255),
@@ -647,14 +630,14 @@ namespace fin
         std::vector<Vec2f> points;
         for (Entity et : _objects)
         {
-            if (ecs::Base::Contains(et) && ecs::Collider::Contains(et))
+            if (Contains<CBase>(et) && Contains<CCollider>(et))
             {
-                auto* obj = ecs::Base::Get(et);
-                auto* col = ecs::Collider::Get(et);
+                auto& obj = Get<CBase>(et);
+                auto& col = Get<CCollider>(et);
                 points.clear();
-                std::for_each(col->_points.begin(),
-                              col->_points.end(),
-                              [&points, obj](const Vec2f& pt) { points.push_back(pt + obj->_position); });
+                std::for_each(col._points.begin(),
+                              col._points.end(),
+                              [&points, obj](const Vec2f& pt) { points.push_back(pt + obj._position); });
 
                 _navmesh.applyTerrain(points, TERRAIN_BLOCKED, true);
             }

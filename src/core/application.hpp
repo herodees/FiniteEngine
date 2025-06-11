@@ -54,7 +54,6 @@ namespace fin
         static Entity         GetOldEntity(AppHandle self, Entity oldent);
 
         std::span<char*>           _argv;
-        Register                   _register;
         Plugins                    _plugins;
         Renderer                   _renderer;
         Scene                      _map;

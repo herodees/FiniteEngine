@@ -2,7 +2,7 @@
 #include "utils/dialog_utils.hpp"
 #include "utils/imguiline.hpp"
 #include "editor/imgui_control.hpp"
-#include "ecs/base.hpp"
+#include "ecs/builtin.hpp"
 #include "ecs/core.hpp"
 
 namespace fin
@@ -227,7 +227,6 @@ namespace fin
     void Scene::Init(std::string_view root)
     {
         GetFactory().SetRoot(std::string(root));
-        ecs::RegisterBaseComponents(GetFactory());
         GetFactory().Load();
         ecs::RegisterCoreSystems(GetSystems());
         GetSystems().AddDefaults();

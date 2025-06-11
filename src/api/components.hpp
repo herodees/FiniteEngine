@@ -17,6 +17,43 @@ namespace fin
     using ComponentsFlags = uint32_t;
 
 
+    struct ArchiveParams2
+    {
+        Entity   entity; // Entity being serialized/deserialized
+        msg::Var data;   // Archive variable to serialize/deserialize data
+    };
+
+
+
+    struct IComponent
+    {
+        virtual void OnSerialize(ArchiveParams2& ar) {};
+        virtual bool OnDeserialize(ArchiveParams2& ar)
+        {
+            return false;
+        };
+        virtual bool OnEdit(Entity ent)
+        {
+            return false;
+        };
+        virtual bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas)
+        {
+            return false;
+        };
+    };
+
+
+
+    class IScriptComponent : public IComponent
+    {
+    public:
+        IScriptComponent()                   = default;
+        virtual ~IScriptComponent()          = default;
+        virtual void Init(Entity entity)     = 0; // Initialize the component for the given entity
+        virtual void Update(float deltaTime) = 0; // Update the component logic
+    };
+
+
 
     struct ComponentInfo
     {
@@ -52,6 +89,34 @@ namespace fin
         {
             storage->erase(ent);
         }
+
+        void OnSerialize(ArchiveParams2& ar)
+        {
+            Get(ar.entity)->OnSerialize(ar);
+        }
+
+        bool OnDeserialize(ArchiveParams2& ar)
+        {
+            return Get(ar.entity)->OnDeserialize(ar);
+        }
+
+        bool OnEdit(Entity ent)
+        {
+            if (flags & ComponentsFlags_NoEditor)
+            {
+                return false; // Component is not editable in the editor
+            }
+            return Get(ent)->OnEdit(ent);
+        }
+
+        bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas)
+        {
+            if (flags & ComponentsFlags_NoWorkspaceEditor)
+            {
+                return false; // Component is not editable in the editor
+            }
+            return Get(ent)->OnEditCanvas(ent, canvas);
+        }
     };
 
     template <typename T>
@@ -60,34 +125,6 @@ namespace fin
         entt::storage<T> set;
     };
 
-
-
-    struct ArchiveParams2
-    {
-        msg::Var& data;   // Archive variable to serialize/deserialize data
-        Entity    entity; // Entity being serialized/deserialized
-    };
-
-
-
-    struct IComponent
-    {
-        virtual void OnSerialize(ArchiveParams2& ar) {};
-        virtual bool OnDeserialize(ArchiveParams2& ar){ return false;};
-        virtual bool OnEdit(Entity ent){ return false;};
-        virtual bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas){ return false;};
-    };
-
-
-
-    class IScriptComponent : public IComponent
-    {
-    public:
-        IScriptComponent()                   = default;
-        virtual ~IScriptComponent()          = default;
-        virtual void Init(Entity entity)     = 0; // Initialize the component for the given entity
-        virtual void Update(float deltaTime) = 0; // Update the component logic
-    };
 
 
 

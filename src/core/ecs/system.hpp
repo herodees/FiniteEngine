@@ -24,7 +24,7 @@ namespace fin
         System(Scene& s);
         virtual ~System() = default;
 
-        Registry&        GetRegistry();
+        Register&        GetRegister();
         Scene&           GetScene();
         std::string_view GetName() const;
         SystemInfo*      GetSystemInfo() const;

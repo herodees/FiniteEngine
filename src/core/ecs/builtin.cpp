@@ -4,19 +4,6 @@
 
 namespace fin
 {
-    namespace Sc
-    {
-        constexpr std::string_view Id("$id");
-        constexpr std::string_view Group("$grp");
-        constexpr std::string_view Name("$nme");
-        constexpr std::string_view Uid("$uid");
-        constexpr std::string_view Diff("$diff");
-        constexpr std::string_view Class("$cls");
-        constexpr std::string_view Flag("$fl");
-        constexpr std::string_view Atlas("atl");
-        constexpr std::string_view Sprite("spr");
-    } // namespace Sc
-
     template <typename T>
     static void RegBuiltin(StringView name, StringView label, ComponentsFlags flags)
     {
@@ -476,7 +463,8 @@ namespace fin
 
         if (ImGui::InputText("Name", &_s_buff))
         {
-           // gGameAPI.SetNamedEntity(gGameAPI.context, ent, _s_buff);
+            gGameAPI.ClearNamededEntity(gGameAPI.context, _name);
+            gGameAPI.SetNamedEntity(gGameAPI.context, ent, _s_buff);
         }
         return false;
     }
