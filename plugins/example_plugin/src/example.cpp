@@ -28,6 +28,7 @@ namespace fin
             info.description = "A plugin for the Finite game engine.";
             info.author      = "Finite Team";
             info.version     = "1.0.0";
+            info.guid        = "2003148F-A52B-4B33-9275-A48DEBB2B8BC";
             return info;
         }
     };

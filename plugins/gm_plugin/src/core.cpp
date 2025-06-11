@@ -22,19 +22,36 @@ namespace fin
             RegisterComponent<TextScript>("Text");
             RegisterComponent<Test>("test");
 
-            auto ent = gGameAPI.registry->Create();
-            CT<IBase>::Emplace(ent);
-            IBase& base = CT<IBase>::Get(ent);
-            if (CT<IBase>::Contains(ent))
+            auto ent = gGameAPI.CreateEntity(gGameAPI.context);
+            auto ent2 = gGameAPI.CreateEntity(gGameAPI.context);
+            Emplace<IBase>(ent);
+            IBase& base = Get<IBase>(ent);
+            Test*  pbase = Find<Test>(ent);
+            if (Contains<IBase>(ent))
             {
-                CT<IBase>::Erase(ent);
+                Erase<IBase>(ent);
             }
-            CT<Test>::Emplace(ent);
-            CT<TextScript>::Emplace(ent);
-            gGameAPI.registry->Destroy(ent);
-            if (CT<TextScript>::Contains(ent))
+            Emplace<Test>(ent);
+            Emplace<Test>(ent2);
+            Emplace<TextScript>(ent);
+
+            View<Test, TextScript> view;
+            if (view.Contains(ent))
             {
-                CT<TextScript>::Erase(ent);
+                for (Entity it : view)
+                {
+                    if (Contains<IBase>(ent))
+                    {
+                        Erase<IBase>(ent);
+                    }
+                }
+            }
+
+            gGameAPI.DestroyEntity(gGameAPI.context, ent);
+            gGameAPI.DestroyEntity(gGameAPI.context, ent2);
+            if (Contains<TextScript>(ent))
+            {
+                Erase<TextScript>(ent);
             }
         }
 
@@ -58,6 +75,7 @@ namespace fin
             info.description = "Guild Master main logic.";
             info.author      = "Martin Maceovic";
             info.version     = "1.0.0";
+            info.guid        = "9088C258-FB4C-49F4-89BB-A2E008F8A388";
             return info;
         }
     };

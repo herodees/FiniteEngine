@@ -22,7 +22,7 @@ namespace fin
     struct IComponent;
     struct IScriptComponent;
     class IGamePlugin;
-    class Register;
+    class Application;
     class ObjectSceneLayer;
 } // namespace fin
 
@@ -31,13 +31,12 @@ namespace ImGui
     struct CanvasParams;
 } // namespace ImGui
 
-
-using Entity           = entt::entity;
-using ComponentId      = uint32_t;
-using StringView       = std::string_view;
-using RegisterHandle   = fin::Register*;
-using PluginHandle     = fin::IGamePlugin*;
-using SparseSet        = entt::sparse_set;
+using Entity         = entt::entity;
+using ComponentId    = uint32_t;
+using StringView     = std::string_view;
+using AppHandle      = fin::Application*;
+using PluginHandle   = fin::IGamePlugin*;
+using SparseSet      = entt::sparse_set;
 
 struct GamePluginInfo
 {
@@ -45,14 +44,21 @@ struct GamePluginInfo
     StringView description; // Plugin description
     StringView author;      // Plugin author
     StringView version;     // Plugin version
+    StringView guid;
 };
 
 struct GameAPI
 {
     uint32_t            version; // API_VERSION
-    RegisterHandle      registry;
-    StringView          classname;
-    fin::ComponentInfo* FINCFN(GetComponentInfoByType)(GameAPI& self, StringView type);
-    fin::ComponentInfo* FINCFN(GetComponentInfoById)(GameAPI& self, StringView id);
-    bool                FINCFN(RegisterComponentInfo)(GameAPI& self, fin::ComponentInfo* info);
+    AppHandle           context;
+    fin::ComponentInfo* FINCFN(GetComponentInfoByType)(AppHandle self, StringView type);
+    fin::ComponentInfo* FINCFN(GetComponentInfoById)(AppHandle self, StringView id);
+    bool                FINCFN(RegisterComponentInfo)(AppHandle self, fin::ComponentInfo* info);
+    Entity              FINCFN(FindNamedEntity)(AppHandle self, StringView name);
+    bool                FINCFN(SetNamedEntity)(AppHandle self, Entity ent, StringView name);
+    void                FINCFN(ClearNamededEntity)(AppHandle self, StringView name);
+    Entity              FINCFN(GetOldEntity)(AppHandle self, Entity oldent);
+    Entity              FINCFN(CreateEntity)(AppHandle self);
+    void                FINCFN(DestroyEntity)(AppHandle self, Entity ent);
+    bool                FINCFN(ValidEntity)(AppHandle self, Entity ent);
 };

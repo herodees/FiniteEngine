@@ -5,6 +5,7 @@
 #include "scene.hpp"
 #include "shared_resource.hpp"
 #include "api/register.hpp"
+#include "utils/lib_utils.hpp"
 
 namespace fin
 {
@@ -22,6 +23,7 @@ namespace fin
 
     class Application : public std::enable_shared_from_this<Application>
     {
+        using Plugins = std::vector<std::pair<DynamicLibrary, IGamePlugin*>>;
     public:
         Application()  = default;
         ~Application() = default;
@@ -40,7 +42,20 @@ namespace fin
         void InitApi();
         void InitPlugins();
 
+        static bool           RegisterComponentInfo(AppHandle self, ComponentInfo* info);
+        static ComponentInfo* GetComponentInfoType(AppHandle self, StringView name);
+        static ComponentInfo* GetComponentInfoId(AppHandle self, StringView name);
+        static Entity         CreateEntity(AppHandle self);
+        static void           DestroyEntity(AppHandle self, Entity ent);
+        static bool           ValidEntity(AppHandle self, Entity ent);
+        static Entity         FindNamedEntity(AppHandle self, StringView name);
+        static bool           SetNamedEntity(AppHandle self, Entity ent, StringView name);
+        static void           ClearNamededEntity(AppHandle self, StringView name);
+        static Entity         GetOldEntity(AppHandle self, Entity oldent);
+
         std::span<char*>           _argv;
+        Register                   _register;
+        Plugins                    _plugins;
         Renderer                   _renderer;
         Scene                      _map;
         std::string                _asset_path       = "./assets/";
@@ -51,6 +66,5 @@ namespace fin
         double                     _max_time_step    = 1.0f / _max_fps;
         double                     _current_time     = GetTime();
         double                     _time_accumulator = 0.0;
-        Register                   _register;
     };
 } // namespace fin

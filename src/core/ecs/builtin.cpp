@@ -17,46 +17,24 @@ namespace fin
         constexpr std::string_view Sprite("spr");
     } // namespace Sc
 
-
-
-
-
-    template <typename C>
-    auto RegisterNative(StringView name, StringView label, ComponentsFlags flags)
+    template <typename T>
+    static void RegBuiltin(StringView name, StringView label, ComponentsFlags flags)
     {
-        auto* info    = new ComponentInfoStorage<C>();
-        info->name    = entt::internal::stripped_type_name<C>();
-        info->id      = name;
-        info->label   = label.empty() ? name : label;
-        info->flags   = flags;
-        info->owner   = nullptr;
-        info->storage = &info->set;
-
-        ComponentTraits<C>::info    = info;
-        ComponentTraits<C>::set     = info->storage;
-        return info;
+        gGameAPI.RegisterComponentInfo(gGameAPI.context, NewComponentInfo<T>(name, label, flags));
     }
 
     void RegisterBaseComponents(Register& fact)
     {
-        gGameAPI.RegisterComponentInfo(gGameAPI, RegisterNative<CBase>("_", "Base", ComponentsFlags_NoWorkspaceEditor));
-        gGameAPI.RegisterComponentInfo(gGameAPI, RegisterNative<CBody>("bdy", "Body", ComponentsFlags_NoWorkspaceEditor));
-        gGameAPI.RegisterComponentInfo(gGameAPI, RegisterNative<CPath>("pth", "Path", ComponentsFlags_NoWorkspaceEditor));
-        gGameAPI.RegisterComponentInfo(gGameAPI,
-                                       RegisterNative<CIsometric>("iso", "Isometric", 0));
-
-        gGameAPI.RegisterComponentInfo(gGameAPI,
-                                       RegisterNative<CCollider>("cld", "Collider", 0));
-        gGameAPI.RegisterComponentInfo(gGameAPI, RegisterNative<CSprite>("spr", "Sprite", ComponentsFlags_NoWorkspaceEditor));
-        gGameAPI.RegisterComponentInfo(gGameAPI,
-                                       RegisterNative<CRegion>("reg", "Region", 0));
-        gGameAPI.RegisterComponentInfo(gGameAPI, RegisterNative<CCamera>("cam", "Camera", ComponentsFlags_NoWorkspaceEditor));
-        gGameAPI.RegisterComponentInfo(gGameAPI,
-                                       RegisterNative<CName>("nme",
-                                                             "Name",
-                                                             ComponentsFlags_NoWorkspaceEditor | ComponentsFlags_NoPrefab));
-
-        gGameAPI.RegisterComponentInfo(gGameAPI, RegisterNative<CPrefab>("pfb", "Prefab", ComponentsFlags_Private));
+        RegBuiltin<CBase>(CBase::CID, "Base", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CBody>(CBody::CID, "Body", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CPath>(CPath::CID, "Path", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CIsometric>(CIsometric::CID, "Isometric", ComponentsFlags_Default);
+        RegBuiltin<CCollider>(CCollider::CID, "Collider", ComponentsFlags_Default);
+        RegBuiltin<CSprite>(CSprite::CID, "Sprite", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CRegion>(CRegion::CID, "Region", ComponentsFlags_Default);
+        RegBuiltin<CCamera>(CCamera::CID, "Camera", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CName>(CName::CID, "Name", ComponentsFlags_NoWorkspaceEditor | ComponentsFlags_NoPrefab);
+        RegBuiltin<CPrefab>(CPrefab::CID, "Prefab", ComponentsFlags_Private);
     }
 
     Vec2f CBase::GetPosition() const
@@ -206,6 +184,11 @@ namespace fin
             _points.emplace_back(pts[i].get(0.f), pts[i + 1].get(0.f));
         }
         return true;
+    }
+
+    std::span<const Vec2f> CCollider::GetPath() const
+    {
+        return _points;
     }
 
     void CCollider::OnSerialize(ArchiveParams2& ar)
@@ -442,6 +425,11 @@ namespace fin
         return true;
     }
 
+    std::span<const Vec2i> CPath::GetPath() const
+    {
+        return _path;
+    }
+
     void CPath::OnSerialize(ArchiveParams2& ar)
     {
         msg::Var pts;
@@ -463,8 +451,9 @@ namespace fin
 
     bool CName::OnDeserialize(ArchiveParams2& ar)
     {
-    //    auto id = ar.data.get_item("id");
-   //     ar.NameEntity(ar.entity, id.str());
+        auto id = ar.data.get_item("id");
+        _name   = id.str();
+        gGameAPI.SetNamedEntity(gGameAPI.context, ar.entity, id.str());
         return true;
     }
 
@@ -487,7 +476,7 @@ namespace fin
 
         if (ImGui::InputText("Name", &_s_buff))
         {
- //           return scene->GetFactory().SetEntityName(self, _s_buff);
+           // gGameAPI.SetNamedEntity(gGameAPI.context, ent, _s_buff);
         }
         return false;
     }

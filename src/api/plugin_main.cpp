@@ -10,10 +10,14 @@ namespace fin
 
 extern "C"
 {
-    LIB_EXPORT fin::IGamePlugin* CreateGamePluginProc(GameAPI* api)
+    LIB_EXPORT bool InitGamePluginProc(GameAPI* api)
     {
         fin::gGameAPI = *api;
-        fin::RegisterBuiltinComponents();
+        return fin::RegisterBuiltinComponents();
+    }
+
+    LIB_EXPORT fin::IGamePlugin* CreateGamePluginProc()
+    {
         return fin::IGamePluginFactory::InternalCreate();
     }
 

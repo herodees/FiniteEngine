@@ -1,7 +1,7 @@
 #pragma once
 
-#include "behavior.hpp"
 #include "api/components.hpp"
+#include "behavior.hpp"
 #include "core/atlas.hpp"
 #include "utils/lquery.hpp"
 
@@ -12,7 +12,8 @@ namespace fin
     void RegisterBaseComponents(Register& fact);
 
 
-
+    /// @brief Base spatial component.
+    /// Provides position, bounding box, and sparse grid integration.
     struct CBase : lq::SpatialDatabase::Proxy, IBase
     {
         static constexpr auto in_place_delete = true;
@@ -28,6 +29,8 @@ namespace fin
     };
 
 
+    /// @brief Physics body component.
+    /// Handles collision and rigid body serialization.
     struct CBody : IBody
     {
         void OnSerialize(ArchiveParams2& ar) final;
@@ -36,36 +39,46 @@ namespace fin
     };
 
 
+    /// @brief Pathfinding component.
+    /// Stores computed navigation paths.
     struct CPath : IPath
     {
         std::vector<Vec2i> _path;
 
+        std::span<const Vec2i> GetPath() const final;
         void OnSerialize(ArchiveParams2& ar) final;
         bool OnDeserialize(ArchiveParams2& ar) final;
         bool OnEdit(Entity self) final;
     };
 
 
-    struct CIsometric : IIsometric 
+    /// @brief Isometric rendering & logic marker.
+    /// Enables isometric-related editing and display.
+    struct CIsometric : IIsometric
     {
-        void        OnSerialize(ArchiveParams2& ar) final;
-        bool        OnDeserialize(ArchiveParams2& ar) final;
-        bool        OnEdit(Entity self) final;
-        bool        OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
+        void OnSerialize(ArchiveParams2& ar) final;
+        bool OnDeserialize(ArchiveParams2& ar) final;
+        bool OnEdit(Entity self) final;
+        bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
     };
 
 
+    /// @brief Polygonal collider component.
+    /// Defines a shape used for collision detection and hit tests.
     struct CCollider : ICollider
     {
         std::vector<Vec2f> _points;
 
-        void        OnSerialize(ArchiveParams2& ar) final;
-        bool        OnDeserialize(ArchiveParams2& ar) final;
-        bool        OnEdit(Entity self) final;
-        bool        OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
+        std::span<const Vec2f> GetPath() const final;
+        void OnSerialize(ArchiveParams2& ar) final;
+        bool OnDeserialize(ArchiveParams2& ar) final;
+        bool OnEdit(Entity self) final;
+        bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
     };
 
 
+    /// @brief Sprite component for rendering.
+    /// Holds atlas data for static/dynamic sprites.
     struct CSprite : ISprite
     {
         Atlas::Pack _pack;
@@ -75,6 +88,8 @@ namespace fin
     };
 
 
+    /// @brief Region shape component.
+    /// Represents an editable polygon area, optionally local.
     struct CRegion : IRegion
     {
         std::vector<Vec2f> _points;
@@ -89,6 +104,8 @@ namespace fin
     };
 
 
+    /// @brief Camera control component.
+    /// Manages viewport position, zoom, and movement smoothing.
     struct CCamera : ICamera
     {
         Vec2f  _position{0, 0};
@@ -105,6 +122,8 @@ namespace fin
     };
 
 
+    /// @brief Prefab data component.
+    /// Used to store serialized prefab state.
     struct CPrefab : IPrefab
     {
         msg::Var _data;
@@ -114,6 +133,8 @@ namespace fin
     };
 
 
+    /// @brief Named entity component.
+    /// Holds a debug/editor-facing name.
     struct CName : IName
     {
         std::string_view _name;

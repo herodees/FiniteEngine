@@ -181,6 +181,11 @@ namespace fin
 
     void Application::OnDeinit(bool result)
     {
+        for (auto& plg : _plugins)
+        {
+            plg.second->Release();
+        }
+
         for (auto& el : _register.GetComponents())
         {
             if (el->owner == nullptr)
@@ -461,31 +466,20 @@ namespace fin
             ImGui::OpenPopup(show_popup.data());
     }
 
-    static bool RegisterComponentInfo(GameAPI& self, ComponentInfo* info)
-    {
-        self.registry->AddComponentInfo(info);
-        return true;
-    }
-
-    static ComponentInfo* GetComponentInfoType(GameAPI& self, StringView name)
-    {
-        return self.registry->GetComponentInfoByType(name);
-    }
-
-    static ComponentInfo* GetComponentInfoId(GameAPI& self, StringView name)
-    {
-        return self.registry->GetComponentInfoById(name);
-    }
-
     void Application::InitApi()
     {
         gGameAPI.version                = 1;
-        gGameAPI.registry               = &_register;
-        gGameAPI.classname              = "FiniteEngine";
+        gGameAPI.context                = this;
         gGameAPI.RegisterComponentInfo  = RegisterComponentInfo;
         gGameAPI.GetComponentInfoByType = GetComponentInfoType;
         gGameAPI.GetComponentInfoById   = GetComponentInfoId;
-
+        gGameAPI.FindNamedEntity        = FindNamedEntity;
+        gGameAPI.SetNamedEntity         = SetNamedEntity;
+        gGameAPI.ClearNamededEntity     = ClearNamededEntity;
+        gGameAPI.CreateEntity           = CreateEntity;
+        gGameAPI.DestroyEntity          = DestroyEntity;
+        gGameAPI.ValidEntity            = ValidEntity;
+        gGameAPI.GetOldEntity           = GetOldEntity;
         RegisterBaseComponents(_register);
     }
 
@@ -511,17 +505,84 @@ namespace fin
                 if (auto fn = lib.GetFunction<GamePluginInfo*()>("GetGamePluginInfoProc"))
                 {
                     auto* info = fn();
-                    
                     TraceLog(LOG_INFO, "    > %s v%s by %s", info->name.data(), info->version.data(), info->author.data());
                 }
-
-                if (auto fn = lib.GetFunction<IGamePlugin*(GameAPI* api)>("CreateGamePluginProc"))
+                else
                 {
-                    fn(&gGameAPI)->Release();
+                    continue;
+                }
+
+                if (auto fn = lib.GetFunction<bool(GameAPI*)>("InitGamePluginProc"))
+                {
+                    if (!fn(&gGameAPI))
+                    {
+                        continue;
+                    }
+                }
+
+                if (auto fn = lib.GetFunction<IGamePlugin*()>("CreateGamePluginProc"))
+                {
+                    if (auto plug = fn())
+                    {
+                        _plugins.emplace_back(std::move(lib), plug);
+                    }
                 }
             }
         }
         UnloadDirectoryFiles(list);
+    }
+
+    bool Application::RegisterComponentInfo(AppHandle self, ComponentInfo* info)
+    {
+        if (!info)
+            return false;
+        self->_register.AddComponentInfo(info);
+        return true;
+    }
+
+    ComponentInfo* Application::GetComponentInfoType(AppHandle self, StringView name)
+    {
+        return self->_register.GetComponentInfoByType(name);
+    }
+
+    ComponentInfo* Application::GetComponentInfoId(AppHandle self, StringView name)
+    {
+        return self->_register.GetComponentInfoById(name);
+    }
+
+    Entity Application::FindNamedEntity(AppHandle self, StringView name)
+    {
+        return self->_register.FindNamed(std::string{name});
+    }
+
+    bool Application::SetNamedEntity(AppHandle self, Entity ent, StringView name)
+    {
+        return self->_register.SetNamed(ent, std::string{name});
+    }
+
+    void Application::ClearNamededEntity(AppHandle self, StringView name)
+    {
+        self->_register.ClearNamed(std::string{name});
+    }
+
+    Entity Application::GetOldEntity(AppHandle self, Entity oldent)
+    {
+        return entt::null;
+    }
+
+    Entity Application::CreateEntity(AppHandle self)
+    {
+        return self->_register.Create();
+    }
+
+    void Application::DestroyEntity(AppHandle self, Entity ent)
+    {
+        self->_register.Destroy(ent);
+    }
+
+    bool Application::ValidEntity(AppHandle self, Entity ent)
+    {
+        return self->_register.Valid(ent);
     }
 
 } // namespace fin

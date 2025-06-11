@@ -2,6 +2,7 @@
 
 #include "types.hpp"
 #include <algorithm>
+#include <unordered_map>
 
 namespace fin
 {
@@ -44,14 +45,21 @@ namespace fin
         componets_type& GetComponents();
         ComponentInfo*  GetComponentInfoByType(StringView name) const;
         ComponentInfo*  GetComponentInfoById(StringView name) const;
+
+        bool   SetNamed(const Entity entt, const std::string& name);
+        Entity ClearNamed(const std::string& name);
+        Entity FindNamed(const std::string& name) const;
+        void   ClearAllNamed();
+
     private:
         Entity       GenerateIdentifier(const std::size_t pos) noexcept;
         Entity       RecycleIdentifier() noexcept;
         version_type ReleaseEntity(const Entity entt, const typename entity_traits::version_type version);
 
-        std::vector<Entity> _pool;
-        componets_type      _components;
-        Entity              _free = entt::null;
+        std::unordered_map<std::string, Entity> _named;
+        std::vector<Entity>                     _pool;
+        componets_type                          _components;
+        Entity                                  _free = entt::null;
     };
 
     inline Entity Register::Create()
@@ -141,6 +149,39 @@ namespace fin
                 return el;
         }
         return nullptr;
+    }
+
+    inline bool Register::SetNamed(const Entity entt, const std::string& name)
+    {
+        auto [it, inserted] = _named.try_emplace(name, entt);
+        if (inserted)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    inline Entity Register::ClearNamed(const std::string& name)
+    {
+        auto it = _named.find(name);
+        if (it == _named.end())
+            return entt::null;
+        Entity e = it->second;
+        _named.erase(it);
+        return e;
+    }
+
+    inline Entity Register::FindNamed(const std::string& name) const
+    {
+        auto it = _named.find(name);
+        if (it == _named.end())
+            return entt::null;
+        return it->second;
+    }
+
+    inline void Register::ClearAllNamed()
+    {
+        _named.clear();
     }
 
     inline Entity Register::GenerateIdentifier(const std::size_t pos) noexcept
