@@ -38,16 +38,6 @@ target_include_directories(${PROJECT_NAME} PUBLIC  ${CMAKE_SOURCE_DIR}/external/
 # Set C++ standard
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_20)
 
-# Optional: Define BUILDING_DLL so you can guard exports if needed
-target_compile_definitions(${PROJECT_NAME} PRIVATE BUILDING_DLL=1)
-
-# Remove 'lib' prefix on Linux/macOS for cleaner plugin name (optional)
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    PREFIX ""
-    # Set suffix if you want to force a particular extension, but normally leave it default
-    # SUFFIX ".dll" # for Windows, or ".dylib" for macOS, ".so" for Linux
-)
-target_compile_definitions(${PROJECT_NAME} PRIVATE BUILDING_DLL)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory

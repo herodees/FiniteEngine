@@ -5,7 +5,6 @@
 #include "scene.hpp"
 #include "shared_resource.hpp"
 #include "api/register.hpp"
-#include "utils/lib_utils.hpp"
 
 namespace fin
 {
@@ -23,7 +22,6 @@ namespace fin
 
     class Application : public std::enable_shared_from_this<Application>
     {
-        using Plugins = std::vector<std::pair<DynamicLibrary, IGamePlugin*>>;
     public:
         Application()  = default;
         ~Application() = default;
@@ -34,9 +32,6 @@ namespace fin
 
         bool             CmdAttributeExists(std::string_view cmd) const;
         std::string_view CmdAttributeGet(std::string_view cmd) const;
-
-        bool UnloadPlugin(IGamePlugin* plug);
-        bool LoadPlugin(const std::string& dir, const std::string& plugin);
 
     private:
         void Imgui();
@@ -56,18 +51,20 @@ namespace fin
         static void             ClearNamededEntity(AppHandle self, StringView name);
         static Entity           GetOldEntity(AppHandle self, Entity oldent);
         static Layer*           FindLayer(AppHandle self, StringView name);
+        static bool             OpenScene(AppHandle self, StringView path);
 
-        std::span<char*>           _argv;
-        Plugins                    _plugins;
-        Renderer                   _renderer;
-        Scene                      _map;
-        std::string                _asset_path       = "./assets/";
-        int32_t                    _target_fps       = 60;
-        float                      _fixed_fps        = 30.0f;
-        float                      _max_fps          = 1200.0f;
-        double                     _fixed_time_step  = 1.0f / _fixed_fps;
-        double                     _max_time_step    = 1.0f / _max_fps;
-        double                     _current_time     = GetTime();
-        double                     _time_accumulator = 0.0;
+        std::span<char*> _argv;
+
+        Renderer    _renderer;
+        Scene       _map;
+        std::string _asset_path = "./assets/";
+        std::string _open_scene;
+        int32_t     _target_fps       = 60;
+        float       _fixed_fps        = 30.0f;
+        float       _max_fps          = 1200.0f;
+        double      _fixed_time_step  = 1.0f / _fixed_fps;
+        double      _max_time_step    = 1.0f / _max_fps;
+        double      _current_time     = GetTime();
+        double      _time_accumulator = 0.0;
     };
 } // namespace fin

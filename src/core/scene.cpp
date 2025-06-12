@@ -222,6 +222,11 @@ namespace fin
 
     Scene::~Scene()
     {
+        for (auto& plg : _plugins)
+        {
+            UnloadPlugin(plg.second);
+        }
+
     }
 
     void Scene::Init(std::string_view root)
@@ -307,6 +312,18 @@ namespace fin
         _background = clr;
     }
 
+    IGamePlugin* Scene::GetPlugin(std::string_view guid) const
+    {
+        for (const auto& plg : _plugins)
+        {
+            if (plg.second->GetInfo().guid == guid)
+            {
+                return plg.second;
+            }
+        }
+        return nullptr;
+    }
+
     void Scene::Render(Renderer& dc)
     {
         if (!_canvas)
@@ -332,6 +349,12 @@ namespace fin
 
     void Scene::Update(float dt)
     {
+        if (_mode == SceneMode::Play)
+        {
+            for (auto& plug : _plugins)
+                plug.second->OnPreUpdate(dt);
+        }
+
         if (_goto_speed > 0)
         {
             _camera.position += (_goto - _camera.position) * _goto_speed * dt;
@@ -348,27 +371,51 @@ namespace fin
 
         if (_mode == SceneMode::Play)
         {
+            for (auto& plug : _plugins)
+                plug.second->OnUpdate(dt);
+
             GetSystems().Update(dt);
             GetLayers().Update(dt);
         }
     }
 
+    void Scene::PostUpdate(float dt)
+    {
+        if (_mode == SceneMode::Play)
+        {
+            for (auto& plug : _plugins)
+                plug.second->OnPostUpdate(dt);
+        }
+    }
+
     void Scene::Init()
     {
+        if (_was_inited)
+            return;
         GetLayers().Init();
         GetSystems().OnStartRunning();
+        for (auto& plug : _plugins)
+            plug.second->OnStart();
+        _was_inited = true;
     }
 
     void Scene::Deinit()
     {
+        if (!_was_inited)
+            return;
+        for (auto& plug : _plugins)
+            plug.second->OnStop();
         GetSystems().OnStopRunning();
         GetLayers().Deinit();
+        _was_inited = false;
     }
 
     void Scene::FixedUpdate(float dt)
     {
         if (_mode == SceneMode::Play)
         {
+            for (auto& plug : _plugins)
+                plug.second->OnFixedUpdate(dt);
             GetSystems().FixedUpdate(dt);
             GetLayers().FixedUpdate(dt);
         }
@@ -417,8 +464,20 @@ namespace fin
 
         msg::Var layers;
         GetLayers().Serialize(layers);
-
         ar.set_item("layers", layers);
+
+        msg::Var plugins;
+        for (const auto& plg : _plugins)
+        {
+            msg::Var plugin;
+            plugin.set_item("guid", plg.second->GetInfo().guid);
+            plugin.set_item("name", plg.second->GetInfo().name);
+            plugin.set_item("version", plg.second->GetInfo().version);
+            plg.second->OnSerialize(plugin); 
+            plugins.push_back(plugin);
+        }
+        ar.set_item("plugins", plugins);
+
     }
 
     void Scene::Deserialize(msg::Var& ar)
@@ -437,6 +496,32 @@ namespace fin
 
         auto layers = ar.get_item("layers");
         GetLayers().Deserialize(layers);
+
+        auto plugins = ar.get_item("plugins");
+        if (plugins.is_array())
+        {
+            for (auto& plg : plugins.elements())
+            {
+                if (auto* plug = GetPlugin(plg.get_item("guid").str()))
+                {
+                    if (plug->OnDeserialize(plg))
+                    {
+                        TraceLog(LOG_INFO, "Loading plugin %s", plug->GetInfo().name.data());
+                    }
+                    else
+                    {
+                        TraceLog(LOG_WARNING, "Loading plugin %s failed", plug->GetInfo().name.data());
+                    }
+                }
+                else
+                {
+                    TraceLog(LOG_WARNING,
+                             "Undefined Plugin %s {%s}",
+                             plg.get_item("name").c_str(),
+                             plg.get_item("guid").c_str());
+                }
+            }
+        }
     }
 
     void Scene::Load(std::string_view path)
@@ -449,7 +534,6 @@ namespace fin
         Deserialize(doc);
 
         UnloadFileText(txt);
-
     }
 
     void Scene::Save(std::string_view path, bool change_path)
@@ -615,6 +699,51 @@ namespace fin
     {
       //  _show_properties = true;
         ImGui::Dialog::ShowOnce<SceneProperties>("Scene Properties", {800, 600}, 0, *this);
+    }
+
+    bool Scene::UnloadPlugin(IGamePlugin* plug)
+    {
+        if (!plug)
+            return false;
+
+        GetRegister().RemoveComponentInfos(plug);
+        plug->Release();
+        return true;
+    }
+
+    bool Scene::LoadPlugin(const std::string& dir, const std::string& plugin)
+    {
+        DynamicLibrary lib;
+        if (lib.Load(dir, plugin))
+        {
+            if (auto fn = lib.GetFunction<GamePluginInfo*()>("GetGamePluginInfoProc"))
+            {
+                auto* info = fn();
+                TraceLog(LOG_INFO, "    > %s v%s by %s  [%s]", info->name.data(), info->version.data(), info->author.data(), info->guid.data());
+            }
+            else
+            {
+                return false;
+            }
+
+            if (auto fn = lib.GetFunction<bool(GameAPI*, ImguiAPI*)>("InitGamePluginProc"))
+            {
+                if (!fn(&gGameAPI, &gImguiAPI))
+                {
+                    return false;
+                }
+            }
+
+            if (auto fn = lib.GetFunction<IGamePlugin*()>("CreateGamePluginProc"))
+            {
+                if (auto plug = fn())
+                {
+                    _plugins.emplace_back(std::move(lib), plug);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
 } // namespace fin

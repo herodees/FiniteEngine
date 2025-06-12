@@ -182,11 +182,6 @@ namespace fin
 
     void Application::OnDeinit(bool result)
     {
-        for (auto& plg : _plugins)
-        {
-            UnloadPlugin(plg.second);
-        }
-
         if (_map.GetMode() != SceneMode::Play)
         {
             rlImGuiShutdown();
@@ -226,51 +221,6 @@ namespace fin
 
         }
         return std::string_view();
-    }
-
-    bool Application::UnloadPlugin(IGamePlugin* plug)
-    {
-        if (!plug)
-            return false;
-
-        _map.GetFactory().GetRegister().RemoveComponentInfos(plug);
-        plug->Release();
-        return true;
-    }
-
-    bool Application::LoadPlugin(const std::string& dir, const std::string& plugin)
-    {
-        DynamicLibrary lib;
-        if (lib.Load(dir, plugin))
-        {
-            if (auto fn = lib.GetFunction<GamePluginInfo*()>("GetGamePluginInfoProc"))
-            {
-                auto* info = fn();
-                TraceLog(LOG_INFO, "    > %s v%s by %s", info->name.data(), info->version.data(), info->author.data());
-            }
-            else
-            {
-                return false;
-            }
-
-            if (auto fn = lib.GetFunction<bool(GameAPI*, ImguiAPI*)>("InitGamePluginProc"))
-            {
-                if (!fn(&gGameAPI, &gImguiAPI))
-                {
-                    return false;
-                }
-            }
-
-            if (auto fn = lib.GetFunction<IGamePlugin*()>("CreateGamePluginProc"))
-            {
-                if (auto plug = fn())
-                {
-                    _plugins.emplace_back(std::move(lib), plug);
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     void Application::Imgui()
@@ -339,6 +289,7 @@ namespace fin
 
     bool Application::OnIterate()
     {
+        _map.Init();
         while (!WindowShouldClose())
         {
             // Update
@@ -360,6 +311,16 @@ namespace fin
             {
                 float waitTime = (float)(_max_time_step - frameTime);
                 WaitTime(1.0f / 1000.0f);
+            }
+
+            // Update open scene if exists
+            //----------------------------------------------------------------------------------
+            if (!_open_scene.empty())
+            {
+                _map.Deinit();
+                _map.Load(_open_scene);
+                _map.Init();
+                _open_scene.clear();
             }
 
             // Input
@@ -389,6 +350,9 @@ namespace fin
 
             _map.Render(_renderer);
 
+            frameTime = frameTime + (GetTime() - newTime);
+            _map.PostUpdate(frameTime);
+
             ClearBackground(BLACK);
 
             if (_map.GetMode() != SceneMode::Play)
@@ -412,6 +376,7 @@ namespace fin
 
             SwapScreenBuffer(); // Flip the back buffer to screen (front buffer)
         }
+        _map.Deinit();
 
         return true;
     }
@@ -438,7 +403,9 @@ namespace fin
                     auto files = open_file_dialog("", "");
                     if (!files.empty())
                     {
+                        _map.Deinit();
                         _map.Load(files[0]);
+                        _map.Init();
                     }
                 }
                 if (ImGui::MenuItem("Save"))
@@ -531,6 +498,7 @@ namespace fin
         gGameAPI.ValidEntity            = ValidEntity;
         gGameAPI.GetOldEntity           = GetOldEntity;
         gGameAPI.FindLayer              = FindLayer;
+        gGameAPI.OpenScene              = OpenScene;
 
         RegisterBaseComponents(_map.GetFactory().GetRegister());
     }
@@ -551,7 +519,7 @@ namespace fin
         for (int i = 0; i < list.count; i++)
         {
             auto* file = GetFileNameWithoutExt(list.paths[i]);
-            LoadPlugin(plugin_dir, file);
+            _map.LoadPlugin(plugin_dir, file);
         }
         UnloadDirectoryFiles(list);
     }
@@ -600,6 +568,22 @@ namespace fin
     Layer* Application::FindLayer(AppHandle self, StringView name)
     {
         return self->_map.GetLayers().FindLayer(name);
+    }
+
+    bool Application::OpenScene(AppHandle self, StringView path)
+    {
+        if (path.empty())
+            return false;
+
+        self->_open_scene = self->_asset_path;
+        self->_open_scene.append(path);
+        if (!FileExists(self->_open_scene.c_str()))
+        {
+            TraceLog(LOG_ERROR, "Scene file not found: %s", self->_open_scene.c_str());
+            self->_open_scene.clear();
+            return false;
+        }
+        return true;
     }
 
     Entity Application::CreateEntity(AppHandle self)

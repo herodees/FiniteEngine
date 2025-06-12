@@ -68,6 +68,7 @@ struct GameAPI
     void                FINCFN(DestroyEntity)(AppHandle self, Entity ent);
     bool                FINCFN(ValidEntity)(AppHandle self, Entity ent);
     fin::Layer*         FINCFN(FindLayer)(AppHandle self, StringView name);
+    bool                FINCFN(OpenScene)(AppHandle self, StringView path);
 };
 
 struct ImguiAPI

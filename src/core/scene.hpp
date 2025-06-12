@@ -6,6 +6,7 @@
 #include "renderer.hpp"
 #include "scene_layer.hpp"
 #include "shared_resource.hpp"
+#include "utils/lib_utils.hpp"
 
 namespace fin
 {
@@ -28,7 +29,7 @@ namespace fin
     class Scene : private SystemManager, private ComponentFactory, private LayerManager
     {
         friend class SpriteSceneObject;
-
+        using Plugins = std::vector<std::pair<DynamicLibrary, IGamePlugin*>>;
     public:
         Scene();
         ~Scene();
@@ -47,11 +48,13 @@ namespace fin
         const Camera&      GetCamera() const;
         Color              GetBackgroundColor() const;
         void               SetBackgroundColor(Color clr);
+        IGamePlugin*       GetPlugin(std::string_view guid) const;
 
         void Init();
         void Deinit();
         void Render(Renderer& dc);
         void Update(float dt);
+        void PostUpdate(float dt);
         void FixedUpdate(float dt);
         void Clear();
         void Serialize(msg::Var& ar);
@@ -70,11 +73,16 @@ namespace fin
         void ImguiMenu();
         void ImguiShowProperties(bool show);
 
+        bool UnloadPlugin(IGamePlugin* plug);
+        bool LoadPlugin(const std::string& dir, const std::string& plugin);
+
     private:
 
+        Plugins                  _plugins;
         bool                     _show_properties{};
         bool                     _edit_region{};
         bool                     _edit_prefabs{};
+        bool                     _was_inited{};
         SceneMode                _mode{SceneMode::Play};
         Vec2f                    _goto;
         float                    _goto_speed{};

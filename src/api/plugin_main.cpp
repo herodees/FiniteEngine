@@ -1,6 +1,12 @@
 #include "game.hpp"
 #include "plugin.hpp"
 
+#ifndef BUILDING_DLL
+#if defined(_WINDLL) || defined(_USRDLL) || defined(__PIC__) || defined(__pic__)
+#define BUILDING_DLL 1
+#endif
+#endif
+
 #ifdef BUILDING_DLL
 
 namespace fin

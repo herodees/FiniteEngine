@@ -84,7 +84,7 @@ namespace fin
             info.description = "Guild Master main logic.";
             info.author      = "Martin Maceovic";
             info.version     = "1.0.0";
-            info.guid        = "9088C258-FB4C-49F4-89BB-A2E008F8A388";
+            info.guid        = "00000000-FFFF-FFFF-89BB-A2E008F8A388";
             return info;
         }
     };

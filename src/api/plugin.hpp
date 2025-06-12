@@ -18,15 +18,17 @@ namespace fin
             delete this;
         };
 
-        virtual void Save() {};
-        virtual void Load() {};
-
         virtual void OnStart() {};
         virtual void OnStop() {};
         virtual void OnPreUpdate(float dt) {};
         virtual void OnUpdate(float dt) {};
         virtual void OnPostUpdate(float dt) {};
-
+        virtual void OnFixedUpdate(float dt) {};
+        virtual void OnSerialize(msg::Var& ar) {};
+        virtual bool OnDeserialize(msg::Var& ar)
+        {
+            return false;
+        };
         virtual const GamePluginInfo& GetInfo() const = 0;
     };
 
