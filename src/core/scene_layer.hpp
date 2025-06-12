@@ -14,18 +14,6 @@ namespace fin
     class Renderer;
     class Scene;
 
-    constexpr int32_t tile_size(512);
-
-
-    enum LayerFlags_
-    {
-        LayerFlags_Default  = 0,
-        LayerFlags_Disabled = 1 << 0,
-        LayerFlags_Hidden   = 1 << 1,
-    };
-
-    using LayerFlags = uint32_t;
-
 
 
     namespace LayerType
@@ -35,7 +23,7 @@ namespace fin
         constexpr std::string_view Region = "reg";
     } // namespace LayerType
 
-    class SceneLayer
+    class SceneLayer : public Layer
     {
         friend class Scene;
     public:
@@ -49,50 +37,36 @@ namespace fin
         SceneLayer(std::string_view t);
         virtual ~SceneLayer() = default;
 
-        std::string_view  GetType() const;
         std::string&      GetName();
         std::string_view& GetIcon();
         uint32_t          GetColor() const;
-        int32_t           index() const;
-        Scene*            parent();
-        const Rectf&      region() const;
-        Vec2f             ScreenToView(Vec2f pos) const;
-        Vec2f             ViewToScreen(Vec2f pos) const;
-        Vec2f             GetMousePosition() const;
+        Scene*            GetScene();
 
-        virtual void Serialize(msg::Var& ar);
-        virtual void Deserialize(msg::Var& ar);
-        virtual void Resize(Vec2f size);
-        virtual void Clear();
-        virtual void Init();
-        virtual void Deinit();
-        virtual void Activate(const Rectf& region);
-        virtual void Update(float dt);
-        virtual void FixedUpdate(float dt);
-        virtual void Render(Renderer& dc);
+        void Serialize(msg::Var& ar) override;
+        void Deserialize(msg::Var& ar) override;
+        void Resize(Vec2f size) override;
+        void Clear() override;
+        void Init() override;
+        void Deinit() override;
+        void Activate(const Rectf& region) override;
+        void Update(float dt) override;
+        void FixedUpdate(float dt) override;
+        void Render(Renderer& dc) override;
+        ObjectLayer* Objects() override;
+
+        Vec2f            GetCursorPos() const final;
+        StringView       GetName() const final;
 
         virtual void ImguiUpdate(bool items);
         virtual void ImguiSetup();
         virtual void ImguiWorkspace(ImGui::CanvasParams& canvas);
         virtual void ImguiWorkspaceMenu();
 
-        bool IsHidden() const;
-        void Hide(bool b);
-        bool IsDisabled() const;
-        void Disable(bool b);
-
-        void SetFlag(LayerFlags flag, bool v);
-        bool GetFlag(LayerFlags flag) const;
-
     protected:
         Scene*           _parent{};
-        int32_t          _index{-1};
         std::string      _name;
-        std::string      _type;
         std::string_view _icon;
         uint32_t         _color{0xffffffff};
-        Rectf            _region;
-        LayerFlags       _flags{};
         friend class LayerManager;
     };
 

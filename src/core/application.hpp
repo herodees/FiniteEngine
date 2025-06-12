@@ -35,6 +35,9 @@ namespace fin
         bool             CmdAttributeExists(std::string_view cmd) const;
         std::string_view CmdAttributeGet(std::string_view cmd) const;
 
+        bool UnloadPlugin(IGamePlugin* plug);
+        bool LoadPlugin(const std::string& dir, const std::string& plugin);
+
     private:
         void Imgui();
         void ImguiInit(bool dark_theme);
@@ -42,16 +45,17 @@ namespace fin
         void InitApi();
         void InitPlugins();
 
-        static bool           RegisterComponentInfo(AppHandle self, ComponentInfo* info);
-        static ComponentInfo* GetComponentInfoType(AppHandle self, StringView name);
-        static ComponentInfo* GetComponentInfoId(AppHandle self, StringView name);
-        static Entity         CreateEntity(AppHandle self);
-        static void           DestroyEntity(AppHandle self, Entity ent);
-        static bool           ValidEntity(AppHandle self, Entity ent);
-        static Entity         FindNamedEntity(AppHandle self, StringView name);
-        static bool           SetNamedEntity(AppHandle self, Entity ent, StringView name);
-        static void           ClearNamededEntity(AppHandle self, StringView name);
-        static Entity         GetOldEntity(AppHandle self, Entity oldent);
+        static bool             RegisterComponentInfo(AppHandle self, ComponentInfo* info);
+        static ComponentInfo*   GetComponentInfoType(AppHandle self, StringView name);
+        static ComponentInfo*   GetComponentInfoId(AppHandle self, StringView name);
+        static Entity           CreateEntity(AppHandle self);
+        static void             DestroyEntity(AppHandle self, Entity ent);
+        static bool             ValidEntity(AppHandle self, Entity ent);
+        static Entity           FindNamedEntity(AppHandle self, StringView name);
+        static bool             SetNamedEntity(AppHandle self, Entity ent, StringView name);
+        static void             ClearNamededEntity(AppHandle self, StringView name);
+        static Entity           GetOldEntity(AppHandle self, Entity oldent);
+        static Layer*           FindLayer(AppHandle self, StringView name);
 
         std::span<char*>           _argv;
         Plugins                    _plugins;

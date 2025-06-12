@@ -69,7 +69,7 @@ namespace fin
         msg::Var items;
         items.make_array(_objects.size());
 
-        auto& fact = parent()->GetFactory();
+        auto& fact = GetScene()->GetFactory();
 
         for (auto ent : _objects)
         {
@@ -87,7 +87,7 @@ namespace fin
     {
         SceneLayer::Deserialize(ar);
 
-        auto& fact  = parent()->GetFactory();
+        auto& fact  = GetScene()->GetFactory();
         _cell_size.x = ar.get_item("cw").get(16);
         _cell_size.y = ar.get_item("ch").get(8);
         auto items = ar.get_item("items");
@@ -124,12 +124,13 @@ namespace fin
         {
             if (obj->_layer)
             {
-                obj->_layer->_spatial_db.remove_from_bin(obj);
-                obj->_layer->_objects.erase(ent);
+                auto* lyr = static_cast<ObjectSceneLayer*>(obj->_layer);
+                lyr->_spatial_db.remove_from_bin(obj);
+                lyr->_objects.erase(ent);
             }
             _dirty_navmesh = true;
         }
-        parent()->GetFactory().GetRegister().Destroy(ent);
+        GetScene()->GetFactory().GetRegister().Destroy(ent);
     }
 
     Entity ObjectSceneLayer::FindAt(Vec2f position) const
@@ -153,7 +154,7 @@ namespace fin
             }
         };
 
-        _spatial_db.map_over_all_objects_in_locality(position.x, position.y, tile_size, cb);
+        _spatial_db.map_over_all_objects_in_locality(position.x, position.y, TileSize, cb);
         return entt::null;
     }
 
@@ -187,6 +188,13 @@ namespace fin
         return entt::null;
     }
 
+    std::span<Vec2i> ObjectSceneLayer::FindPath(Vec2i from, Vec2i to) const
+    {
+        static std::vector<Vec2i> path;
+        _navmesh.findPath(from, to, path);
+        return path;
+    }
+
     void ObjectSceneLayer::SelectEdit(Entity ent)
     {
         _edit = ent;
@@ -218,8 +226,8 @@ namespace fin
         if (IsDisabled())
             return;
 
-
-    }        
+        GetScene()->GetFactory().OnLayerUpdate(dt, _selected);
+    }
 
     void ObjectSceneLayer::Clear()
     {
@@ -233,9 +241,9 @@ namespace fin
     void ObjectSceneLayer::Resize(Vec2f size)
     {
         _size        = size;
-        _grid_size.x = (size.width + (tile_size - 1)) / tile_size; // Round up division
-        _grid_size.y = (size.height + (tile_size - 1)) / tile_size;
-        _spatial_db.init({0, 0, (float)_grid_size.x * tile_size, (float)_grid_size.y * tile_size},
+        _grid_size.x = (size.width + (TileSize - 1)) / TileSize; // Round up division
+        _grid_size.y = (size.height + (TileSize - 1)) / TileSize;
+        _spatial_db.init({0, 0, (float)_grid_size.x * TileSize, (float)_grid_size.y * TileSize},
                          _grid_size.x,
                          _grid_size.y);
 
@@ -258,7 +266,7 @@ namespace fin
 
         _selected.clear();
         _iso_pool_size = 0;
-        auto& reg = parent()->GetFactory().GetRegister();
+        auto& reg = GetScene()->GetFactory().GetRegister();
 
         auto cb = [&](lq::SpatialDatabase::Proxy* item)
         {
@@ -273,10 +281,10 @@ namespace fin
 
 
         // Query active region
-        _spatial_db.map_over_all_objects_in_locality({(float)region.x - tile_size,
-                                                      (float)region.y - tile_size,
-                                                      (float)region.width + 2 * tile_size,
-                                                      (float)region.height + 2 * tile_size},
+        _spatial_db.map_over_all_objects_in_locality({(float)region.x - TileSize,
+                                                      (float)region.y - TileSize,
+                                                      (float)region.width + 2 * TileSize,
+                                                      (float)region.height + 2 * TileSize},
                                                      cb);
 
         if (_iso_pool_size >= _iso_pool.size())
@@ -344,7 +352,7 @@ namespace fin
 
         dc.set_color(WHITE);
 
-        auto& reg = parent()->GetFactory().GetRegister();
+        auto& reg = GetScene()->GetFactory().GetRegister();
         auto sprites = View<CSprite, CBase>();
 
         for (auto ent : _iso)
@@ -590,7 +598,7 @@ namespace fin
         }
         else if (_edit != entt::null)
         {
-            parent()->GetFactory().ImguiPrefab(parent(), _edit);
+            GetScene()->GetFactory().ImguiPrefab(GetScene(), _edit);
         }
     }
     /*
@@ -619,6 +627,11 @@ namespace fin
         return active_only ? _selected : _objects;
     }
 
+    ObjectLayer* ObjectSceneLayer::Objects()
+    {
+        return this;
+    }
+
     void ObjectSceneLayer::UpdateNavmesh()
     {
         if (!_dirty_navmesh)
@@ -644,6 +657,7 @@ namespace fin
         }
     }
 
+
     bool ObjectSceneLayer::FindPath(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const
     {
         return _navmesh.findPath(from, to, path);
@@ -653,5 +667,6 @@ namespace fin
     {
         return new ObjectSceneLayer;
     }
+
 
 } // namespace fin

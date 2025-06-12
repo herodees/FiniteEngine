@@ -264,6 +264,28 @@ namespace fin
         }
     }
 
+    void ComponentFactory::OnLayerUpdate(float dt, SparseSet& active)
+    {
+        for (auto* comp : _registry.GetComponents())
+        {
+            if (!(comp->flags & ComponentsFlags_Script))
+                continue;
+
+            SparseSet* smallset = &active;
+            SparseSet* bigset   = comp->storage;
+            if (bigset->size() < smallset->size())
+                std::swap(smallset, bigset);
+
+            for (auto ent : *smallset)
+            {
+                if (bigset->contains(ent))
+                {
+                    static_cast<IScriptComponent*>(comp->storage->get(ent))->Update(dt);
+                }
+            }
+        }
+    }
+
     bool ComponentFactory::SetEntityName(Entity entity, std::string_view name)
     {
         if (name.empty())
@@ -570,15 +592,17 @@ namespace fin
     bool ComponentFactory::ImguiComponent(Scene* scene, ComponentInfo* comp, Entity entity)
     {
         bool ret = false;
+        const auto script = comp->flags & ComponentsFlags_Script;
+        const auto clr    = script ? 0xffa0a0ff : ImGui::GetColorU32(ImGuiCol_ButtonActive);
 
         ImGui::LineItem(comp->id.data(), {-1, ImGui::GetFrameHeightWithSpacing()}).Expandable(true).Space();
 
         ImGui::PushID(comp->id.data());
         ImGui::Line()
-            .PushStyleColor(ImGuiCol_ButtonActive)
+            .PushColor(clr)
             .Text(ImGui::Line().Expanded() ? ICON_FA_CARET_DOWN " " : ICON_FA_CARET_RIGHT " ")
             .Text(comp->label.data())
-            .PopStyleColor()
+            .PopColor()
             .Spring();
 
         if (!(comp->flags & ComponentsFlags_NoWorkspaceEditor))
@@ -645,11 +669,13 @@ namespace fin
     bool ComponentFactory::ImguiPrefab(Scene* scene, Entity ImguiProps)
     {
         bool ret = false;
-        bool add = false;
+        int add = 0;
 
         auto& components = _registry.GetComponents();
         for (auto* component : components)
         {
+            if (component->flags & ComponentsFlags_Private)
+                continue;
             if (component->Contains(ImguiProps))
             {
                 ret |= ImguiComponent(scene, component, ImguiProps);
@@ -663,18 +689,29 @@ namespace fin
             .Text(ICON_FA_PLUS " Add Component")
             .Space()
             .PopStyle()
+            .Space()
+            .PushStyle(ImStyle_Header, 2)
+            .Space()
+            .Text(ICON_FA_PLUS " Add Script")
+            .Space()
+            .PopStyle()
             .Spring()
             .End();
 
-        if (ImGui::Line().Return() && ImGui::Line().HoverId() == 1)
+        if (ImGui::Line().Return())
         {
-            add = true;
+            if (ImGui::Line().HoverId() == 1)
+                add = 1;
+            else if (ImGui::Line().HoverId() == 2)
+                add = 2;
         }
 
         if (ImGui::BeginPopupContextWindow("BackgroundPopup", ImGuiPopupFlags_MouseButtonRight))
         {
             if (ImGui::MenuItem(ICON_FA_PLUS " Add Component"))
-                add = true;
+                add = 1;
+            if (ImGui::MenuItem(ICON_FA_PLUS " Add Script"))
+                add = 2;
             if (ImGui::MenuItem("Paste Component", 0, false, _s_comp && _s_copy.is_object()))
             {
                 if (!_s_comp->Contains(ImguiProps)) // Ensure the component exists for the entity
@@ -685,13 +722,17 @@ namespace fin
             ImGui::EndPopup();
         }
 
-        if (add)
+        if (add == 1)
             ImGui::OpenPopup("ComponentMenu");
         if (ImGui::BeginPopup("ComponentMenu"))
         {
             for (auto* comp : components)
             {
-                if (ImGui::MenuItem(comp->label.data(), 0, false, !comp->Contains(ImguiProps)))
+                if (comp->flags & ComponentsFlags_Private || comp->flags & ComponentsFlags_Script)
+                    continue;
+
+                const char* plugin = comp->owner ? comp->owner->GetInfo().name.data() : nullptr;
+                if (ImGui::MenuItem(comp->label.data(), plugin, false, !comp->Contains(ImguiProps)))
                 {
                     comp->Emplace(ImguiProps);
                     ret = true;
@@ -700,7 +741,24 @@ namespace fin
             ImGui::EndPopup();
         }
 
+        if (add == 2)
+            ImGui::OpenPopup("ScriptMenu");
+        if (ImGui::BeginPopup("ScriptMenu"))
+        {
+            for (auto* comp : components)
+            {
+                if (comp->flags & ComponentsFlags_Private || !(comp->flags & ComponentsFlags_Script))
+                    continue;
 
+                const char* plugin = comp->owner ? comp->owner->GetInfo().name.data() : nullptr;
+                if (ImGui::MenuItem(comp->label.data(), plugin, false, !comp->Contains(ImguiProps)))
+                {
+                    comp->Emplace(ImguiProps);
+                    ret = true;
+                }
+            }
+            ImGui::EndPopup();
+        }
         return ret;
     }
 

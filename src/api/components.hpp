@@ -8,11 +8,12 @@ namespace fin
 
     enum ComponentsFlags_
     {
-        ComponentsFlags_Default           = 0,      // Default component flags
-        ComponentsFlags_Private           = 1 << 1, // Component is private and should not be shown in the component list
+        ComponentsFlags_Default = 0,      // Default component flags
+        ComponentsFlags_Private = 1 << 1, // Component is private and should not be shown in the component list
         ComponentsFlags_NoWorkspaceEditor = 1 << 2, // Component should not be shown in the workspace editor
         ComponentsFlags_NoEditor          = 1 << 3, // Component should not be shown in the editor at all
         ComponentsFlags_NoPrefab          = 1 << 4,
+        ComponentsFlags_Script            = 1 << 5,
     };
     using ComponentsFlags = uint32_t;
 
@@ -183,6 +184,15 @@ namespace fin
         if (auto* info = gGameAPI.GetComponentInfoByType(gGameAPI.context, entt::internal::stripped_type_name<C>()))
         {
             throw std::runtime_error("Component already registered!");
+        }
+
+        if constexpr (std::is_base_of_v<IScriptComponent, C>)
+        {
+            flags |= ComponentsFlags_Script;
+        }
+        else
+        {
+            flags &= ~ComponentsFlags_Script;
         }
 
         auto* info    = new ComponentInfoStorage<C>();

@@ -17,6 +17,7 @@ namespace fin
 {
     Settings gSettings;
     GameAPI  gGameAPI{};
+    ImguiAPI gImguiAPI{};
 
     void Application::ImguiInit(bool dark_theme)
     {
@@ -117,7 +118,7 @@ namespace fin
         colors[ImGuiCol_TableRowBg]            = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
         colors[ImGuiCol_TableRowBgAlt]         = ImVec4(1.00f, 1.00f, 1.00f, 0.06f);
         colors[ImGuiCol_TextSelectedBg]        = ImVec4(0.00f, 0.47f, 0.78f, 1.00f);
-        colors[ImGuiCol_DragDropTarget]        = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
+        colors[ImGuiCol_DragDropTarget]        = ImVec4(0.95f, 0.95f, 0.15f, 1.00f);
         colors[ImGuiCol_NavHighlight]          = ImVec4(0.15f, 0.15f, 0.15f, 1.00f);
         colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
         colors[ImGuiCol_NavWindowingDimBg]     = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
@@ -183,7 +184,7 @@ namespace fin
     {
         for (auto& plg : _plugins)
         {
-            plg.second->Release();
+            UnloadPlugin(plg.second);
         }
 
         if (_map.GetMode() != SceneMode::Play)
@@ -225,6 +226,51 @@ namespace fin
 
         }
         return std::string_view();
+    }
+
+    bool Application::UnloadPlugin(IGamePlugin* plug)
+    {
+        if (!plug)
+            return false;
+
+        _map.GetFactory().GetRegister().RemoveComponentInfos(plug);
+        plug->Release();
+        return true;
+    }
+
+    bool Application::LoadPlugin(const std::string& dir, const std::string& plugin)
+    {
+        DynamicLibrary lib;
+        if (lib.Load(dir, plugin))
+        {
+            if (auto fn = lib.GetFunction<GamePluginInfo*()>("GetGamePluginInfoProc"))
+            {
+                auto* info = fn();
+                TraceLog(LOG_INFO, "    > %s v%s by %s", info->name.data(), info->version.data(), info->author.data());
+            }
+            else
+            {
+                return false;
+            }
+
+            if (auto fn = lib.GetFunction<bool(GameAPI*, ImguiAPI*)>("InitGamePluginProc"))
+            {
+                if (!fn(&gGameAPI, &gImguiAPI))
+                {
+                    return false;
+                }
+            }
+
+            if (auto fn = lib.GetFunction<IGamePlugin*()>("CreateGamePluginProc"))
+            {
+                if (auto plug = fn())
+                {
+                    _plugins.emplace_back(std::move(lib), plug);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     void Application::Imgui()
@@ -460,6 +506,18 @@ namespace fin
 
     void Application::InitApi()
     {
+        gImguiAPI.PushID     = ImGui::PushID;
+        gImguiAPI.PushPtrID  = ImGui::PushID;
+        gImguiAPI.PopID      = ImGui::PopID;
+        gImguiAPI.GetID      = ImGui::GetID;
+        gImguiAPI.Text       = ImGui::Text;
+        gImguiAPI.Checkbox   = ImGui::Checkbox;
+        gImguiAPI.Button     = [](const char* id, Vec2f size) -> bool { return ImGui::Button(id, (ImVec2&)size); };
+        gImguiAPI.Select     = [](const char* id, bool selected) -> bool { return ImGui::Selectable(id, selected); };
+        gImguiAPI.BeginCombo = [](const char* id, const char* selected) -> bool
+        { return ImGui::BeginCombo(id, selected); };
+        gImguiAPI.EndCombo = ImGui::EndCombo;
+
         gGameAPI.version                = 1;
         gGameAPI.context                = this;
         gGameAPI.RegisterComponentInfo  = RegisterComponentInfo;
@@ -472,6 +530,7 @@ namespace fin
         gGameAPI.DestroyEntity          = DestroyEntity;
         gGameAPI.ValidEntity            = ValidEntity;
         gGameAPI.GetOldEntity           = GetOldEntity;
+        gGameAPI.FindLayer              = FindLayer;
 
         RegisterBaseComponents(_map.GetFactory().GetRegister());
     }
@@ -491,36 +550,8 @@ namespace fin
         TraceLog(LOG_INFO, "GAME PLUGINS:");
         for (int i = 0; i < list.count; i++)
         {
-            auto*          file = GetFileNameWithoutExt(list.paths[i]);
-            DynamicLibrary lib;
-            if (lib.Load(plugin_dir, file))
-            {
-                if (auto fn = lib.GetFunction<GamePluginInfo*()>("GetGamePluginInfoProc"))
-                {
-                    auto* info = fn();
-                    TraceLog(LOG_INFO, "    > %s v%s by %s", info->name.data(), info->version.data(), info->author.data());
-                }
-                else
-                {
-                    continue;
-                }
-
-                if (auto fn = lib.GetFunction<bool(GameAPI*)>("InitGamePluginProc"))
-                {
-                    if (!fn(&gGameAPI))
-                    {
-                        continue;
-                    }
-                }
-
-                if (auto fn = lib.GetFunction<IGamePlugin*()>("CreateGamePluginProc"))
-                {
-                    if (auto plug = fn())
-                    {
-                        _plugins.emplace_back(std::move(lib), plug);
-                    }
-                }
-            }
+            auto* file = GetFileNameWithoutExt(list.paths[i]);
+            LoadPlugin(plugin_dir, file);
         }
         UnloadDirectoryFiles(list);
     }
@@ -563,7 +594,12 @@ namespace fin
 
     Entity Application::GetOldEntity(AppHandle self, Entity oldent)
     {
-        return entt::null;
+        return self->_map.GetFactory().GetOldEntity(oldent);
+    }
+
+    Layer* Application::FindLayer(AppHandle self, StringView name)
+    {
+        return self->_map.GetLayers().FindLayer(name);
     }
 
     Entity Application::CreateEntity(AppHandle self)

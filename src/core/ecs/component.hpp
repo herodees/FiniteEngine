@@ -39,6 +39,8 @@ namespace fin
         void LoadEntity(Entity& entity, msg::Var& ar);
         void SaveEntity(Entity entity, msg::Var& ar);
 
+        void OnLayerUpdate(float dt, SparseSet& active);
+
         bool             SetEntityName(Entity entity, std::string_view name);
         std::string_view GetEntityName(Entity entity) const;
         Entity           GetEntityByName(std::string_view entity) const;

@@ -14,8 +14,6 @@
 #include "msgvar.hpp"
 #include "math_utils.hpp"
 
-#define FINCFN(name) (*name)
-
 namespace fin
 {
     struct ArchiveParams2;
@@ -27,6 +25,9 @@ namespace fin
     class IGamePlugin;
     class Application;
     class ObjectSceneLayer;
+    class Renderer;
+    class Layer;
+    class ObjectLayer;
 } // namespace fin
 
 namespace ImGui
@@ -50,6 +51,8 @@ struct GamePluginInfo
     StringView guid;
 };
 
+#define FINCFN(name) (*name)
+
 struct GameAPI
 {
     uint32_t            version; // API_VERSION
@@ -64,4 +67,20 @@ struct GameAPI
     Entity              FINCFN(CreateEntity)(AppHandle self);
     void                FINCFN(DestroyEntity)(AppHandle self, Entity ent);
     bool                FINCFN(ValidEntity)(AppHandle self, Entity ent);
+    fin::Layer*         FINCFN(FindLayer)(AppHandle self, StringView name);
 };
+
+struct ImguiAPI
+{
+    uint32_t FINCFN(GetID)(const char* id);
+    void     FINCFN(PushID)(const char* id);
+    void     FINCFN(PushPtrID)(const void* id);
+    void     FINCFN(PopID)();
+    void     FINCFN(Text)(const char* fmt, ...);
+    bool     FINCFN(Button)(const char* id, fin::Vec2f size);
+    bool     FINCFN(Select)(const char* id, bool selected);
+    bool     FINCFN(Checkbox)(const char* id, bool* selected);
+    bool     FINCFN(BeginCombo)(const char* id, const char* selected);
+    void     FINCFN(EndCombo)();
+};
+

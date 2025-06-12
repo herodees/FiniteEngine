@@ -12,7 +12,7 @@ namespace ImGui
 
 namespace fin
 {
-    class ObjectSceneLayer : public SceneLayer
+    class ObjectSceneLayer : public ObjectLayer, public SceneLayer
     {
         struct IsoObject
         {
@@ -29,32 +29,34 @@ namespace fin
 
     public:
         ObjectSceneLayer();
-        ~ObjectSceneLayer() override;
+        ~ObjectSceneLayer() final;
 
-        void             Insert(Entity ent);
-        void             Remove(Entity ent);
-        void             MoveTo(Entity ent, Vec2f pos);
-        void             Move(Entity ent, Vec2f pos);
+        void             Insert(Entity ent) final;
+        void             Remove(Entity ent) final;
+        void             MoveTo(Entity ent, Vec2f pos) final;
+        void             Move(Entity ent, Vec2f pos) final;
         void             Update(void* obj);
-        Entity           FindAt(Vec2f position) const;
-        Entity           FindActiveAt(Vec2f position) const;
+        Entity           FindAt(Vec2f position) const final;
+        Entity           FindActiveAt(Vec2f position) const final;
+        std::span<Vec2i> FindPath(Vec2i from, Vec2i to) const final;
         bool             FindPath(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const;
         Navmesh&         GetNavmesh();
         const Navmesh&   GetNavmesh() const;
-        const SparseSet& GetObjects(bool active_only = false) const;
+        const SparseSet& GetObjects(bool active_only = false) const final;
+        ObjectLayer*     Objects() final;
 
-        void Update(float dt) override;
-        void Render(Renderer& dc) override;
-        void Activate(const Rectf& region) override;
-        void Serialize(msg::Var& ar) override;
-        void Deserialize(msg::Var& ar) override;
-        void Clear() override;
-        void Resize(Vec2f size) override;
+        void             Update(float dt) final;
+        void             Render(Renderer& dc) final;
+        void             Activate(const Rectf& region) final;
+        void             Serialize(msg::Var& ar) final;
+        void             Deserialize(msg::Var& ar) final;
+        void             Clear() final;
+        void             Resize(Vec2f size) final;
 
-        void ImguiWorkspace(ImGui::CanvasParams& canvas) override;
-        void ImguiWorkspaceMenu() override;
-        void ImguiSetup() override;
-        void ImguiUpdate(bool items) override;
+        void ImguiWorkspace(ImGui::CanvasParams& canvas) final;
+        void ImguiWorkspaceMenu() final;
+        void ImguiSetup() final;
+        void ImguiUpdate(bool items) final;
 
     protected:
         void UpdateNavmesh();

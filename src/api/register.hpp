@@ -45,6 +45,7 @@ namespace fin
         componets_type& GetComponents();
         ComponentInfo*  GetComponentInfoByType(StringView name) const;
         ComponentInfo*  GetComponentInfoById(StringView name) const;
+        void            RemoveComponentInfos(IGamePlugin* owner = nullptr);
 
     private:
         Entity       GenerateIdentifier(const std::size_t pos) noexcept;
@@ -143,6 +144,22 @@ namespace fin
                 return el;
         }
         return nullptr;
+    }
+
+    inline void Register::RemoveComponentInfos(IGamePlugin* owner)
+    {
+        for (size_t n = 0; n < _components.size();)
+        {
+            if (_components[n]->owner == owner)
+            {
+                _components[n] = _components.back();
+                _components.pop_back();
+            }
+            else
+            {
+                ++n;
+            }
+        }
     }
 
     inline Entity Register::GenerateIdentifier(const std::size_t pos) noexcept

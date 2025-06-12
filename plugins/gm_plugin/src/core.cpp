@@ -8,6 +8,15 @@ namespace fin
     {
         void Init(Entity entity) override {};
         void Update(float deltaTime) override {};
+
+        bool OnEdit(Entity ent) override
+        {
+            if (gImguiAPI.Button("Test", {}))
+            {
+
+            }
+            return false;
+        };
     };
 
     struct Test : IComponent
@@ -19,7 +28,7 @@ namespace fin
     public:
         ExamplePlugin()
         {
-            RegisterComponent<TextScript>("Text");
+            RegisterComponent<TextScript>("Text", {}, ComponentsFlags_NoWorkspaceEditor);
             RegisterComponent<Test>("test");
 
             auto ent = gGameAPI.CreateEntity(gGameAPI.context);
@@ -63,7 +72,7 @@ namespace fin
     class ExamplePluginFactory : public IGamePluginFactory
     {
     public:
-        IGamePlugin* Create() override
+        GamePlugin* Create() override
         {
             return new ExamplePlugin();
         }

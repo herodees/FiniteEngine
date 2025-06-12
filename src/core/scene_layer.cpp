@@ -73,13 +73,9 @@ namespace fin
         return CreateSprite();
     }
 
-    SceneLayer::SceneLayer(std::string_view t) : _type(t)
+    SceneLayer::SceneLayer(std::string_view t)
     {
-    }
-
-    std::string_view SceneLayer::GetType() const
-    {
-        return _type;
+        _type = t;
     }
 
     std::string& SceneLayer::GetName()
@@ -97,36 +93,22 @@ namespace fin
         return _color;
     }
 
-    int32_t SceneLayer::index() const
-    {
-        return _index;
-    }
-
-    Scene* SceneLayer::parent()
+    Scene* SceneLayer::GetScene()
     {
         return _parent;
     }
 
-    const Rectf& SceneLayer::region() const
-    {
-        return _region;
-    }
-
-    Vec2f SceneLayer::ScreenToView(Vec2f pos) const
-    {
-        return Vec2f(pos.x + _region.x, pos.y + _region.y); 
-    }
-
-    Vec2f SceneLayer::ViewToScreen(Vec2f pos) const
-    {
-        return Vec2f(pos.x - _region.x, pos.y - _region.y); 
-    }
-
-    Vec2f SceneLayer::GetMousePosition() const
+    Vec2f SceneLayer::GetCursorPos() const
     {
         const auto p{::GetMousePosition()};
         return {p.x + _region.x, p.y + _region.y};
     }
+
+    StringView SceneLayer::GetName() const
+    {
+        return _name;
+    }
+
 
     void SceneLayer::Serialize(msg::Var& ar)
     {
@@ -179,6 +161,11 @@ namespace fin
     {
     }
 
+    ObjectLayer* SceneLayer::Objects()
+    {
+        return nullptr;
+    }
+
     void SceneLayer::ImguiUpdate(bool items)
     {
     }
@@ -196,46 +183,9 @@ namespace fin
     {
     }
 
-    bool SceneLayer::IsHidden() const
-    {
-        return GetFlag(LayerFlags_Hidden);
-    }
-
-    void SceneLayer::Hide(bool b)
-    {
-        SetFlag(LayerFlags_Hidden, b);
-    }
-
-    bool SceneLayer::IsDisabled() const
-    {
-        return GetFlag(LayerFlags_Disabled);
-    }
-
-    void SceneLayer::Disable(bool b)
-    {
-        SetFlag(LayerFlags_Disabled, b);
-    }
-
-    void SceneLayer::SetFlag(LayerFlags flag, bool v)
-    {
-        if (v)
-        {
-            _flags |= flag;
-        }
-        else
-        {
-            _flags &= ~flag;
-        }
-    }
-
-    bool SceneLayer::GetFlag(LayerFlags flag) const
-    {
-        return _flags & flag;
-    }
 
 
 
-    
     LayerManager::~LayerManager()
     {
         Clear();

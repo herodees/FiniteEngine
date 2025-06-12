@@ -6,6 +6,7 @@
 namespace fin
 {
     extern GameAPI gGameAPI;
+    extern ImguiAPI gImguiAPI;
 
     class IGamePlugin
     {
@@ -25,6 +26,8 @@ namespace fin
         virtual void OnPreUpdate(float dt) {};
         virtual void OnUpdate(float dt) {};
         virtual void OnPostUpdate(float dt) {};
+
+        virtual const GamePluginInfo& GetInfo() const = 0;
     };
 
 
@@ -37,8 +40,12 @@ namespace fin
         template <typename C>
         ComponentInfo* RegisterComponent(StringView id, StringView label = StringView(), ComponentsFlags flags = ComponentsFlags_Default);
 
+        const GamePluginInfo& GetInfo() const final;
+
     private:
         std::vector<ComponentInfo*> _items;
+        GamePluginInfo              _info{};
+        friend struct IGamePluginFactory;
     };
 
 
@@ -46,10 +53,10 @@ namespace fin
     struct IGamePluginFactory
     {
         IGamePluginFactory();
-        virtual IGamePlugin*    Create()     = 0;
+        virtual GamePlugin*     Create()     = 0;
         virtual GamePluginInfo& Info() const = 0;
 
-        static IGamePlugin*        InternalCreate();
+        static GamePlugin*         InternalCreate();
         static GamePluginInfo*     InternalInfo();
         static IGamePluginFactory* InternalRoot(IGamePluginFactory* to_set = nullptr);
     };
@@ -61,11 +68,15 @@ namespace fin
         InternalRoot(this);
     }
 
-    inline IGamePlugin* fin::IGamePluginFactory::InternalCreate()
+    inline GamePlugin* fin::IGamePluginFactory::InternalCreate()
     {
         IGamePluginFactory* factory = InternalRoot();
         if (factory)
-            return factory->Create();
+        {
+            auto* plug = factory->Create();
+            plug->_info = factory->Info();
+            return plug;
+        }
         return nullptr;
     }
 
@@ -92,6 +103,11 @@ namespace fin
             if (nfo->owner == static_cast<const IGamePlugin*>(this))
                 delete nfo;
         }
+    }
+
+    inline const GamePluginInfo& GamePlugin::GetInfo() const
+    {
+        return _info;
     }
 
     template <typename C>

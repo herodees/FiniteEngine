@@ -13,15 +13,17 @@ namespace fin
     void RegisterBaseComponents(Register& fact)
     {
         RegBuiltin<CBase>(CBase::CID, "Base", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CName>(CName::CID, "Name", ComponentsFlags_NoWorkspaceEditor | ComponentsFlags_NoPrefab);
+        RegBuiltin<CIsometric>(CIsometric::CID, "Isometric", ComponentsFlags_Default);
         RegBuiltin<CBody>(CBody::CID, "Body", ComponentsFlags_NoWorkspaceEditor);
         RegBuiltin<CPath>(CPath::CID, "Path", ComponentsFlags_NoWorkspaceEditor);
-        RegBuiltin<CIsometric>(CIsometric::CID, "Isometric", ComponentsFlags_Default);
         RegBuiltin<CCollider>(CCollider::CID, "Collider", ComponentsFlags_Default);
         RegBuiltin<CSprite>(CSprite::CID, "Sprite", ComponentsFlags_NoWorkspaceEditor);
         RegBuiltin<CRegion>(CRegion::CID, "Region", ComponentsFlags_Default);
         RegBuiltin<CCamera>(CCamera::CID, "Camera", ComponentsFlags_NoWorkspaceEditor);
-        RegBuiltin<CName>(CName::CID, "Name", ComponentsFlags_NoWorkspaceEditor | ComponentsFlags_NoPrefab);
-        RegBuiltin<CPrefab>(CPrefab::CID, "Prefab", ComponentsFlags_Private);
+        RegBuiltin<CPrefab>(CPrefab::CID,
+                            "Prefab",
+                            ComponentsFlags_Private | ComponentsFlags_NoWorkspaceEditor | ComponentsFlags_NoEditor);
     }
 
     Vec2f CBase::GetPosition() const
@@ -73,7 +75,7 @@ namespace fin
     void CBase::UpdateSparseGrid()
     {
         if (_layer)
-            _layer->Update(this);
+            static_cast<ObjectSceneLayer*>(_layer)->Update(this);
     }
 
     bool CBase::HitTest(Vec2f pos) const
@@ -459,7 +461,7 @@ namespace fin
             return false;
 
         _s_buff     = _name;
-        auto* scene = base._layer->parent();
+        auto* scene = static_cast<ObjectSceneLayer*>(base._layer)->GetScene();
 
         if (ImGui::InputText("Name", &_s_buff))
         {

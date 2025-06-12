@@ -6,13 +6,15 @@
 namespace fin
 {
     GameAPI gGameAPI = {};
+    ImguiAPI gImguiAPI = {};
 }
 
 extern "C"
 {
-    LIB_EXPORT bool InitGamePluginProc(GameAPI* api)
+    LIB_EXPORT bool InitGamePluginProc(GameAPI* api, ImguiAPI* iapi)
     {
         fin::gGameAPI = *api;
+        fin::gImguiAPI = *iapi;
         return fin::RegisterBuiltinComponents();
     }
 

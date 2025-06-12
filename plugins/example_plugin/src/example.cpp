@@ -16,7 +16,7 @@ namespace fin
     class ExamplePluginFactory : public IGamePluginFactory
     {
     public:
-        IGamePlugin* Create() override
+        GamePlugin* Create() override
         {
             return new ExamplePlugin();
         }

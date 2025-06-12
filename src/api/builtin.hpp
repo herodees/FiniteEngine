@@ -6,8 +6,8 @@ namespace fin
 {
     struct IBase : IComponent
     {
-        Entity            _self;
-        ObjectSceneLayer* _layer{};
+        Entity       _self;
+        ObjectLayer* _layer{};
 
         virtual Region<float> GetBoundingBox() const   = 0;
         virtual bool          HitTest(Vec2f pos) const = 0;

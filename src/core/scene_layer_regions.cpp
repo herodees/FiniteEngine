@@ -209,11 +209,11 @@ namespace fin
 
         void render_grid(Renderer& dc)
         {
-            const int startX = std::max(0.f, _region.x / tile_size);
-            const int startY = std::max(0.f, _region.y / tile_size);
+            const int startX = std::max(0.f, _region.x / TileSize);
+            const int startY = std::max(0.f, _region.y / TileSize);
 
-            const int endX = (_region.x2() / tile_size) + 2;
-            const int endY = (_region.y2() / tile_size) + 2;
+            const int endX = (_region.x2() / TileSize) + 2;
+            const int endY = (_region.y2() / TileSize) + 2;
 
             auto minpos = Vec2i{startX, startY};
             auto maxpos = Vec2i{endX, endY};
@@ -223,18 +223,12 @@ namespace fin
 
             for (int y = minpos.y; y < maxpos.y; ++y)
             {
-                dc.render_line((float)minpos.x * tile_size,
-                               (float)y * tile_size,
-                               (float)maxpos.x * tile_size,
-                               (float)y * tile_size);
+                dc.render_line((float)minpos.x * TileSize, (float)y * TileSize, (float)maxpos.x * TileSize, (float)y * TileSize);
             }
 
             for (int x = minpos.x; x < maxpos.x; ++x)
             {
-                dc.render_line((float)x * tile_size,
-                               (float)minpos.y * tile_size,
-                               (float)x * tile_size,
-                               (float)maxpos.y * tile_size);
+                dc.render_line((float)x * TileSize, (float)minpos.y * TileSize, (float)x * TileSize, (float)maxpos.y * TileSize);
             }
         }
 
