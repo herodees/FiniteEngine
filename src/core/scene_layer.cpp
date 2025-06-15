@@ -122,7 +122,6 @@ namespace fin
 
     void SceneLayer::Deserialize(msg::Var& ar)
     {
-        _type = ar["type"].str();
         _name = ar["name"].str();
         Hide(ar.get_item("hidden").get(false));
         Disable(ar.get_item("disabled").get(false));

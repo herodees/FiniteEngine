@@ -4,6 +4,7 @@
 #include "editor/imgui_control.hpp"
 #include "ecs/builtin.hpp"
 #include "ecs/core.hpp"
+#include <rlgl.h>
 
 namespace fin
 {
@@ -333,6 +334,8 @@ namespace fin
         BeginTextureMode(*_canvas.get_texture());
         ClearBackground(_background);
 
+        rlSetBlendFactorsSeparate(0x0302, 0x0303, 1, 0x0303, 0x8006, 0x8006);
+        BeginBlendMode(BLEND_CUSTOM_SEPARATE);
 
         //dc.set_origin({(float)_camera.position.x, (float)_camera.position.y});
         dc._camera.target.x = _camera.position.x;

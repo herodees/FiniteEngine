@@ -31,7 +31,7 @@ namespace fin
             _color = 0xffffa0b0;
         };
 
-        void destroy(int32_t n)
+        void Destroy(int32_t n)
         {
             _spatial.remove(_spatial[n]);
         }
@@ -51,7 +51,7 @@ namespace fin
                 _spatial.sort_active([&](int a, int b) { return _spatial[a]._index < _spatial[b]._index; });
         }
 
-        void moveto(int obj, Vec2f pos)
+        void MoveTo(int obj, Vec2f pos)
         {
             auto o = _spatial[obj];
             _spatial.remove(_spatial[obj]);
@@ -131,12 +131,12 @@ namespace fin
             }
         }
 
-        int find_at(Vec2f position)
+        int FindAt(Vec2f position)
         {
             return _spatial.find_at(position.x, position.y);
         }
 
-        int find_active(Vec2f position)
+        int FindActiveAt(Vec2f position)
         {
             auto els = _spatial.get_active();
 
@@ -153,7 +153,7 @@ namespace fin
             return -1;
         }
 
-        void edit_active()
+        void EditActive()
         {
         }
 
@@ -175,7 +175,7 @@ namespace fin
             ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
             if (ImGui::IsItemClicked(0))
             {
-                _select = find_active(mouse_pos);
+                _select = FindActiveAt(mouse_pos);
                 if (_select != -1)
                 {
                     ImVec2 pos{_spatial[_select]._bbox.x, _spatial[_select]._bbox.y};
@@ -192,7 +192,7 @@ namespace fin
                 ImVec2 pos{_spatial[_select]._bbox.x, _spatial[_select]._bbox.y};
                 if (canvas.EndDrag(pos, (void*)(size_t)_select))
                 {
-                    moveto(_select, pos);
+                    MoveTo(_select, pos);
                 }
             }
 
@@ -273,7 +273,7 @@ namespace fin
         void ImguiUpdate(bool items) override
         {
             if (!items)
-                return edit_active();
+                return EditActive();
 
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
@@ -290,7 +290,7 @@ namespace fin
             {
                 if (_select != -1 && ImGui::Line().HoverId() == 1)
                 {
-                    destroy(_select);
+                    Destroy(_select);
                     _select = -1;
                 }
                 if (ImGui::Line().HoverId() == 10)
@@ -303,7 +303,7 @@ namespace fin
             {
                 if (_select != -1)
                 {
-                    destroy(_select);
+                    Destroy(_select);
                     _select = -1;
                 }
             }

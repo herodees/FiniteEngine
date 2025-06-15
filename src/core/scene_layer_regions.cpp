@@ -19,6 +19,7 @@ namespace fin
             Rectf          _bbox;
             Texture2D::Ptr _texture;
             Vec2i          _offset;
+            int32_t        _index{0};
             bool           _need_update{};
 
             bool     operator==(const Node& ot) const
@@ -26,24 +27,24 @@ namespace fin
                 return this == &ot;
             }
 
-            uint32_t size() const
+            uint32_t Size() const
             {
                 return _points.size() / 2;
             }
 
-            Vec2f get_point(uint32_t n)
+            Vec2f GetPoint(uint32_t n)
             {
                 return {_points[n * 2].get(0.f), _points[n * 2 + 1].get(0.f)};
             }
 
-            void set_point(uint32_t n, Vec2f val)
+            void SetPoint(uint32_t n, Vec2f val)
             {
                 _need_update = true;
                 _points.set_item(n * 2, val.x);
                 _points.set_item(n * 2 + 1, val.y);
             }
 
-            Node& insert(Vec2f pt, int32_t n)
+            Node& Insert(Vec2f pt, int32_t n)
             {
                 _need_update = true;
                 if (uint32_t(n * 2) >= _points.size())
@@ -60,7 +61,7 @@ namespace fin
                 return *this;
             }
 
-            int32_t find(Vec2f pt, float radius)
+            int32_t Find(Vec2f pt, float radius)
             {
                 auto sze = _points.size();
                 for (uint32_t n = 0; n < sze; n += 2)
@@ -119,7 +120,10 @@ namespace fin
         void Activate(const Rectf& region) override
         {
             SceneLayer::Activate(region);
+
             _spatial.activate(region);
+
+            _spatial.sort_active([&](int a, int b) { return _spatial[a]._index < _spatial[b]._index; });
         }
 
         void Serialize(msg::Var& ar)
@@ -133,6 +137,7 @@ namespace fin
                 msg::Var item;
                 item.make_object(1);
                 item.set_item("p", node._points.clone());
+                item.set_item("i", node._index);
                 if (node._texture)
                 {
                     item.set_item("t", node._texture->get_path());
@@ -159,10 +164,22 @@ namespace fin
             _spatial.clear();
 
             auto els = ar["items"];
+            _max_index = ar["max_index"].get(0);
+
             for (auto& el : els.elements())
             {
                 Node nde;
                 nde._points = el["p"].clone();
+                auto idx    = el["i"];
+                if (idx.is_undefined())
+                {
+                    nde._index = ++_max_index;
+                }
+                else
+                {
+                    nde._index = idx.get(0);
+                }
+
 
                 auto tx = el["t"];
                 if (tx.is_string())
@@ -179,12 +196,12 @@ namespace fin
             }
         }
 
-        int find_at(Vec2f position)
+        int FindAt(Vec2f position)
         {
             return _spatial.find_at(position.x, position.y);
         }
 
-        void moveto(int obj, Vec2f pos)
+        void MoveTo(int obj, Vec2f pos)
         {
             auto o = _spatial[obj];
             _spatial.remove(_spatial[obj]);
@@ -207,7 +224,7 @@ namespace fin
             _spatial.insert(o);
         }
 
-        void render_grid(Renderer& dc)
+        void RenderGrid(Renderer& dc)
         {
             const int startX = std::max(0.f, _region.x / TileSize);
             const int startY = std::max(0.f, _region.y / TileSize);
@@ -241,7 +258,7 @@ namespace fin
             if (IsHidden())
                 return;
 
-      
+            rlDisableBackfaceCulling();
             for (auto n : _spatial.get_active())
             {
                 auto& nde = _spatial[n];
@@ -256,10 +273,10 @@ namespace fin
                     rlColor4ub(255, 255, 255, 255);
                     rlNormal3f(0.0f, 0.0f, 1.0f);
 
-                    for (uint32_t n = 0; n < nde.size(); ++n)
+                    for (uint32_t n = 0; n < nde.Size(); ++n)
                     {
-                        auto pt1 = nde.get_point(n);
-                        auto pt2 = nde.get_point((n + 1) % nde.size());
+                        auto pt1 = nde.GetPoint(n);
+                        auto pt2 = nde.GetPoint((n + 1) % nde.Size());
 
                         rlTexCoord2f((pt1.x - nde._offset.x) / width, (pt1.y - nde._offset.y) / height);
                         rlVertex2f(pt1.x, pt1.y);
@@ -316,10 +333,10 @@ namespace fin
                 {
                     if (ImGui::IsItemClicked(0))
                     {
-                        _active_point = reg->find(mouse_pos, 5);
+                        _active_point = reg->Find(mouse_pos, 5);
                         if (_active_point != -1)
                         {
-                            ImVec2 pt = {reg->get_point(_active_point).x, reg->get_point(_active_point).y};
+                            ImVec2 pt = {reg->GetPoint(_active_point).x, reg->GetPoint(_active_point).y};
                             canvas.BeginDrag(pt, (void*)(size_t)_active_point);
                         }
                     }
@@ -330,19 +347,19 @@ namespace fin
                 }
                 else if (ImGui::IsItemClicked(0))
                 {
-                    _selected = find_at(mouse_pos);
+                    _selected = FindAt(mouse_pos);
                 }
 
                 if (_active_point != -1)
                 {
                     if (auto* reg = selected_region())
                     {
-                        ImVec2 pt = {reg->get_point(_active_point).x, reg->get_point(_active_point).y};
+                        ImVec2 pt = {reg->GetPoint(_active_point).x, reg->GetPoint(_active_point).y};
                         if (canvas.EndDrag(pt, (void*)(size_t)_active_point))
                         {
                             auto obj = *reg;
                             _spatial.remove(*selected_region());
-                            obj.set_point(_active_point, pt);
+                            obj.SetPoint(_active_point, pt);
                             obj.Update();
                             _spatial.insert(obj);
                         }
@@ -358,7 +375,7 @@ namespace fin
                     {
                         auto obj = *reg;
                         _spatial.remove(*reg);
-                        obj.insert(mouse_pos, _active_point + 1);
+                        obj.Insert(mouse_pos, _active_point + 1);
                         obj.Update();
                         _spatial.insert(obj);
                         _active_point = _active_point + 1;
@@ -366,8 +383,9 @@ namespace fin
                     else
                     {
                         Node obj;
-                        obj.insert(mouse_pos, 0);
+                        obj.Insert(mouse_pos, 0);
                         obj.Update();
+                        obj._index    = ++_max_index;
                         _selected     = _spatial.insert(obj);
                         _active_point = 0;
                     }
@@ -384,10 +402,10 @@ namespace fin
             for (auto n : _spatial.get_active())
             {
                 auto& nde = _spatial[n];
-                for (uint32_t i = 0; i < nde.size(); ++i)
+                for (uint32_t i = 0; i < nde.Size(); ++i)
                 {
-                    auto pt1 = canvas.WorldToScreen((ImVec2&)nde.get_point(i));
-                    auto pt2 = canvas.WorldToScreen((ImVec2&)nde.get_point((i + 1) % nde.size()));
+                    auto pt1 = canvas.WorldToScreen((ImVec2&)nde.GetPoint(i));
+                    auto pt2 = canvas.WorldToScreen((ImVec2&)nde.GetPoint((i + 1) % nde.Size()));
                     if (selected && selected == &nde)
                     {
                         if (i == _active_point)
@@ -413,7 +431,8 @@ namespace fin
                 modified |= ImGui::TextureInput("Texture", &reg->_texture);
                 if (reg->_texture)
                     modified |= ImGui::DragInt2("Offset", &reg->_offset.x);
-                
+
+                modified |= ImGui::DragInt("Index", &reg->_index, 1, 0, _max_index + 1, "%d");
 
                 if (modified)
                 {
@@ -508,6 +527,7 @@ namespace fin
         }
 
         LooseQuadTree<Node, decltype([](const Node& n) -> const Rectf& { return n._bbox; })> _spatial;
+        int32_t                                                                              _max_index = 0;
         int32_t                                                                              _edit         = -1;
         int32_t                                                                              _selected     = -1;
         int32_t                                                                              _active_point = -1;
