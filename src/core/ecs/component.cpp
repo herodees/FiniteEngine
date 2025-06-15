@@ -386,6 +386,24 @@ namespace fin
         }
     }
 
+    void ComponentFactory::DuplicatePrefab(Scene* scene, int32_t n)
+    {
+        if ((uint32_t)n >= _prefabs.size())
+            return;
+
+        auto el = _prefabs.get_item(n);
+        auto newel = el.clone();
+        newel.set_item(Sc::Uid, std::generate_unique_id());
+        auto nme = newel.get_item(Sc::Id);
+        newel.set_item(Sc::Id, std::string(nme.str()) + "_copy");
+
+        _prefabs.push_back(newel);
+        _prefab_map[newel.get_item(Sc::Uid).get(0ull)] = newel;
+
+        SelectPrefab(scene, _prefabs.size() - 1);
+        GeneratePrefabMap();
+    }
+
     void ComponentFactory::SelectPrefab(Scene* scene, int32_t n)
     {
         if (_edit != entt::null)
@@ -818,6 +836,8 @@ namespace fin
 
     void ComponentFactory::ImguiPrefabs(Scene* scene)
     {
+        int context_id = -1;
+
         for (auto& [groupName, indices] : _groups)
         {
             if (groupName.empty() || ImGui::TreeNode(groupName.c_str()))
@@ -832,6 +852,11 @@ namespace fin
                     if (ImGui::Selectable("##id", _selected == n, 0, {0, 25}))
                     {
                         SelectPrefab(scene, n);
+                    }
+
+                    if (ImGui::IsMouseClicked(1) && ImGui::IsItemHovered())
+                    {
+                        context_id = n;
                     }
 
                     if (ImGui::IsMouseDoubleClicked(0) && ImGui::IsItemHovered())
@@ -870,6 +895,27 @@ namespace fin
                 if (!groupName.empty())
                     ImGui::TreePop();
             }
+        }
+
+        if (context_id >= 0)
+        {
+            ImGui::OpenPopup("PrefabContextMenu");
+            SelectPrefab(scene, context_id);
+        }
+
+        if(ImGui::BeginPopupContextItem("PrefabContextMenu"))
+        {
+            if (ImGui::MenuItem("Edit Prefab"))
+            {
+                scene->SetMode(SceneMode::Prefab);
+                EditPrefab(scene, _selected);
+            }
+            if (ImGui::MenuItem("Duplicate Prefab"))
+            {
+                DuplicatePrefab(scene, _selected);
+            }
+
+            ImGui::EndPopup();
         }
     }
 

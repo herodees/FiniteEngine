@@ -60,6 +60,7 @@ namespace fin
         void ImguiPrefabs(Scene* scene);
         void ImguiExplorer(Scene* scene);
 
+        void DuplicatePrefab(Scene* scene, int32_t n);
         void SelectPrefab(Scene* scene, int32_t n);
         void EditPrefab(Scene* scene, int32_t n);
         void SaveEditPrefab(Scene* scene);
