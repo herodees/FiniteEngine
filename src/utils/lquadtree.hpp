@@ -105,7 +105,8 @@ namespace fin
                 if (objects[i].empty)
                     continue;
                 const T& obj = *objects[i].get();
-                newTree.insert(obj); // Insert the object into the new tree
+                const Rectf objBounds = boundsGetter(obj);
+                newTree.insert(newTree.rootIndex, obj, objBounds);
             }
             swap(newTree);
         }
@@ -116,8 +117,8 @@ namespace fin
 
             if (!nodes[rootIndex].bounds.contains(objBounds))
             {
-                Rectf newBounds = getCombinedBounds(nodes[rootIndex].bounds, objBounds);
-                resize(newBounds);
+            //    Rectf newBounds = getCombinedBounds(nodes[rootIndex].bounds, objBounds);
+            //    resize(newBounds);
             }
 
             return insert(rootIndex, obj, objBounds);
@@ -131,6 +132,12 @@ namespace fin
         int32_t find_at(float x, float y)
         {
             return find_at(rootIndex, x, y);
+        }
+
+        template <typename HT>
+        int32_t find_at(float x, float y, HT htest)
+        {
+            return find_at<HT>(rootIndex, x, y, htest);
         }
 
         void query(const Rectf& area, std::vector<int32_t>& out) const
@@ -284,11 +291,45 @@ namespace fin
             objectFreeListHead = idx;
         }
 
+        template <typename HT>
+        int32_t find_at(int32_t nodeIdx, float x, float y, HT htest)
+        {
+            const Node& node = nodes[nodeIdx];
+
+            if (!node.bounds.contains({x, y}) && rootIndex != nodeIdx)
+                return -1;
+
+            int32_t current = node.firstObject;
+            while (current != -1)
+            {
+                const Rectf& objBounds = boundsGetter(*objects[current].get());
+                if (objBounds.contains({x, y}) && htest(*objects[current].get(), x, y))
+                    return current;
+                current = objects[current].next;
+            }
+
+            if (node.hasChildren())
+            {
+                for (int32_t i = 0; i < 4; ++i)
+                {
+                    int32_t childIdx = node.children[i];
+                    if (childIdx != -1)
+                    {
+                        int32_t result = find_at<HT>(childIdx, x, y, htest);
+                        if (result != -1)
+                            return result;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
         int32_t find_at(int32_t nodeIdx, float x, float y)
         {
             const Node& node = nodes[nodeIdx];
 
-            if (!node.bounds.contains({x, y}))
+            if (!node.bounds.contains({x, y}) && rootIndex != nodeIdx)
                 return -1;
 
             int32_t current = node.firstObject;

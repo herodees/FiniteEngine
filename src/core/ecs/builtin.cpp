@@ -19,6 +19,7 @@ namespace fin
         RegBuiltin<CPath>(CPath::CID, "Path", ComponentsFlags_NoWorkspaceEditor);
         RegBuiltin<CCollider>(CCollider::CID, "Collider", ComponentsFlags_Default);
         RegBuiltin<CSprite>(CSprite::CID, "Sprite", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CAttachment>(CAttachment::CID, "Attachment", ComponentsFlags_Default);
         RegBuiltin<CRegion>(CRegion::CID, "Region", ComponentsFlags_Default);
         RegBuiltin<CCamera>(CCamera::CID, "Camera", ComponentsFlags_NoWorkspaceEditor);
         RegBuiltin<CPrefab>(CPrefab::CID,
@@ -468,6 +469,20 @@ namespace fin
             gGameAPI.ClearNamededEntity(gGameAPI.context, _name);
             gGameAPI.SetNamedEntity(gGameAPI.context, ent, _s_buff);
         }
+        return false;
+    }
+
+    void CAttachment::OnSerialize(ArchiveParams2& ar)
+    {
+    }
+
+    bool CAttachment::OnDeserialize(ArchiveParams2& ar)
+    {
+        return true;
+    }
+
+    bool CAttachment::OnEdit(Entity self)
+    {
         return false;
     }
 

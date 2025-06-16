@@ -158,4 +158,31 @@ namespace fin
         bool OnEdit(Entity self) final;
     };
 
+
+
+    /// @brief Attachment entity component.
+    /// Sprites rendered on top of parent entity
+    struct CAttachment : IAttachment
+    {
+        struct Data
+        {
+            Entity      _parent;
+            uint32_t    _next{};
+            uint32_t    _flags{};
+            Vec2f       _offset;
+            Atlas::Pack _sprite;
+        };
+
+        uint32_t _index{};
+
+        Data* First() const;
+        Data* Next(Data* d) const;
+        void  Remove(Data* n);
+        void  Append(const Data& dta, Data* after = nullptr);
+
+        void OnSerialize(ArchiveParams2& ar) final;
+        bool OnDeserialize(ArchiveParams2& ar) final;
+        bool OnEdit(Entity self) final;
+    };
+
 } // namespace fin

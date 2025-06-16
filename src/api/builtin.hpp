@@ -84,6 +84,10 @@ namespace fin
         inline static std::string_view CID = "nme";
     };
 
+    struct IAttachment : IComponent
+    {
+        inline static std::string_view CID = "att";
+    };
 
 
 
@@ -100,6 +104,7 @@ namespace fin
         ret &= LoadBuiltinComponent<ISprite>(ISprite::CID);
         ret &= LoadBuiltinComponent<IRegion>(IRegion::CID);
         ret &= LoadBuiltinComponent<ICamera>(ICamera::CID);
+        ret &= LoadBuiltinComponent<IAttachment>(IAttachment::CID);
         ret &= LoadBuiltinComponent<IPrefab>(IPrefab::CID);
         ret &= LoadBuiltinComponent<IName>(IName::CID);
         return ret;

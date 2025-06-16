@@ -32,9 +32,50 @@ namespace fin
                 return _points.size() / 2;
             }
 
-            Vec2f GetPoint(uint32_t n)
+            bool HitTest(float x, float y) const
             {
-                return {_points[n * 2].get(0.f), _points[n * 2 + 1].get(0.f)};
+                if (Size() < 3)
+                    return false; // Not a valid polygon
+
+                bool   inside = false;
+                uint32_t n      = Size();
+
+                for (uint32_t i = 0, j = n - 1; i < n; j = i++)
+                {
+                    auto p1 = GetPoint(i);
+                    auto p2 = GetPoint(j);
+
+                    // Check if point is exactly on a vertex
+                    if ((p1.x == x && p1.y == y) || (p2.x == x && p2.y == y))
+                    {
+                        return true;
+                    }
+
+                    // Check if point is on a horizontal edge
+                    if ((p1.y == p2.y) && (p1.y == y) && (x > std::min(p1.x, p2.x)) && (x < std::max(p1.x, p2.x)))
+                    {
+                        return true;
+                    }
+
+                    // Check if point is on a vertical edge
+                    if ((p1.x == p2.x) && (p1.x == x) && (y > std::min(p1.y, p2.y)) && (y < std::max(p1.y, p2.y)))
+                    {
+                        return true;
+                    }
+
+                    // Ray casting intersection check
+                    if (((p1.y > y) != (p2.y > y)) && (x < (p2.x - p1.x) * (y - p1.y) / (p2.y - p1.y) + p1.x))
+                    {
+                        inside = !inside;
+                    }
+                }
+                return inside;
+            }
+
+            Vec2f GetPoint(uint32_t n) const
+            {
+                auto self = const_cast<Node*>(this);
+                return {self->_points[n * 2].get(0.f), self->_points[n * 2 + 1].get(0.f)};
             }
 
             void SetPoint(uint32_t n, Vec2f val)
@@ -198,7 +239,29 @@ namespace fin
 
         int FindAt(Vec2f position)
         {
-            return _spatial.find_at(position.x, position.y);
+            static std::vector<int32_t> nodes;
+            nodes.clear();
+
+            _spatial.query(Rectf{position.x, position.y, 1, 1}, nodes);
+
+            if (nodes.empty())
+                return -1;
+
+            int32_t max_index = INT_MIN;
+            int32_t selected = -1;
+            for (auto idx : nodes)
+            {
+                if (_spatial[idx].HitTest(position.x, position.y))
+                {
+                    if (max_index < _spatial[idx]._index)
+                    {
+                        selected = idx;
+                        max_index = _spatial[idx]._index;
+                    }
+                }
+            }
+
+            return selected;
         }
 
         void MoveTo(int obj, Vec2f pos)
@@ -359,9 +422,10 @@ namespace fin
                         {
                             auto obj = *reg;
                             _spatial.remove(*selected_region());
+                            _selected = -1;
                             obj.SetPoint(_active_point, pt);
                             obj.Update();
-                            _spatial.insert(obj);
+                            _selected = _spatial.insert(obj);
                         }
                     }
                 }
@@ -422,7 +486,7 @@ namespace fin
             }
         }
 
-        void edit_active()
+        void EditActive()
         {
             if (auto* reg = selected_region())
             {
@@ -444,7 +508,7 @@ namespace fin
         void ImguiUpdate(bool items) override
         {
             if (!items)
-                return edit_active();
+                return EditActive();
 
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
