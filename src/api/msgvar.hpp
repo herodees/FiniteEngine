@@ -193,6 +193,7 @@ namespace fin::msg
             static Var       array(uint32_t s);
             static Var       object(uint32_t s);
 
+            bool             empty() const;
             uint32_t         size() const;
             void             clear();
 
@@ -1109,6 +1110,15 @@ namespace fin::msg
                 return ret;
             }
             return false;
+        }
+
+        inline bool Var::empty() const
+        {
+            if (_tag == Tag::Array || _tag == Tag::Object || _tag == Tag::String)
+                return !_arr->_size;
+            if (_tag == Tag::Id)
+                return _str[0] == 0;
+            return _tag == Tag::Undefined;
         }
 
         inline uint32_t Var::size() const

@@ -4,6 +4,7 @@
 #include <core/editor/imgui_control.hpp>
 #include <utils/imguiline.hpp>
 #include <utils/dialog_utils.hpp>
+#include <core/application.hpp>
 
 namespace fin
 {
@@ -362,7 +363,7 @@ namespace fin
                 nfo->Emplace(entity);
             }
 
-            ArchiveParams2 ap{entity, e.second};
+            ArchiveParams ap{entity, e.second};
             if (!nfo->OnDeserialize(ap))
             {
                 TraceLog(LOG_WARNING, "Component %.*s not loaded", c.size(), c.data());
@@ -379,7 +380,7 @@ namespace fin
         {
             if (cmp->Contains(entity))
             {
-                ArchiveParams2 ap{entity};
+                ArchiveParams ap{entity};
                 cmp->OnSerialize(ap);
                 data.set_item(cmp->id, ap.data);
             }
@@ -557,6 +558,13 @@ namespace fin
 
         ImGui::Line()
             .Spring()
+
+            .PushStyle(ImStyle_Button, -99, gSettings.visible_grid)
+            .Text(ICON_FA_BORDER_NONE)
+            .Space()
+            .Text(gSettings.grid_snap ? ImGui::FormatStr("%dx%d", gSettings.grid_snapx, gSettings.grid_snapy) : "Off")
+            .PopStyle()
+            .Space()
             .PushStyle(ImStyle_Header, -5)
             .Space()
             .Text(ICON_FA_ARROWS_TO_CIRCLE)
@@ -588,6 +596,10 @@ namespace fin
             {
                 _s_canvas.zoom = 1.0f;
             }
+            else if (ImGui::Line().HoverId() == -99)
+            {
+                ImGui::OpenPopup("GridSnapMenu");
+            }
             else if(ImGui::Line().HoverId() < 0)
             {
                 if (ImGui::Line().HoverId() == -3)
@@ -604,6 +616,17 @@ namespace fin
                 _selected_component = *it;
             }
         }
+
+        if (ImGui::BeginPopup("GridSnapMenu"))
+        {
+            ImGui::DragInt2("Snap", &gSettings.grid_snapx, 1.0f, 1.0f, 100.0f);
+            if (ImGui::Checkbox("Snap to Grid", &gSettings.grid_snap))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
         return true;
     }
 
@@ -647,7 +670,7 @@ namespace fin
         {
             if (ImGui::MenuItem("Reset"))
             {
-                ArchiveParams2 ar{entity};
+                ArchiveParams ar{entity};
                 comp->OnDeserialize(ar);
             }
             ImGui::Separator(); 
@@ -659,7 +682,7 @@ namespace fin
             ImGui::Separator(); 
             if (ImGui::MenuItem("Copy Component"))
             {
-                ArchiveParams2 ar{entity};
+                ArchiveParams ar{entity};
                 comp->OnSerialize(ar);
                 _s_copy = ar.data; // Store the component data in a global variable for pasting later
                 _s_comp = comp;    // Store the component pointer for pasting later
@@ -668,7 +691,7 @@ namespace fin
             {
                 if (!_s_comp->Contains(entity)) // Ensure the component exists for the entity
                     _s_comp->Emplace(entity);   // If not, create it
-                ArchiveParams2 ar{entity, _s_copy};
+                ArchiveParams ar{entity, _s_copy};
                 _s_comp->OnDeserialize(ar);
             }
             ImGui::EndPopup();
@@ -734,7 +757,7 @@ namespace fin
             {
                 if (!_s_comp->Contains(ImguiProps)) // Ensure the component exists for the entity
                     _s_comp->Emplace(ImguiProps);   // If not, create it
-                ArchiveParams2 ar{ImguiProps, _s_copy};
+                ArchiveParams ar{ImguiProps, _s_copy};
                 _s_comp->OnDeserialize(ar);
             }
             ImGui::EndPopup();
@@ -1143,6 +1166,16 @@ namespace fin
     bool ComponentFactory::ImguiWorkspace(Scene* scene)
     {
         static bool init_canvas = true;
+
+        if (gSettings.grid_snap)
+        {
+            _s_canvas.snap_grid.x = float(gSettings.grid_snapx);
+            _s_canvas.snap_grid.y = float(gSettings.grid_snapy);
+        }
+        else
+        {
+            _s_canvas.snap_grid = {};
+        }
 
         if (ImGui::BeginCanvas("SceneCanvas", ImVec2(0, 0), _s_canvas))
         {

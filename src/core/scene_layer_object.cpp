@@ -501,7 +501,25 @@ namespace fin
 
         if (gSettings.visible_grid)
         {
+            auto from_x = std::clamp(int32_t((_region.x - TileSize) / TileSize), 0, _grid_size.x);
+            auto from_y = std::clamp(int32_t((_region.y - TileSize) / TileSize), 0, _grid_size.y);
+            auto to_x   = std::clamp(int32_t((_region.x + _region.width + TileSize) / TileSize), 0, _grid_size.x);
+            auto to_y   = std::clamp(int32_t((_region.y + _region.height + TileSize) / TileSize), 0, _grid_size.y);
 
+            for (int x = from_x; x <= to_x; ++x)
+            {
+                dc->AddLine(canvas.WorldToScreen({(float)x * TileSize, (float)from_y * TileSize}),
+                            canvas.WorldToScreen({(float)x * TileSize, (float)to_y * TileSize}),
+                            IM_COL32(255, 255, 0, 190),
+                            1.0f);
+            }
+            for (int y = from_y; y <= to_y; ++y)
+            {
+                dc->AddLine(canvas.WorldToScreen({(float)from_x * TileSize, (float)y * TileSize}),
+                            canvas.WorldToScreen({(float)to_x * TileSize, (float)y * TileSize}),
+                            IM_COL32(255, 255, 0, 190),
+                            1.0f);
+            }
         }
     }
 

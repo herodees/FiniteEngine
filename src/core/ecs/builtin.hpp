@@ -19,11 +19,16 @@ namespace fin
         constexpr std::string_view Sprite("spr");
     } // namespace Sc
 
+    static constexpr size_t MaxAttachmentCount = 4;
 
 
     class ObjectSceneLayer;
 
     void RegisterBaseComponents(Register& fact);
+
+    bool Serialize(const Atlas::Pack& pack, msg::Var& data);
+    bool Deserialize(Atlas::Pack& pack, msg::Var& data);
+
 
 
     /// @brief Base spatial component.
@@ -37,8 +42,8 @@ namespace fin
         void          UpdateSparseGrid() final;
         Vec2f         GetPosition() const final;
         void          SetPosition(Vec2f pos) final;
-        void          OnSerialize(ArchiveParams2& ar) final;
-        bool          OnDeserialize(ArchiveParams2& ar) final;
+        void          OnSerialize(ArchiveParams& ar) final;
+        bool          OnDeserialize(ArchiveParams& ar) final;
         bool          OnEdit(Entity ent) final;
     };
 
@@ -47,8 +52,8 @@ namespace fin
     /// Handles collision and rigid body serialization.
     struct CBody : IBody
     {
-        void OnSerialize(ArchiveParams2& ar) final;
-        bool OnDeserialize(ArchiveParams2& ar) final;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
         bool OnEdit(Entity self) final;
     };
 
@@ -60,8 +65,8 @@ namespace fin
         std::vector<Vec2i> _path;
 
         std::span<const Vec2i> GetPath() const final;
-        void OnSerialize(ArchiveParams2& ar) final;
-        bool OnDeserialize(ArchiveParams2& ar) final;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
         bool OnEdit(Entity self) final;
     };
 
@@ -70,8 +75,8 @@ namespace fin
     /// Enables isometric-related editing and display.
     struct CIsometric : IIsometric
     {
-        void OnSerialize(ArchiveParams2& ar) final;
-        bool OnDeserialize(ArchiveParams2& ar) final;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
         bool OnEdit(Entity self) final;
         bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
     };
@@ -84,8 +89,8 @@ namespace fin
         std::vector<Vec2f> _points;
 
         std::span<const Vec2f> GetPath() const final;
-        void OnSerialize(ArchiveParams2& ar) final;
-        bool OnDeserialize(ArchiveParams2& ar) final;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
         bool OnEdit(Entity self) final;
         bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
     };
@@ -96,8 +101,8 @@ namespace fin
     struct CSprite : ISprite
     {
         Atlas::Pack _pack;
-        void        OnSerialize(ArchiveParams2& ar) final;
-        bool        OnDeserialize(ArchiveParams2& ar) final;
+        void        OnSerialize(ArchiveParams& ar) final;
+        bool        OnDeserialize(ArchiveParams& ar) final;
         bool        OnEdit(Entity self) final;
     };
 
@@ -111,8 +116,8 @@ namespace fin
 
         bool                   HitTest(Vec2f pos) const;
         std::span<const Vec2f> GetPath() const final;
-        void                   OnSerialize(ArchiveParams2& ar) final;
-        bool                   OnDeserialize(ArchiveParams2& ar) final;
+        void                   OnSerialize(ArchiveParams& ar) final;
+        bool                   OnDeserialize(ArchiveParams& ar) final;
         bool                   OnEdit(Entity self) final;
         bool                   OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
     };
@@ -130,8 +135,8 @@ namespace fin
         float  _smoothFactor = 5.0f;
         Entity _target       = entt::null;
 
-        void OnSerialize(ArchiveParams2& ar) final;
-        bool OnDeserialize(ArchiveParams2& ar) final;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
         bool OnEdit(Entity self) final;
     };
 
@@ -142,8 +147,8 @@ namespace fin
     {
         msg::Var _data;
 
-        void OnSerialize(ArchiveParams2& ar) final;
-        bool OnDeserialize(ArchiveParams2& ar) final;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
     };
 
 
@@ -153,8 +158,8 @@ namespace fin
     {
         std::string_view _name;
 
-        void OnSerialize(ArchiveParams2& ar) final;
-        bool OnDeserialize(ArchiveParams2& ar) final;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
         bool OnEdit(Entity self) final;
     };
 
@@ -166,22 +171,14 @@ namespace fin
     {
         struct Data
         {
-            Entity      _parent;
-            uint32_t    _next{};
-            uint32_t    _flags{};
             Vec2f       _offset;
             Atlas::Pack _sprite;
         };
 
-        uint32_t _index{};
+        std::array<Data, MaxAttachmentCount> _items;
 
-        Data* First() const;
-        Data* Next(Data* d) const;
-        void  Remove(Data* n);
-        void  Append(const Data& dta, Data* after = nullptr);
-
-        void OnSerialize(ArchiveParams2& ar) final;
-        bool OnDeserialize(ArchiveParams2& ar) final;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
         bool OnEdit(Entity self) final;
     };
 

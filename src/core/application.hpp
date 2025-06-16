@@ -11,11 +11,14 @@ namespace fin
     struct Settings
     {
         std::string buffer;
-        bool        visible_grid{0};
-        bool        visible_isometric{0};
-        bool        visible_collision{0};
-        bool        visible_navgrid{0};
+        bool        visible_grid{};
+        bool        visible_isometric{};
+        bool        visible_collision{};
+        bool        visible_navgrid{};
         bool        list_visible_items{};
+        bool        grid_snap{};
+        int         grid_snapx{4};
+        int         grid_snapy{4};
     };
 
     extern Settings gSettings;

@@ -16,7 +16,7 @@
 
 namespace fin
 {
-    struct ArchiveParams2;
+    struct ArchiveParams;
     struct ComponentInfo;
     struct IComponent;
     struct IScriptComponent;

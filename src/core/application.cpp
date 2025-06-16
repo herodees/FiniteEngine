@@ -21,6 +21,8 @@ namespace fin
 
     void Application::ImguiInit(bool dark_theme)
     {
+        SetExitKey(0); // Disable ESC key to close the application
+
         ImGuiIO& io = ImGui::GetIO();
         (void)io;
         io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;

@@ -3,7 +3,6 @@
 #include "include.hpp"
 #include "scene_layer.hpp"
 #include "utils/lquery.hpp"
-#include "ecs/builtin.hpp"
 #include "navmesh.hpp"
 
 namespace ImGui
@@ -71,7 +70,6 @@ namespace fin
         lq::SpatialDatabase     _spatial_db;
         std::vector<IsoObject>  _iso_pool;
         std::vector<IsoObject*> _iso;
-        std::vector<CAttachment::Data> _attachments;
         Navmesh                 _navmesh;
         uint32_t                _iso_pool_size{};
         int32_t                 _inflate{};

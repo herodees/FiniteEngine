@@ -1,6 +1,7 @@
 #pragma once
 
 #include "include.hpp"
+
 #include <api/components.hpp>
 #include <api/register.hpp>
 
@@ -14,13 +15,13 @@ namespace fin
     class Scene;
     class ComponentFactory
     {
-        friend class ImportDialog; 
-    public:
+        friend class ImportDialog;
 
+    public:
         ComponentFactory(Scene& scene) : _scene(scene) {};
         ~ComponentFactory();
 
-        Register&     GetRegister();
+        Register& GetRegister();
 
         Entity GetOldEntity(Entity old_id);
         void   ClearOldEntities();
@@ -84,8 +85,6 @@ namespace fin
         bool                                                                                 _prefab_changed{false};
         bool                                                                                 _prefab_explorer{};
     };
-
-
 
 
 } // namespace fin

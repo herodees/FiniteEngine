@@ -18,7 +18,7 @@ namespace fin
     using ComponentsFlags = uint32_t;
 
 
-    struct ArchiveParams2
+    struct ArchiveParams
     {
         Entity   entity; // Entity being serialized/deserialized
         msg::Var data;   // Archive variable to serialize/deserialize data
@@ -28,8 +28,8 @@ namespace fin
 
     struct IComponent
     {
-        virtual void OnSerialize(ArchiveParams2& ar) {};
-        virtual bool OnDeserialize(ArchiveParams2& ar)
+        virtual void OnSerialize(ArchiveParams& ar) {};
+        virtual bool OnDeserialize(ArchiveParams& ar)
         {
             return false;
         };
@@ -91,12 +91,12 @@ namespace fin
             storage->erase(ent);
         }
 
-        void OnSerialize(ArchiveParams2& ar)
+        void OnSerialize(ArchiveParams& ar)
         {
             Get(ar.entity)->OnSerialize(ar);
         }
 
-        bool OnDeserialize(ArchiveParams2& ar)
+        bool OnDeserialize(ArchiveParams& ar)
         {
             return Get(ar.entity)->OnDeserialize(ar);
         }

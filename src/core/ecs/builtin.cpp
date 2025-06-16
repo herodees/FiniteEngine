@@ -27,6 +27,28 @@ namespace fin
                             ComponentsFlags_Private | ComponentsFlags_NoWorkspaceEditor | ComponentsFlags_NoEditor);
     }
 
+    bool Serialize(const Atlas::Pack& pack, msg::Var& data)
+    {
+        if (pack.atlas)
+        {
+            data.set_item("src", pack.atlas->get_path());
+            if (pack.sprite)
+            {
+                data.set_item("spr", pack.sprite->_name);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    bool Deserialize(Atlas::Pack& pack, msg::Var& data)
+    {
+        auto src = data["src"];
+        auto sp  = data["spr"];
+        pack     = Atlas::load_shared(src.str(), sp.str());
+        return pack.sprite;
+    }
+
     Vec2f CBase::GetPosition() const
     {
         return _position;
@@ -91,13 +113,13 @@ namespace fin
         return false;
     }
 
-    void CBase::OnSerialize(ArchiveParams2& ar)
+    void CBase::OnSerialize(ArchiveParams& ar)
     {
         ar.data.set_item("x", _position.x);
         ar.data.set_item("y", _position.y);
     }
 
-    bool CBase::OnDeserialize(ArchiveParams2& ar)
+    bool CBase::OnDeserialize(ArchiveParams& ar)
     {
         _self       = ar.entity;
         _position.x = ar.data["x"].get(0.f);
@@ -118,7 +140,7 @@ namespace fin
 
 
     
-    bool CIsometric::OnDeserialize(ArchiveParams2& ar)
+    bool CIsometric::OnDeserialize(ArchiveParams& ar)
     {
         _a.x  = ar.data["ax"].get(0.f);
         _a.y  = ar.data["ay"].get(0.f);
@@ -127,7 +149,7 @@ namespace fin
         return true;
     }
 
-    void CIsometric::OnSerialize(ArchiveParams2& ar)
+    void CIsometric::OnSerialize(ArchiveParams& ar)
     {
         ar.data.set_item("ax", _a.x);
         ar.data.set_item("ay", _a.y);
@@ -148,8 +170,9 @@ namespace fin
 
         ImVec2& a    = (ImVec2&)_a;
         ImVec2& b    = (ImVec2&)_b;
-        ImVec2  snap{1, 1};
-        std::swap(snap, canvas.snap_grid);
+
+        if (!canvas.snap_grid.x || !canvas.snap_grid.y)
+            canvas.snap_grid = ImVec2(1, 1);
 
         ret |= canvas.DragPoint(b, &_b, 5);
         ret |= canvas.DragPoint(a, &_a, 5);
@@ -158,14 +181,13 @@ namespace fin
         ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(a), 5, IM_COL32(0, 255, 0, 255));
         ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(b), 5, IM_COL32(255, 0, 0, 255));
 
-        std::swap(snap, canvas.snap_grid);
         return ret;
     }
 
 
 
 
-    bool CCollider::OnDeserialize(ArchiveParams2& ar)
+    bool CCollider::OnDeserialize(ArchiveParams& ar)
     {
         auto  pts = ar.data.get_item("p");
         _points.clear();
@@ -181,7 +203,7 @@ namespace fin
         return _points;
     }
 
-    void CCollider::OnSerialize(ArchiveParams2& ar)
+    void CCollider::OnSerialize(ArchiveParams& ar)
     {
         msg::Var pts;
         for (auto p : _points)
@@ -202,8 +224,9 @@ namespace fin
     {
         bool   ret  = false;
 
-        ImVec2 snap{1, 1};
-        std::swap(snap, canvas.snap_grid);
+        if (!canvas.snap_grid.x || !canvas.snap_grid.y)
+            canvas.snap_grid = ImVec2(1, 1);
+
         for (size_t i = 0; i < _points.size(); ++i)
         {
             auto& p1 = (ImVec2&)_points[i];
@@ -215,7 +238,7 @@ namespace fin
                 ->AddLine(canvas.WorldToScreen(p1), canvas.WorldToScreen(p2), IM_COL32(255, 255, 255, 255), 2);
             ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(p1), 5, IM_COL32(255, 255, 255, 255));
         }
-        std::swap(snap, canvas.snap_grid);
+
         return ret;
     }
 
@@ -223,24 +246,15 @@ namespace fin
 
 
     
-    bool CSprite::OnDeserialize(ArchiveParams2& ar)
+    bool CSprite::OnDeserialize(ArchiveParams& ar)
     {
-        auto  src = ar.data["src"];
-        auto  sp  = ar.data["spr"];
-        _pack     = Atlas::load_shared(src.str(), sp.str());
+        Deserialize(_pack, ar.data);
         return true;
     }
 
-    void CSprite::OnSerialize(ArchiveParams2& ar)
+    void CSprite::OnSerialize(ArchiveParams& ar)
     {
-        if (_pack.atlas)
-        {
-            ar.data.set_item("src", _pack.atlas->get_path());
-            if (_pack.sprite)
-            {
-                ar.data.set_item("spr", _pack.sprite->_name);
-            }
-        }
+        Serialize(_pack, ar.data);
     }
 
     bool CSprite::OnEdit(Entity ent)
@@ -277,7 +291,7 @@ namespace fin
         return inside;
     }
 
-    bool CRegion::OnDeserialize(ArchiveParams2& ar)
+    bool CRegion::OnDeserialize(ArchiveParams& ar)
     {
         auto  pts = ar.data.get_item("p");
         _points.clear();
@@ -288,7 +302,7 @@ namespace fin
         return true;
     }
 
-    void CRegion::OnSerialize(ArchiveParams2& ar)
+    void CRegion::OnSerialize(ArchiveParams& ar)
     {
         msg::Var pts;
         for (auto p : _points)
@@ -309,8 +323,9 @@ namespace fin
     {
         bool   ret  = false;
 
-        ImVec2 snap{1, 1};
-        std::swap(snap, canvas.snap_grid);
+        if (!canvas.snap_grid.x || !canvas.snap_grid.y)
+            canvas.snap_grid = ImVec2(1, 1);
+
         for (size_t i = 0; i < _points.size(); ++i)
         {
             auto& p1 = (ImVec2&)_points[i];
@@ -322,13 +337,13 @@ namespace fin
                 ->AddLine(canvas.WorldToScreen(p1), canvas.WorldToScreen(p2), IM_COL32(255, 255, 255, 255), 2);
             ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(p1), 5, IM_COL32(255, 255, 255, 255));
         }
-        std::swap(snap, canvas.snap_grid);
+
         return ret;
     }
 
 
 
-    bool CCamera::OnDeserialize(ArchiveParams2& ar)
+    bool CCamera::OnDeserialize(ArchiveParams& ar)
     {
         _position.x   = ar.data["x"].get(0.f);
         _position.y   = ar.data["y"].get(0.f);
@@ -341,7 +356,7 @@ namespace fin
         return true;
     }
 
-    void CCamera::OnSerialize(ArchiveParams2& ar)
+    void CCamera::OnSerialize(ArchiveParams& ar)
     {
         ar.data.set_item("x", _position.x);
         ar.data.set_item("y", _position.y);
@@ -369,27 +384,27 @@ namespace fin
 
 
 
-    bool CPrefab::OnDeserialize(ArchiveParams2& ar)
+    bool CPrefab::OnDeserialize(ArchiveParams& ar)
     {
         auto  uid = ar.data[Sc::Uid].get(0ull);
         return true;
     }
 
-    void CPrefab::OnSerialize(ArchiveParams2& ar)
+    void CPrefab::OnSerialize(ArchiveParams& ar)
     {
         ar.data.set_item(Sc::Uid, _data[Sc::Uid]);
     }
 
 
 
-    bool CBody::OnDeserialize(ArchiveParams2& ar)
+    bool CBody::OnDeserialize(ArchiveParams& ar)
     {
         _speed.x = ar.data["vx"].get(0.f);
         _speed.y = ar.data["vy"].get(0.f);
         return true;
     }
 
-    void CBody::OnSerialize(ArchiveParams2& ar)
+    void CBody::OnSerialize(ArchiveParams& ar)
     {
         ar.data.set_item("vx", _speed.x);
         ar.data.set_item("vy", _speed.y);
@@ -404,7 +419,7 @@ namespace fin
 
 
 
-    bool CPath::OnDeserialize(ArchiveParams2& ar)
+    bool CPath::OnDeserialize(ArchiveParams& ar)
     {
         auto  pts = ar.data.get_item("p");
         _path.clear();
@@ -420,7 +435,7 @@ namespace fin
         return _path;
     }
 
-    void CPath::OnSerialize(ArchiveParams2& ar)
+    void CPath::OnSerialize(ArchiveParams& ar)
     {
         msg::Var pts;
         for (auto p : _path)
@@ -439,7 +454,7 @@ namespace fin
 
 
 
-    bool CName::OnDeserialize(ArchiveParams2& ar)
+    bool CName::OnDeserialize(ArchiveParams& ar)
     {
         auto id = ar.data.get_item("id");
         _name   = id.str();
@@ -447,7 +462,7 @@ namespace fin
         return true;
     }
 
-    void CName::OnSerialize(ArchiveParams2& ar)
+    void CName::OnSerialize(ArchiveParams& ar)
     {
         if (!_name.empty())
             ar.data.set_item("id", _name);
@@ -472,18 +487,59 @@ namespace fin
         return false;
     }
 
-    void CAttachment::OnSerialize(ArchiveParams2& ar)
+    void CAttachment::OnSerialize(ArchiveParams& ar)
     {
+        msg::Var items;
+        for (auto el : _items)
+        {
+            msg::Var item;
+            Serialize(el._sprite, item);
+            item.set_item("x", el._offset.x);
+            item.set_item("y", el._offset.y);
+            items.push_back(item);
+        }
+
+        if (!items.is_undefined())
+        {
+            ar.data.set_item("items", items);
+        }
     }
 
-    bool CAttachment::OnDeserialize(ArchiveParams2& ar)
+    bool CAttachment::OnDeserialize(ArchiveParams& ar)
     {
+        auto items = ar.data.get_item("items");
+        auto sze   = items.size();
+        if (sze)
+        {
+            for (size_t n = 0; n < _items.size(); ++n)
+            {
+                _items[n]._sprite.atlas.reset();
+                _items[n]._sprite.sprite = nullptr;
+                _items[n]._offset        = Vec2f(0, 0);
+                if (sze > n)
+                {
+                    auto el = items.get_item(n);
+                    Deserialize(_items[n]._sprite, el);
+                    _items[n]._offset.x = el["x"].get(0.f);
+                    _items[n]._offset.y = el["y"].get(0.f);
+                }
+            }
+        }
         return true;
     }
 
     bool CAttachment::OnEdit(Entity self)
     {
-        return false;
+        bool ret = false;
+        for (auto& el : _items)
+        {
+            ImGui::PushID(&el);
+            ret |= ImGui::SpriteInput("Sprite##att", &el._sprite);
+            ret |= ImGui::InputFloat2("Offset", &el._offset.x);
+            ImGui::PopID();
+            ImGui::Separator();
+        }
+        return ret;
     }
 
 } // namespace fin

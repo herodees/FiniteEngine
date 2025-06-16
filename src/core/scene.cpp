@@ -5,6 +5,7 @@
 #include "ecs/builtin.hpp"
 #include "ecs/core.hpp"
 #include <rlgl.h>
+#include "application.hpp"
 
 namespace fin
 {
@@ -585,6 +586,16 @@ namespace fin
                     ActicateGrid(Recti(0, 0, _s_canvas.canvas_size.x, _s_canvas.canvas_size.y));
                     _camera.position = _s_canvas.ScreenToWorld(_s_canvas.canvas_pos);
                     _camera.zoom     = _s_canvas.zoom;
+                    if (gSettings.grid_snap)
+                    {
+                        _s_canvas.snap_grid.x = float(gSettings.grid_snapx);
+                        _s_canvas.snap_grid.y = float(gSettings.grid_snapy);
+                    }
+                    else
+                    {
+                        _s_canvas.snap_grid = {};
+                    }
+               
 
                     ImGui::GetWindowDrawList()->AddImage((ImTextureID)&_canvas.get_texture()->texture,
                                                          {_s_canvas.canvas_pos.x, _s_canvas.canvas_pos.y},

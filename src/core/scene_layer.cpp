@@ -18,6 +18,11 @@ namespace fin
     {
         ImGui::Line()
             .Spring()
+            .PushStyle(ImStyle_Button, -99, gSettings.visible_grid)
+            .Text(ICON_FA_BORDER_NONE)
+            .Space()
+            .Text(gSettings.grid_snap ? ImGui::FormatStr("%dx%d", gSettings.grid_snapx, gSettings.grid_snapy) : "Off")
+            .PopStyle()
             .PushStyle(ImStyle_Button, -100, gSettings.visible_grid)
             .Text(ICON_FA_BORDER_ALL)
             .PopStyle()
@@ -36,6 +41,8 @@ namespace fin
 
         if (ImGui::Line().End())
         {
+            if (ImGui::Line().HoverId() == -99)
+                ImGui::OpenPopup("GridSnapMenu");
             if (ImGui::Line().HoverId() == -100)
                 gSettings.visible_grid = !gSettings.visible_grid;
             if (ImGui::Line().HoverId() == -101)
@@ -46,6 +53,17 @@ namespace fin
                 gSettings.visible_navgrid = !gSettings.visible_navgrid;
             return true;
         }
+
+        if (ImGui::BeginPopup("GridSnapMenu"))
+        {
+            ImGui::DragInt2("Snap", &gSettings.grid_snapx, 1.0f, 1.0f, 100.0f);
+            if(ImGui::Checkbox("Snap to Grid", &gSettings.grid_snap))
+            {
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndPopup();
+        }
+
         return false;
     }
 

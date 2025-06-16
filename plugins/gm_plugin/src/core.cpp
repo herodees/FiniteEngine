@@ -11,10 +11,23 @@ namespace fin
 
         bool OnEdit(Entity ent) override
         {
+            gImguiAPI.Text(
+                "This is a %s script component. It can be used to display text\nor perform other actions in the "
+                "game.",
+                "TXT");
             if (gImguiAPI.Button("Test", {}))
             {
 
             }
+            if (gImguiAPI.BeginCombo("Test_Combo", "A"))
+            {
+                gImguiAPI.Select("A", false);
+                gImguiAPI.Select("B", false);
+                gImguiAPI.Select("C", false);
+                gImguiAPI.EndCombo();
+            }
+            bool selected = false;
+            gImguiAPI.Checkbox("Test_Checkbox", &selected);
             return false;
         };
     };
