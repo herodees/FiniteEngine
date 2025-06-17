@@ -9,16 +9,18 @@
 
 namespace fin
 {
-    void BeginDefaultMenu(const char* id)
+    void BeginDefaultMenu(const char* id, ImGui::CanvasParams& canvas)
     {
         ImGui::LineItem(ImGui::GetID(id), {-1, ImGui::GetFrameHeightWithSpacing()}).Space();
     }
 
-    bool EndDefaultMenu()
+    bool EndDefaultMenu(ImGui::CanvasParams& canvas)
     {
         ImGui::Line()
             .Spring()
-            .PushStyle(ImStyle_Button, -99, gSettings.visible_grid)
+            .Text("")
+            .Space()
+            .PushStyle(ImStyle_Button, -99, false)
             .Text(ICON_FA_BORDER_NONE)
             .Space()
             .Text(gSettings.grid_snap ? ImGui::FormatStr("%dx%d", gSettings.grid_snapx, gSettings.grid_snapy) : "Off")
@@ -183,8 +185,9 @@ namespace fin
         return nullptr;
     }
 
-    void SceneLayer::ImguiUpdate(bool items)
+    bool SceneLayer::ImguiUpdate(bool items)
     {
+        return false;
     }
 
     void SceneLayer::ImguiSetup()
@@ -192,12 +195,14 @@ namespace fin
         ImGui::InputText("Name", &_name);
     }
 
-    void SceneLayer::ImguiWorkspace(ImGui::CanvasParams& canvas)
+    bool SceneLayer::ImguiWorkspace(ImGui::CanvasParams& canvas)
     {
+        return false;
     }
 
-    void SceneLayer::ImguiWorkspaceMenu()
+    bool SceneLayer::ImguiWorkspaceMenu(ImGui::CanvasParams& canvas)
     {
+        return false;
     }
 
 

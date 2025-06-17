@@ -190,7 +190,7 @@ namespace ImGui
         return modified;
     }
 
-    bool PointVector(const char* label, std::vector<fin::Vec2f>* points, ImVec2 size)
+    bool PointVector(const char* label, std::vector<fin::Vec2f>* points, ImVec2 size, int* active)
     {
         bool modified = false;
         ImGui::PushID(ImGui::GetID(label));
@@ -201,6 +201,8 @@ namespace ImGui
             for (auto n = 0; n < points->size(); ++n)
             {
                 ImGui::PushID(n);
+                if (active && *active == n)
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
                 if (ImGui::Button("-"))
                 {
                     points->erase(points->begin()+n);
@@ -212,6 +214,10 @@ namespace ImGui
                 if (ImGui::InputFloat2("_", &(*points)[n].x))
                 {
                     modified = true;
+                }
+                if (active && *active == n)
+                {
+                    ImGui::PopStyleColor();
                 }
                 ImGui::PopID();
             }
@@ -227,7 +233,7 @@ namespace ImGui
         return modified;
     }
 
-    bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit)
+    bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, int* active)
     {
         bool modified = false;
         ImGui::PushID(ImGui::GetID(label));
@@ -238,6 +244,8 @@ namespace ImGui
             for (auto n = 0; n < points->size(); n += 2)
             {
                 ImGui::PushID(n);
+                if (active && *active == n / 2)
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
                 if (ImGui::Button("-"))
                 {
                     points->erase(n);
@@ -253,6 +261,10 @@ namespace ImGui
                     modified = true;
                     points->set_item(n, val[0]);
                     points->set_item(n + 1, val[1]);
+                }
+                if (active && *active == n / 2)
+                {
+                    ImGui::PopStyleColor();
                 }
                 ImGui::PopID();
             }

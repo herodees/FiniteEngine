@@ -9,8 +9,8 @@ namespace ImGui
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack);
     bool TextureInput(const char* label, fin::Texture2D::Ptr* pack);
     bool SoundInput(const char* label, fin::SoundSource::Ptr* pack);
-    bool PointVector(const char* label, std::vector<fin::Vec2f>* points, ImVec2 size);
-    bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, bool scene_edit = false);
+    bool PointVector(const char* label, std::vector<fin::Vec2f>* points, ImVec2 size, int* active = nullptr);
+    bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, int* active = nullptr);
     void SpriteImage(fin::Atlas::Sprite* spr, ImVec2 size);
 
     struct CanvasParams

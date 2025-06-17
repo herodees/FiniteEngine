@@ -581,6 +581,18 @@ namespace fin
             }
             else
             {
+                if (auto* lyr = GetActiveLayer())
+                {
+                    lyr->ImguiWorkspaceMenu(_s_canvas);
+                }
+                if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+                {
+                    _edit_prefabs = false;
+                }
+
+                pos  = ImGui::GetCursorScreenPos();
+                size = ImGui::GetContentRegionAvail();
+
                 if (ImGui::BeginCanvas("SceneCanvas", ImVec2(-1, -1), _s_canvas))
                 {
                     ActicateGrid(Recti(0, 0, _s_canvas.canvas_size.x, _s_canvas.canvas_size.y));
@@ -700,11 +712,6 @@ namespace fin
                     Save(runtime_file, false);
                     run_current_process({"/scene=\"" + runtime_file + "\""});
                 }
-            }
-
-            if (auto* lyr = GetActiveLayer())
-            {
-                lyr->ImguiWorkspaceMenu();
             }
         }
     }

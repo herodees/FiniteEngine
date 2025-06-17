@@ -153,24 +153,28 @@ namespace fin
             return -1;
         }
 
-        void EditActive()
+        bool EditActive()
         {
+            return false;
         }
 
-        void ImguiWorkspaceMenu() override
+        bool ImguiWorkspaceMenu(ImGui::CanvasParams& canvas) override
         {
-            BeginDefaultMenu("wsmnu");
-            if (EndDefaultMenu())
+            BeginDefaultMenu("wsmnu", canvas);
+            if (EndDefaultMenu(canvas))
             {
             }
+            return false;
         }
 
-        void ImguiWorkspace(ImGui::CanvasParams& canvas) override
+        bool ImguiWorkspace(ImGui::CanvasParams& canvas) override
         {
             _edit._sprite = {};
 
             if (IsHidden())
-                return;
+                return false;
+
+            bool modified = false;
 
             ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
             if (ImGui::IsItemClicked(0))
@@ -180,6 +184,7 @@ namespace fin
                 {
                     ImVec2 pos{_spatial[_select]._bbox.x, _spatial[_select]._bbox.y};
                     canvas.BeginDrag(pos, (void*)(size_t)_select);
+                    modified = true;
                 }
             }
             if (ImGui::IsItemClicked(1))
@@ -193,6 +198,7 @@ namespace fin
                 if (canvas.EndDrag(pos, (void*)(size_t)_select))
                 {
                     MoveTo(_select, pos);
+                    modified = true;
                 }
             }
 
@@ -225,6 +231,7 @@ namespace fin
                         _edit._index       = _max_index;
                         ++_max_index;
                         _spatial.insert(_edit);
+                        modified = true;
                     }
                 }
 
@@ -262,6 +269,8 @@ namespace fin
                 };
                 _spatial.for_each_node(cb);
             }
+
+            return modified;
         }
 
         void ImguiSetup() override
@@ -270,11 +279,12 @@ namespace fin
             ImGui::Checkbox("Sort by Y", &_sort_y);
         }
 
-        void ImguiUpdate(bool items) override
+        bool ImguiUpdate(bool items) override
         {
             if (!items)
                 return EditActive();
 
+            bool modified = false;
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
                 .PushStyle(ImStyle_Button, 10, gSettings.list_visible_items)
@@ -292,6 +302,7 @@ namespace fin
                 {
                     Destroy(_select);
                     _select = -1;
+                    modified = true;
                 }
                 if (ImGui::Line().HoverId() == 10)
                 {
@@ -357,6 +368,8 @@ namespace fin
                 }
             }
             ImGui::EndChildFrame();
+
+            return modified;
         }
 
     private:

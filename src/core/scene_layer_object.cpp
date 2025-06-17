@@ -376,13 +376,14 @@ namespace fin
         }
     }
 
-    void ObjectSceneLayer::ImguiWorkspace(ImGui::CanvasParams& canvas)
+    bool ObjectSceneLayer::ImguiWorkspace(ImGui::CanvasParams& canvas)
     {
         _drop = entt::null;
 
         if (IsHidden())
-            return;
+            return false;
 
+        bool   modified  = false;
         ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
 
         if (ImGui::IsItemClicked(0))
@@ -394,6 +395,7 @@ namespace fin
             {
                 ImVec2 pos{base->_position.x, base->_position.y};
                 canvas.BeginDrag(pos, base);
+                modified = true;
             }
         }
 
@@ -408,6 +410,7 @@ namespace fin
             if (canvas.EndDrag(pos, base))
             {
                 MoveTo(_edit, pos);
+                modified = true;
             }
         }
    
@@ -422,6 +425,7 @@ namespace fin
                 if (auto* obj = Find<CBase>(_drop))
                 {
                     obj->_position = {mouse_pos.x, mouse_pos.y};
+                    modified       = true;
                 }
                 else
                 {
@@ -436,6 +440,7 @@ namespace fin
                 {
                     obj->_position = {mouse_pos.x, mouse_pos.y};
                     Insert(_drop);
+                    modified = true;
                 }
 
                 _drop = entt::null;
@@ -521,14 +526,17 @@ namespace fin
                             1.0f);
             }
         }
+
+        return modified;
     }
 
-    void ObjectSceneLayer::ImguiWorkspaceMenu()
+    bool ObjectSceneLayer::ImguiWorkspaceMenu(ImGui::CanvasParams& canvas)
     {
-        BeginDefaultMenu("wsmnu");
-        if (EndDefaultMenu())
+        BeginDefaultMenu("wsmnu", canvas);
+        if (EndDefaultMenu(canvas))
         {
         }
+        return false;
     }
 
     void ObjectSceneLayer::ImguiSetup()
@@ -541,7 +549,7 @@ namespace fin
         }
     }
 
-    void ObjectSceneLayer::ImguiUpdate(bool items)
+    bool ObjectSceneLayer::ImguiUpdate(bool items)
     {
         if (items)
         {
@@ -563,7 +571,7 @@ namespace fin
                 {
                     Remove(_edit);
                     _edit = entt::null;
-                    return;
+                    return true;
                 }
                 if (ImGui::Line().HoverId() == 10)
                 {
@@ -619,16 +627,6 @@ namespace fin
             GetScene()->GetFactory().ImguiPrefab(GetScene(), _edit);
         }
     }
-    /*
-    Entity ObjectSceneLayer::GetActive(size_t n) const
-    {
-        return _iso[n]->_ptr;
-    }
-
-    size_t ObjectSceneLayer::GetActiveCount() const
-    {
-        return _iso.size();
-    }**/
 
     Navmesh& ObjectSceneLayer::GetNavmesh()
     {

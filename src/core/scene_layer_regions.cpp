@@ -361,10 +361,11 @@ namespace fin
             rlSetTexture(0);
         }
 
-        void ImguiWorkspaceMenu() override
+        bool ImguiWorkspaceMenu(ImGui::CanvasParams& canvas) override
         {
-            BeginDefaultMenu("wsmnu");
+            BeginDefaultMenu("wsmnu", canvas);
             ImGui::Line()
+
                 .PushStyle(ImStyle_Button, 10, _edit_region)
                 .Text(ICON_FA_ARROW_POINTER " Edit")
                 .PopStyle()
@@ -373,7 +374,7 @@ namespace fin
                 .Text(ICON_FA_BRUSH " Create")
                 .PopStyle();
 
-            if (EndDefaultMenu())
+            if (EndDefaultMenu(canvas))
             {
                 if (ImGui::Line().HoverId() == 10)
                 {
@@ -384,10 +385,15 @@ namespace fin
                     _edit_region = false;
                 }
             }
+            return false;
         }
 
-        void ImguiWorkspace(ImGui::CanvasParams& canvas) override
+        bool ImguiWorkspace(ImGui::CanvasParams& canvas) override
         {
+            if (IsHidden())
+                return false;
+
+            bool   modified  = false;
             ImVec2 mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
             // Edit region points
             if (_edit_region)
@@ -401,11 +407,49 @@ namespace fin
                         {
                             ImVec2 pt = {reg->GetPoint(_active_point).x, reg->GetPoint(_active_point).y};
                             canvas.BeginDrag(pt, (void*)(size_t)_active_point);
+                            modified = true;
                         }
                     }
                     if (ImGui::IsItemClicked(1))
                     {
                         _selected = -1;
+                    }
+
+                    if (ImGui::IsMouseDoubleClicked(0))
+                    {
+                        // Find nearest point on edge
+                        int    insert_index = -1;
+                        ImVec2 insert_point;
+                        float  nearest_dist = 16.0f * 16.f;
+
+                        for (int i = 0; i < reg->Size(); ++i)
+                        {
+                            ImVec2 a = (ImVec2&)reg->GetPoint(i);
+                            ImVec2 b = (ImVec2&)reg->GetPoint((i + 1) % reg->Size());
+
+                            // Project mouse_pos onto segment a-b
+                            ImVec2 ab   = b - a;
+                            ImVec2 ap   = mouse_pos - a;
+                            float  t    = ImClamp(ImDot(ap, ab) / ImLengthSqr(ab), 0.0f, 1.0f);
+                            ImVec2 proj = a + ab * t;
+                            float  dist = ImLengthSqr(mouse_pos - proj); 
+
+                            if (dist < nearest_dist)
+                            {
+                                nearest_dist = dist;
+                                insert_point = proj;
+                                insert_index = i + 1;
+                            }
+                        }
+
+                        if (insert_index != -1)
+                        {
+                            // Insert the point
+                            reg->Insert(insert_point, insert_index);
+                            _active_point = insert_index;
+                            canvas.BeginDrag(insert_point, (void*)(size_t)_active_point);
+                            modified = true;
+                        }
                     }
                 }
                 else if (ImGui::IsItemClicked(0))
@@ -426,6 +470,7 @@ namespace fin
                             obj.SetPoint(_active_point, pt);
                             obj.Update();
                             _selected = _spatial.insert(obj);
+                            modified  = true;
                         }
                     }
                 }
@@ -443,6 +488,7 @@ namespace fin
                         obj.Update();
                         _spatial.insert(obj);
                         _active_point = _active_point + 1;
+                        modified      = true;
                     }
                     else
                     {
@@ -452,6 +498,7 @@ namespace fin
                         obj._index    = ++_max_index;
                         _selected     = _spatial.insert(obj);
                         _active_point = 0;
+                        modified      = true;
                     }
                 }
                 if (ImGui::IsItemClicked(1))
@@ -484,14 +531,32 @@ namespace fin
                     dc->AddLine(pt1, pt2, 0xff0000ff);
                 }
             }
+
+            if (gSettings.visible_grid)
+            {
+                auto  cb = [&dc, &canvas](const Rectf& rc)
+                {
+                    ImVec2 min{rc.x, rc.y};
+                    ImVec2 max{rc.x2(), rc.y2()};
+                    dc->AddRect(canvas.WorldToScreen(min),
+                                canvas.WorldToScreen(max),
+                                IM_COL32(255, 255, 0, 190),
+                                0,
+                                ImDrawFlags_Closed,
+                                1.0f);
+                };
+                _spatial.for_each_node(cb);
+            }
+            return modified;
         }
 
-        void EditActive()
+        bool EditActive()
         {
+            bool modified = false;
             if (auto* reg = selected_region())
             {
-                bool modified = false;
-                modified |= ImGui::PointVector("Points", &reg->_points, {-1, ImGui::GetFrameHeightWithSpacing() * 4});
+        
+                modified |= ImGui::PointVector("Points", &reg->_points, {-1, ImGui::GetFrameHeightWithSpacing() * 4}, &_active_point);
                 modified |= ImGui::TextureInput("Texture", &reg->_texture);
                 if (reg->_texture)
                     modified |= ImGui::DragInt2("Offset", &reg->_offset.x);
@@ -503,9 +568,10 @@ namespace fin
                     reg->Update();
                 }
             }
+            return modified;
         }
 
-        void ImguiUpdate(bool items) override
+        bool ImguiUpdate(bool items) override
         {
             if (!items)
                 return EditActive();

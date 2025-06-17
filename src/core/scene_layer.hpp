@@ -57,10 +57,10 @@ namespace fin
         Vec2f            GetCursorPos() const final;
         StringView       GetName() const final;
 
-        virtual void ImguiUpdate(bool items);
+        virtual bool ImguiUpdate(bool items);
         virtual void ImguiSetup();
-        virtual void ImguiWorkspace(ImGui::CanvasParams& canvas);
-        virtual void ImguiWorkspaceMenu();
+        virtual bool ImguiWorkspace(ImGui::CanvasParams& canvas);
+        virtual bool ImguiWorkspaceMenu(ImGui::CanvasParams& canvas);
 
     protected:
         Scene*           _parent{};
@@ -109,7 +109,7 @@ namespace fin
     };
 
 
-    void BeginDefaultMenu(const char* id);
-    bool EndDefaultMenu();
+    void BeginDefaultMenu(const char* id, ImGui::CanvasParams& canvas);
+    bool EndDefaultMenu(ImGui::CanvasParams& canvas);
 
 } // namespace fin

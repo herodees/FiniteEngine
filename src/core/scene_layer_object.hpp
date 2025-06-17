@@ -53,10 +53,10 @@ namespace fin
         void             Clear() final;
         void             Resize(Vec2f size) final;
 
-        void ImguiWorkspace(ImGui::CanvasParams& canvas) final;
-        void ImguiWorkspaceMenu() final;
+        bool ImguiWorkspace(ImGui::CanvasParams& canvas) final;
+        bool ImguiWorkspaceMenu(ImGui::CanvasParams& canvas) final;
         void ImguiSetup() final;
-        void ImguiUpdate(bool items) final;
+        bool ImguiUpdate(bool items) final;
 
     protected:
         void UpdateNavmesh();
@@ -78,7 +78,7 @@ namespace fin
         bool                    _dirty_navmesh{};
     };
 
-    void BeginDefaultMenu(const char* id);
-    bool EndDefaultMenu();
+    void BeginDefaultMenu(const char* id, ImGui::CanvasParams& canvas);
+    bool EndDefaultMenu(ImGui::CanvasParams& canvas);
 
 } // namespace fin
