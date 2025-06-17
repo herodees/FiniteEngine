@@ -575,7 +575,7 @@ namespace fin
         {
             if (!items)
                 return EditActive();
-
+            bool modified = false;
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
                 .PushStyle(ImStyle_Button, 10, gSettings.list_visible_items)
@@ -594,6 +594,7 @@ namespace fin
                     if (auto* reg = selected_region())
                     {
                         _spatial.remove(*reg);
+                        modified = true;
                     }
                 }
                 if (ImGui::Line().HoverId() == 10)
@@ -644,6 +645,8 @@ namespace fin
             }
 
             ImGui::EndChildFrame();
+
+            return modified;
         }
 
     private:

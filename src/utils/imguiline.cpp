@@ -8,6 +8,7 @@ static LineConstructor& Create(const ImVec2& from, const ImVec2& to, bool visibl
 {
     g_line.m_blocks.resize(0);
     g_line.m_stringGlyph.resize(0);
+    g_line.m_strings.resize(0);
     g_line.m_spring = 0;
     g_line.m_min = from;
     g_line.m_max = to;
@@ -17,7 +18,7 @@ static LineConstructor& Create(const ImVec2& from, const ImVec2& to, bool visibl
     g_line.m_hoverId = 0;
     g_line.m_selected = false;
     g_line.m_selectable = false;
-
+    g_line.m_tip = -1;
     return g_line;
 }
 
@@ -92,6 +93,13 @@ bool LineConstructor::End()
 
     Precalculate();
     Render();
+
+    if (m_tip != -1 && BeginItemTooltip())
+    {
+        const char* str = &m_strings[m_blocks[m_tip].begin];
+        TextEx(str, str + m_blocks[m_tip].length - 1, ImGuiTextFlags_NoWidthForLargeClippedText);
+        EndTooltip();
+    }
 
     if (m_return)
     {
@@ -171,6 +179,47 @@ LineConstructor& LineConstructor::Format(const char* fmt, ...)
     buf[w] = 0;
 
     return Text(buf, w);
+}
+
+LineConstructor& LineConstructor::Tooltip(const char* str, size_t len)
+{
+    if (!m_visible || !len)
+        return *this;
+    m_blocks.resize(m_blocks.Size + 1);
+    Block& block = m_blocks.back();
+    block.type   = Block::Type::Tooltip;
+    block.begin  = (uint16_t)m_strings.Size;
+    if (len == -1)
+        len = strlen(str);
+
+    const char* current = str;
+    const char* cend    = str + len;
+    while (current < cend)
+    {
+        m_strings.push_back(current[0]);
+        ++current;
+    }
+    m_strings.push_back('\0'); // Null-terminate the string
+
+    block.length = (uint16_t)m_strings.Size - block.begin;
+
+    return *this;
+}
+
+LineConstructor& LineConstructor::TooltipF(const char* fmt, ...)
+{
+    if (!m_visible)
+        return *this;
+    static char buf[512];
+    va_list     args;
+    va_start(args, fmt);
+    int w = vsnprintf(buf, (int)std::size(buf), fmt, args);
+    va_end(args);
+    if (w == -1 || w >= (int)std::size(buf))
+        w = (int)std::size(buf) - 1;
+    buf[w] = 0;
+
+    return Tooltip(buf, w);
 }
 
 LineConstructor& LineConstructor::Space(int width)
@@ -403,6 +452,7 @@ void LineConstructor::Render()
     }
 
     const bool active = m_hover && ImGui::IsMouseDown(0);
+    bool       request_tip = false;
 
     for (int n = 0; n < m_blocks.Size; ++n)
     {
@@ -501,7 +551,10 @@ void LineConstructor::Render()
         {
             const bool hovered = (m_hover && current.data && mpos.x >= xpos && mpos.x < xpos + current.begin);
             if (hovered)
+            {
                 m_hoverId = current.data;
+                request_tip = true;
+            }
 
             uint32_t clr = 0;
             if (current.length == ImStyle_Button)
@@ -545,6 +598,7 @@ void LineConstructor::Render()
         }
         else if (current.type == Block::Type::StyleEnd)
         {
+            request_tip = false;
             xpos += style.FramePadding.x;
         }
         else if (current.type == Block::Type::ColorId)
@@ -562,6 +616,13 @@ void LineConstructor::Render()
             else
                 --color_idx;
             assert(color_idx >= 0 && color_idx < (int)std::size(color)); // Missing PopColor
+        }
+        else if (current.type == Block::Type::Tooltip)
+        {
+            if (request_tip)
+            {
+                m_tip     = n;
+            }
         }
     }
 }

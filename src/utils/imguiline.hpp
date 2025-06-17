@@ -34,6 +34,7 @@ class LineConstructor
         enum Type
         {
             Text,
+            Tooltip,
             Space,
             Spring,
             ColorId,
@@ -42,9 +43,9 @@ class LineConstructor
             StyleEnd
         };
 
-        uint32_t type : 3;
+        uint32_t type : 4;
         uint32_t hover : 1;
-        uint32_t length : 12;
+        uint32_t length : 11;
         uint32_t begin : 16;
         uint32_t data;
     };
@@ -62,6 +63,13 @@ public:
     LineConstructor& Text(const char* str);
     LineConstructor& Text(const char* str, size_t l);
     LineConstructor& Format(const char* fmt, ...);
+
+    template <typename STR>
+    LineConstructor& Tooltip(const STR& str);
+    template <size_t N>
+    LineConstructor& Tooltip(const char (&s)[N]);
+    LineConstructor& Tooltip(const char* str, size_t l = -1);
+    LineConstructor& TooltipF(const char* fmt, ...);
 
     LineConstructor& Space(int width = 2);
     LineConstructor& Spring(float power = 1.f);
@@ -87,6 +95,7 @@ private:
 
     int m_spring = 0;
     ImVector<Block> m_blocks;
+    ImVector<char> m_strings;
     ImVector<const ImFontGlyph*> m_stringGlyph;
     ImVec2 m_min;
     ImVec2 m_max;
@@ -96,6 +105,7 @@ private:
     bool m_selectable;
     bool m_return;
     int m_hoverId;
+    int m_tip;
     int* m_expanded = nullptr;
 
     friend LineConstructor& Create(const ImVec2& from, const ImVec2& to, bool visible, bool hover, bool ret);
@@ -111,6 +121,18 @@ template<size_t N>
 inline LineConstructor& LineConstructor::Text(const char (&s)[N])
 {
     return Text(s, N);
+}
+
+template <typename STR>
+inline LineConstructor& LineConstructor::Tooltip(const STR& str)
+{
+    return Tooltip((const char*)str.data(), str.size());
+}
+
+template <size_t N>
+inline LineConstructor& LineConstructor::Tooltip(const char (&s)[N])
+{
+    return Tooltip(s, N);
 }
 
 } // namespace ImGui

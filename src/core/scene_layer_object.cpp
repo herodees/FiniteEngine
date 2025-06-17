@@ -551,6 +551,7 @@ namespace fin
 
     bool ObjectSceneLayer::ImguiUpdate(bool items)
     {
+        bool modified = false;
         if (items)
         {
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
@@ -571,6 +572,7 @@ namespace fin
                 {
                     Remove(_edit);
                     _edit = entt::null;
+                    modified = true;
                     return true;
                 }
                 if (ImGui::Line().HoverId() == 10)
@@ -624,8 +626,10 @@ namespace fin
         }
         else if (_edit != entt::null)
         {
-            GetScene()->GetFactory().ImguiPrefab(GetScene(), _edit);
+            modified |= GetScene()->GetFactory().ImguiPrefab(GetScene(), _edit);
         }
+
+        return modified;
     }
 
     Navmesh& ObjectSceneLayer::GetNavmesh()

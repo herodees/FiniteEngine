@@ -697,6 +697,7 @@ namespace fin
             if (ImGui::LineItem("WorkspaceTabs", {-1, ImGui::GetFrameHeight()})
                     .Space()
                     .PushStyle(ImStyle_Header, 1)
+                    .Tooltip("Open Scene in Debug mode")
                     .Space()
                     .Text(ICON_FA_PLAY " Debug")
                     .Space()
