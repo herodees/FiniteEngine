@@ -8,6 +8,12 @@
 
 namespace fin
 {
+    static bool        s_attachment_mode{false};
+    static Atlas::Pack s_attachment_pack{};
+    static Entity      s_attachment_target{entt::null};
+    static ImVec2      s_attachment_offset{0, 0};
+    static int32_t     s_attachment_id{-1};
+
     int32_t ObjectSceneLayer::IsoObject::depth_get()
     {
         if (_depth_active)
@@ -182,6 +188,39 @@ namespace fin
                 else
                 {
                     return obj;
+                }
+            }
+        }
+        return entt::null;
+    }
+
+    Entity ObjectSceneLayer::FindActiveAttachmentAt(Vec2f position, int32_t& attachment) const
+    {
+        attachment = -1;
+        for (auto it = _iso.rbegin(); it != _iso.rend(); ++it)
+        {
+            auto  obj  = (*it)->_ptr;
+            auto& bbox = (*it)->_bbox;
+
+          //  if (bbox.contains(position))
+            {
+                if (auto* spr = Find<CAttachment>(obj))
+                {
+                    for (auto it = spr->_items.rbegin(); it != spr->_items.rend(); ++it)
+                    {
+                        auto& item = *it;
+                        if (item._sprite.sprite)
+                        {
+                            Vec2f box;
+                            box.x  = item._offset.x + Get<CBase>(obj)._position.x - item._sprite.sprite->_origina.x;
+                            box.y = item._offset.y + Get<CBase>(obj)._position.y - item._sprite.sprite->_origina.y;
+                            if (item._sprite.is_alpha_visible(position.x - box.x, position.y - box.y))
+                            {
+                                attachment = int32_t(std::distance(spr->_items.data(), &item));
+                                return obj;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -372,6 +411,33 @@ namespace fin
 
                     dc.render_texture(sprite._pack.sprite->_texture, sprite._pack.sprite->_source, dest);
                 }
+
+                if (Contains<CAttachment>(ent->_ptr))
+                {
+                    auto& att = Get<CAttachment>(ent->_ptr);
+                    for (auto& el : att._items)
+                    {
+                        if (el._sprite.sprite)
+                        {
+                            Rectf dest;
+                            dest.x      = base._position.x + el._offset.x - el._sprite.sprite->_origina.x;
+                            dest.y      = base._position.y + el._offset.y - el._sprite.sprite->_origina.y;
+                            dest.width  = el._sprite.sprite->_source.width;
+                            dest.height = el._sprite.sprite->_source.height;
+                            dc.render_texture(el._sprite.sprite->_texture, el._sprite.sprite->_source, dest);
+                        }
+                    }
+                }
+
+                if (s_attachment_target == ent->_ptr && s_attachment_pack.sprite)
+                {
+                    Rectf dest;
+                    dest.x      = base._position.x + s_attachment_offset.x - s_attachment_pack.sprite->_origina.x;
+                    dest.y      = base._position.y + s_attachment_offset.y - s_attachment_pack.sprite->_origina.y;
+                    dest.width  = s_attachment_pack.sprite->_source.width;
+                    dest.height = s_attachment_pack.sprite->_source.height;
+                    dc.render_texture(s_attachment_pack.sprite->_texture, s_attachment_pack.sprite->_source, dest);
+                }
             }
         }
     }
@@ -379,6 +445,13 @@ namespace fin
     bool ObjectSceneLayer::ImguiWorkspace(ImGui::CanvasParams& canvas)
     {
         _drop = entt::null;
+        if (!IsMouseButtonDown(0))
+        {
+            s_attachment_id     = -1;
+            s_attachment_pack = {};
+            s_attachment_target = entt::null;
+            canvas.dragging     = false;
+        }
 
         if (IsHidden())
             return false;
@@ -388,14 +461,30 @@ namespace fin
 
         if (ImGui::IsItemClicked(0))
         {
-            auto el = FindActiveAt(mouse_pos);
-            SelectEdit(el);
-
-            if (auto* base = Find<CBase>(_edit))
+            if (s_attachment_mode)
             {
-                ImVec2 pos{base->_position.x, base->_position.y};
-                canvas.BeginDrag(pos, base);
-                modified = true;
+                s_attachment_id = -1;
+                auto el  = FindActiveAttachmentAt(mouse_pos, s_attachment_id);
+                SelectEdit(el);
+                if (s_attachment_id != -1 && Contains<CAttachment>(_edit))
+                {
+                    auto& base = Get<CAttachment>(_edit);
+                    ImVec2 pos(base._items[s_attachment_id]._offset.x, base._items[s_attachment_id]._offset.y);
+                    canvas.BeginDrag(pos, &base);
+                    modified = true;
+                }
+            }
+            else
+            {
+                auto el = FindActiveAt(mouse_pos);
+                SelectEdit(el);
+
+                if (auto* base = Find<CBase>(_edit))
+                {
+                    ImVec2 pos{base->_position.x, base->_position.y};
+                    canvas.BeginDrag(pos, base);
+                    modified = true;
+                }
             }
         }
 
@@ -404,22 +493,39 @@ namespace fin
             SelectEdit(entt::null);
         }
 
-        if (auto* base = Find<CBase>(_edit))
+        if (s_attachment_mode)
         {
-            ImVec2 pos{base->_position.x, base->_position.y};
-            if (canvas.EndDrag(pos, base))
+            if (s_attachment_id != -1 && Contains<CAttachment>(_edit))
             {
-                MoveTo(_edit, pos);
-                modified = true;
+                auto&  base = Get<CAttachment>(_edit);
+                ImVec2 pos(base._items[s_attachment_id]._offset.x, base._items[s_attachment_id]._offset.y);
+                if (canvas.EndDrag(pos, &base))
+                {
+                    base._items[s_attachment_id]._offset = pos;
+                    modified = true;
+                }
             }
         }
-   
+        else
+        {
+            if (auto* base = Find<CBase>(_edit))
+            {
+                ImVec2 pos{base->_position.x, base->_position.y};
+                if (canvas.EndDrag(pos, base))
+                {
+                    MoveTo(_edit, pos);
+                    modified = true;
+                }
+            }
+        }
+
         if (ImGui::BeginDragDropTarget())
         {
             if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ENTITY",
                                                                            ImGuiDragDropFlags_AcceptPeekOnly |
                                                                                ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
+                s_attachment_mode = false;
                 IM_ASSERT(payload->DataSize == sizeof(Entity));
                 _drop = *(const Entity*)payload->Data;
                 if (auto* obj = Find<CBase>(_drop))
@@ -446,6 +552,40 @@ namespace fin
                 _drop = entt::null;
             }
 
+
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE",
+                                                                           ImGuiDragDropFlags_AcceptPeekOnly |
+                                                                               ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            {
+                s_attachment_mode = true;
+                if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
+                {
+                    s_attachment_pack = *object;
+                    s_attachment_target = FindActiveAt(mouse_pos);
+                    if (s_attachment_target != entt::null && Contains<CBase>(s_attachment_target))
+                    {
+                        auto& base = Get<CBase>(s_attachment_target);
+                        s_attachment_offset = {mouse_pos.x - base._position.x, mouse_pos.y - base._position.y};
+                    }
+                }
+            }
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            {
+                if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
+                {
+                    if (s_attachment_target != entt::null && Contains<CBase>(s_attachment_target))
+                    {
+                        auto& base          = Get<CBase>(s_attachment_target);
+                        s_attachment_offset = {mouse_pos.x - base._position.x, mouse_pos.y - base._position.y};
+                        if (!Contains<CAttachment>(s_attachment_target))
+                            Emplace<CAttachment>(s_attachment_target);
+                        Get<CAttachment>(s_attachment_target).Append(s_attachment_pack, s_attachment_offset);
+                        s_attachment_pack = {};
+                        s_attachment_target = entt::null;
+                    }
+                    modified = true;
+                }
+            }
             ImGui::EndDragDropTarget();
         }
 
@@ -534,14 +674,14 @@ namespace fin
     {
         BeginDefaultMenu("wsmnu", canvas);
         ImGui::Line()
-            .PushStyle(ImStyle_Button, 10, false)
+            .PushStyle(ImStyle_Button, 10, !s_attachment_mode)
             .Tooltip("Object mode")
             .Space()
             .Text(ICON_FA_GHOST)
             .Space()
             .PopStyle()
             .Space()
-            .PushStyle(ImStyle_Button, 20, !false)
+            .PushStyle(ImStyle_Button, 20, s_attachment_mode)
             .Tooltip("Attachment mode")
             .Space()
             .Text(ICON_FA_PAPERCLIP)
@@ -550,6 +690,10 @@ namespace fin
 
         if (EndDefaultMenu(canvas))
         {
+            if (ImGui::Line().HoverId() == 10)
+                s_attachment_mode = false;
+            if (ImGui::Line().HoverId() == 20)
+                s_attachment_mode = true;
         }
         return false;
     }

@@ -177,6 +177,10 @@ namespace fin
 
         std::array<Data, MaxAttachmentCount> _items;
 
+        int Append(const Atlas::Pack& ref, Vec2f off);
+        void Remove(int idx);
+        void Clear();
+
         void OnSerialize(ArchiveParams& ar) final;
         bool OnDeserialize(ArchiveParams& ar) final;
         bool OnEdit(Entity self) final;

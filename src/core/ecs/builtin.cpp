@@ -487,10 +487,38 @@ namespace fin
         return false;
     }
 
+    int CAttachment::Append(const Atlas::Pack& ref, Vec2f off)
+    {
+        int n{};
+        for (auto& el : _items)
+        {
+            ++n;
+            if (el._sprite.sprite)
+                continue;
+            el._sprite = ref;
+            el._offset = off;
+            return n;
+        }
+        return -1;
+    }
+
+    void CAttachment::Remove(int idx)
+    {
+        if (idx < 0 || idx >= (int)_items.size())
+            return;
+        _items[idx] = {};
+    }
+
+    void CAttachment::Clear()
+    {
+        for (auto& el : _items)
+            el = {};
+    }
+
     void CAttachment::OnSerialize(ArchiveParams& ar)
     {
         msg::Var items;
-        for (auto el : _items)
+        for (auto& el : _items)
         {
             msg::Var item;
             Serialize(el._sprite, item);

@@ -595,7 +595,7 @@ namespace fin
         {
             if (ImGui::Line().HoverId() == -5)
             {
-                _s_canvas.CenterOrigin();
+                _s_canvas.CenterOnScreen();
             }
             else if(ImGui::Line().HoverId() == -4)
             {
@@ -1192,7 +1192,7 @@ namespace fin
         {
             if (init_canvas)
             {
-                _s_canvas.CenterOrigin();
+                _s_canvas.CenterOnScreen();
                 init_canvas = false;
             }
 

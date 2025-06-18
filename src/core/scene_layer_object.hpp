@@ -38,6 +38,7 @@ namespace fin
         void             Update(void* obj);
         Entity           FindAt(Vec2f position) const final;
         Entity           FindActiveAt(Vec2f position) const final;
+        Entity           FindActiveAttachmentAt(Vec2f position, int32_t& attachment) const;
         std::span<Vec2i> FindPath(Vec2i from, Vec2i to) const final;
         bool             FindPath(Vec2i from, Vec2i to, std::vector<Vec2i>& path) const;
         Navmesh&         GetNavmesh();
