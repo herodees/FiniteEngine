@@ -533,6 +533,21 @@ namespace fin
     bool ObjectSceneLayer::ImguiWorkspaceMenu(ImGui::CanvasParams& canvas)
     {
         BeginDefaultMenu("wsmnu", canvas);
+        ImGui::Line()
+            .PushStyle(ImStyle_Button, 10, false)
+            .Tooltip("Object mode")
+            .Space()
+            .Text(ICON_FA_GHOST)
+            .Space()
+            .PopStyle()
+            .Space()
+            .PushStyle(ImStyle_Button, 20, !false)
+            .Tooltip("Attachment mode")
+            .Space()
+            .Text(ICON_FA_PAPERCLIP)
+            .Space()
+            .PopStyle();
+
         if (EndDefaultMenu(canvas))
         {
         }
