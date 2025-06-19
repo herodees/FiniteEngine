@@ -380,8 +380,12 @@ namespace fin
         {
             if (cmp->Contains(entity))
             {
+                if (cmp->flags & ComponentsFlags_Private)
+                    continue;
                 ArchiveParams ap{entity};
                 cmp->OnSerialize(ap);
+                if (cmp->flags & ComponentsFlags_NoEmpty && ap.data.is_undefined())
+                    continue;
                 data.set_item(cmp->id, ap.data);
             }
         }
