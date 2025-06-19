@@ -29,6 +29,8 @@ namespace fin
         std::vector<std::string>       files;
         std::shared_ptr<ImGui::Editor> editor;
         bool                           expanded{};
+        std::string_view               context;
+
     };
 
     static ImGui::CanvasParams                                                                        _s_canvas;
@@ -1021,6 +1023,7 @@ namespace fin
         }
         else
         {
+            std::string_view context;
             for (auto& dir : _s_file_dir.dirs)
             {
                 if (ImGui::LineSelect(ImGui::GetID(dir.c_str()), false)
@@ -1044,8 +1047,14 @@ namespace fin
                         _s_file_dir.path += '/';
                     }
                 }
+
+                if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(1))
+                {
+                    context = dir;
+                }
             }
 
+            std::string_view context2;
             for (auto& file : _s_file_dir.files)
             {
                 uint32_t clr;
@@ -1072,6 +1081,38 @@ namespace fin
                         scene->Load(_s_file_dir.path + file);
                     }
                 }
+
+                if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(1))
+                {
+                    context2 = file;
+                }
+            }
+
+            if (!context.empty())
+            {
+                ImGui::OpenPopup("FolderContextMenu");
+                _s_file_dir.context = context;
+            }
+            if (ImGui::BeginPopup("FolderContextMenu"))
+            {
+                if (ImGui::MenuItem("Pack folder Sprites"))
+                {
+                    std::string dir(_s_file_dir.path);
+                    if (_s_file_dir.context != "..")
+                        dir.append(_s_file_dir.context).push_back('/');
+                    Sprite2D::CreateTextureAtlas(dir, "", 4096, 4096);
+                }
+                ImGui::EndPopup();
+            }
+
+            if (!context2.empty())
+            {
+                ImGui::OpenPopup("FileContextMenu");
+                _s_file_dir.context = context2;
+            }
+            if (ImGui::BeginPopup("FileContextMenu"))
+            {
+                ImGui::EndPopup();
             }
         }
     }

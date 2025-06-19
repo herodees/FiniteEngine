@@ -163,4 +163,36 @@ namespace fin
         explicit operator bool() const;
     };
 
+
+
+    class Sprite2D : std::enable_shared_from_this<Sprite2D>
+    {
+    private:
+        Texture2D::Ptr _texture;
+        std::string    _path;
+        Rectf          _rect{};
+
+    public:
+        using Ptr = std::shared_ptr<Sprite2D>;
+
+        Sprite2D() = default;
+        Sprite2D(Sprite2D&& s) noexcept;
+        Sprite2D(const Sprite2D&) = delete;
+        ~Sprite2D();
+        Sprite2D&          operator=(Sprite2D&& s) noexcept;
+        Sprite2D&          operator=(const Sprite2D&) = delete;
+        bool               load_from_file(std::string_view filePath);
+        void               parse_sprite_config(std::string_view content, std::string_view dir);
+        const std::string& get_path() const;
+
+        static Ptr load_shared(std::string_view pth);
+        static bool CreateTextureAtlas(const std::string& folderPath,
+                                       const std::string& atlasName,
+                                       int                maxAtlasWidth  = 2048,
+                                       int                maxAtlasHeight = 2048,
+                                       bool               shrink_to_fit  = true);
+
+        explicit   operator bool() const;
+    };
+
 } // namespace fin

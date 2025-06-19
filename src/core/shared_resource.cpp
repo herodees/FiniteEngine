@@ -1,5 +1,8 @@
 #include "shared_resource.hpp"
 #include "atlas.hpp"
+#include <imstb_rectpack.h>
+
+    namespace fs = std::filesystem;
 
 namespace fin
 {
@@ -10,6 +13,7 @@ namespace fin
         std::unordered_map<std::string, std::weak_ptr<Texture2D>, std::string_hash, std::equal_to<>>   _textures;
         std::unordered_map<std::string, std::weak_ptr<Surface>, std::string_hash, std::equal_to<>>     _surfaces;
         std::unordered_map<std::string, std::weak_ptr<SoundSource>, std::string_hash, std::equal_to<>> _sounds;
+        std::unordered_map<std::string, std::weak_ptr<Sprite2D>, std::string_hash, std::equal_to<>>    _sprites;
     };
 
     static SharedResource _shared_res;
@@ -384,4 +388,327 @@ namespace fin
         return sound.stream.buffer;
     }
 
+
+    Sprite2D::Sprite2D(Sprite2D&& s) noexcept
+    {
+        std::swap(_texture, s._texture);
+        std::swap(_rect, s._rect);
+    }
+
+    Sprite2D::~Sprite2D()
+    {
+    }
+
+    Sprite2D& Sprite2D::operator=(Sprite2D&& s) noexcept
+    {
+        std::swap(_texture, s._texture);
+        std::swap(_rect, s._rect);
+        return *this;
+    }
+
+    bool Sprite2D::load_from_file(std::string_view filePath)
+    {
+        _path = filePath;
+        int size = 0;
+        if (auto* txt = LoadFileData(_path.c_str(), &size))
+        {
+            filePath.rfind('/') != std::string_view::npos
+                ? filePath = filePath.substr(0, filePath.rfind('/'))
+                : filePath = ".";
+            parse_sprite_config({(const char*)txt, (size_t)size}, filePath);
+            _texture = Texture2D::load_shared(filePath);
+            UnloadFileData(txt);
+        }
+        return !!_texture;
+    }
+
+    // Helper function to trim whitespace from a string_view
+    std::string_view trim_whitespace(std::string_view str)
+    {
+        const char* whitespace = " \t\r\n";
+        size_t      start      = str.find_first_not_of(whitespace);
+        if (start == std::string_view::npos)
+        {
+            return "";
+        }
+        size_t end = str.find_last_not_of(whitespace);
+        return str.substr(start, end - start + 1);
+    }
+
+    void Sprite2D::parse_sprite_config(std::string_view content, std::string_view dir)
+    {
+        auto get_int = [](std::string_view str) -> int
+        {
+            int result     = 0;
+            auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), result);
+            if (ec != std::errc())
+                return 0; // Error in conversion
+            return result;
+        };
+        // Parse line by line
+        while (!content.empty())
+        {
+            // Get the current line
+            size_t           end_of_line = content.find('\n');
+            std::string_view line        = content.substr(0, end_of_line);
+
+            // Trim whitespace from the line
+            line = trim_whitespace(line);
+
+            // Skip empty lines
+            if (line.empty())
+            {
+                content = (end_of_line == std::string_view::npos) ? std::string_view() : content.substr(end_of_line + 1);
+                continue;
+            }
+
+            // Find the '=' delimiter
+            size_t delimiter_pos = line.find('=');
+            if (delimiter_pos == std::string_view::npos)
+            {
+                content = (end_of_line == std::string_view::npos) ? std::string_view() : content.substr(end_of_line + 1);
+                continue; // skip malformed lines
+            }
+
+            // Split into key and value
+            std::string_view key   = trim_whitespace(line.substr(0, delimiter_pos));
+            std::string_view value = trim_whitespace(line.substr(delimiter_pos + 1));
+
+            // Assign to the appropriate field
+            if (key == "x")
+            {
+                _rect.x = get_int(value);
+            }
+            else if (key == "y")
+            {
+                _rect.y = get_int(value);
+            }
+            else if (key == "width")
+            {
+                _rect.width = get_int(value);
+            }
+            else if (key == "height")
+            {
+                _rect.height = get_int(value);
+            }
+            else if (key == "src")
+            {
+                std::string base(dir);
+                base.append(value);
+                _texture = Texture2D::load_shared(base);
+            }
+            // Move to next line
+            content = (end_of_line == std::string_view::npos) ? std::string_view() : content.substr(end_of_line + 1);
+        }
+    }
+
+    Sprite2D::Ptr Sprite2D::load_shared(std::string_view pth)
+    {
+        auto it = _shared_res._sprites.find(pth);
+        if (it != _shared_res._sprites.end() && !it->second.expired())
+            return it->second.lock();
+
+        auto ptr                               = std::make_shared<Sprite2D>();
+        _shared_res._sprites[std::string(pth)] = ptr;
+        ptr->load_from_file(pth);
+
+        return ptr;
+    }
+
+
+
+
+    bool Sprite2D::CreateTextureAtlas(const std::string& folderPath,
+                            const std::string& atlasName,
+                            int                maxAtlasWidth,
+                            int                maxAtlasHeight,
+                            bool               shrink_to_fit)
+    {
+        // Collect all image files in the folder
+        std::vector<std::string> imageFiles;
+        for (const auto& entry : fs::directory_iterator(folderPath))
+        {
+            if (entry.is_regular_file())
+            {
+                std::string ext = entry.path().extension().string();
+                std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga")
+                {
+                    if (entry.path().stem().string() != atlasName)
+                    {
+                        imageFiles.push_back(entry.path().string());
+                    }
+                }
+            }
+        }
+
+        if (imageFiles.empty())
+        {
+            TraceLog(LOG_WARNING, "No images found in folder to pack");
+            return false;
+        }
+
+        struct PackedImage
+        {
+            std::string srcPath;
+            ::Rectangle rect;
+        };
+
+        // Load all images and collect their sizes
+        std::vector<Image>       images;
+        std::vector<stbrp_rect>  rects;
+        std::vector<PackedImage> packedImages;
+
+        for (const auto& file : imageFiles)
+        {
+            Image img = LoadImage(file.c_str());
+            if (img.data == nullptr)
+            {
+                TraceLog(LOG_WARNING, TextFormat("Failed to load image: %s", file.c_str()));
+                continue;
+            }
+
+            stbrp_rect rect;
+            rect.id = rects.size();
+            rect.w  = img.width;
+            rect.h  = img.height;
+            rect.x = rect.y = 0;
+            rect.was_packed = 0;
+
+            rects.push_back(rect);
+            images.push_back(img);
+            packedImages.push_back({file, {0, 0, (float)img.width, (float)img.height}});
+        }
+
+        // Determine optimal atlas size if shrink_to_fit is enabled
+        int atlasWidth  = maxAtlasWidth;
+        int atlasHeight = maxAtlasHeight;
+
+        if (shrink_to_fit)
+        {
+            // Calculate total area and maximum dimensions
+            int totalArea = 0;
+            int maxWidth  = 0;
+            int maxHeight = 0;
+
+            for (const auto& rect : rects)
+            {
+                totalArea += rect.w * rect.h;
+                maxWidth  = std::max(maxWidth, rect.w);
+                maxHeight = std::max(maxHeight, rect.h);
+            }
+
+            // Start with reasonable initial size
+            atlasWidth  = std::min(maxAtlasWidth, NextPowerOfTwo((int)ceil(sqrt(totalArea * 1.2))));
+            atlasHeight = std::min(maxAtlasHeight, NextPowerOfTwo((int)ceil(sqrt(totalArea * 1.2))));
+
+            // Ensure the atlas can fit the largest image
+            atlasWidth  = std::max(atlasWidth, maxWidth);
+            atlasHeight = std::max(atlasHeight, maxHeight);
+
+            // Try packing with progressively smaller sizes
+            bool packed = false;
+            while (!packed && (atlasWidth >= maxWidth && atlasHeight >= maxHeight))
+            {
+                stbrp_context           context;
+                std::vector<stbrp_node> nodes(atlasWidth);
+                stbrp_init_target(&context, atlasWidth, atlasHeight, nodes.data(), nodes.size());
+
+                // Make a copy of rects to test packing
+                std::vector<stbrp_rect> testRects = rects;
+                packed                            = stbrp_pack_rects(&context, testRects.data(), testRects.size()) != 0;
+
+                if (!packed)
+                {
+                    // Try increasing the smaller dimension
+                    if (atlasWidth <= atlasHeight && atlasWidth < maxAtlasWidth)
+                    {
+                        atlasWidth *= 2;
+                    }
+                    else if (atlasHeight < maxAtlasHeight)
+                    {
+                        atlasHeight *= 2;
+                    }
+                    else
+                    {
+                        break; // Can't fit even at max size
+                    }
+                }
+            }
+
+            if (!packed)
+            {
+                TraceLog(LOG_WARNING, "Couldn't find optimal size, using maximum dimensions");
+                atlasWidth  = maxAtlasWidth;
+                atlasHeight = maxAtlasHeight;
+            }
+        }
+
+        TraceLog(LOG_INFO, TextFormat("Using atlas size: %dx%d", atlasWidth, atlasHeight));
+
+        // Initialize rectangle packer with final size
+        stbrp_context           context;
+        std::vector<stbrp_node> nodes(atlasWidth);
+        stbrp_init_target(&context, atlasWidth, atlasHeight, nodes.data(), nodes.size());
+
+        // Pack the rectangles
+        if (stbrp_pack_rects(&context, rects.data(), rects.size()) == 0)
+        {
+            TraceLog(LOG_ERROR, "Failed to pack rectangles into atlas");
+            for (auto& img : images)
+                UnloadImage(img);
+            return false;
+        }
+
+        // Create atlas image
+        Image atlasImg = GenImageColor(atlasWidth, atlasHeight, BLANK);
+
+        // Copy packed images to atlas
+        for (size_t i = 0; i < rects.size(); i++)
+        {
+            if (rects[i].was_packed)
+            {
+                ::Rectangle srcRec = {0, 0, (float)images[i].width, (float)images[i].height};
+                ::Rectangle dstRec = {(float)rects[i].x, (float)rects[i].y, (float)rects[i].w, (float)rects[i].h};
+
+                ImageDraw(&atlasImg, images[i], srcRec, dstRec, WHITE);
+                packedImages[i].rect = dstRec;
+            }
+            else
+            {
+                TraceLog(LOG_WARNING, TextFormat("Failed to pack image: %s", packedImages[i].srcPath.c_str()));
+            }
+        }
+
+        // Save the atlas image
+        std::string atlasPath = folderPath + "/" + atlasName + ".png";
+        ExportImage(atlasImg, atlasPath.c_str());
+
+        // Save sprite metadata files
+        for (const auto& packedImg : packedImages)
+        {
+            if (packedImg.rect.width > 0 && packedImg.rect.height > 0)
+            {
+                std::string spriteFilePath = packedImg.srcPath;
+                spriteFilePath.resize(spriteFilePath.find_last_of('.'));
+                spriteFilePath.append(".sprite");
+                std::string data;
+                data.append("x=").append(std::to_string((int)packedImg.rect.x)).append("\n");
+                data.append("y=").append(std::to_string((int)packedImg.rect.y)).append("\n");
+                data.append("width=").append(std::to_string((int)packedImg.rect.width)).append("\n");
+                data.append("height=").append(std::to_string((int)packedImg.rect.height)).append("\n");
+                data.append("src=").append(atlasName).append(".png\n");
+                SaveFileText(spriteFilePath.c_str(), data.c_str());
+            }
+        }
+
+        // Cleanup
+        for (auto& img : images)
+            UnloadImage(img);
+        UnloadImage(atlasImg);
+
+        TraceLog(LOG_INFO,
+                 TextFormat("Successfully created texture atlas: %s (%dx%d)", atlasPath.c_str(), atlasWidth, atlasHeight));
+        return true;
+    }
 } // namespace fin

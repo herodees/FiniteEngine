@@ -9,6 +9,17 @@
 
 namespace fin
 {
+    // Helper function to get next power of two
+    inline int NextPowerOfTwo(int value)
+    {
+        int power = 1;
+        while (power < value)
+        {
+            power <<= 1;
+        }
+        return power;
+    }
+
     enum Dir
     {
         Right,
