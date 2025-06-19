@@ -62,25 +62,33 @@ namespace fin
     fin::Region<float> CBase::GetBoundingBox() const
     {
         fin::Region<float> bbox{_position.x, _position.y, _position.x, _position.y};
-        if (ComponentTraits<CSprite>::Contains(_self))
+        if (CSprite* spr = Find<CSprite>(_self))
         {
-            auto& spr = ComponentTraits<CSprite>::Get(_self);
-            if (spr._pack.sprite)
+            if (spr->_pack.sprite)
             {
-                bbox.x1 -= spr._pack.sprite->_origina.x;
-                bbox.y1 -= spr._pack.sprite->_origina.y;
-                bbox.x2 = bbox.x1 + spr._pack.sprite->_source.width;
-                bbox.y2 = bbox.y1 + spr._pack.sprite->_source.height;
+                bbox.x1 -= spr->_pack.sprite->_origina.x;
+                bbox.y1 -= spr->_pack.sprite->_origina.y;
+                bbox.x2 = bbox.x1 + spr->_pack.sprite->_source.width;
+                bbox.y2 = bbox.y1 + spr->_pack.sprite->_source.height;
             }
-        }
-        else if (ComponentTraits<CRegion>::Contains(_self))
-        {
-            auto& reg = ComponentTraits<CRegion>::Get(_self);
-            if (!reg._points.empty())
+            /*
+            if (CAttachment* att = Find<CAttachment>(_self))
             {
-                Vec2f min = reg._points[0];
-                Vec2f max = reg._points[0];
-                for (const auto& p : reg._points)
+                auto bbox2 = att->GetBoundingBox();
+                bbox.x1    = std::min(bbox.x1, _position.x + bbox2.x1);
+                bbox.y1    = std::min(bbox.y1, _position.y + bbox2.y1);
+                bbox.x2    = std::max(bbox.x2, _position.x + bbox2.x2);
+                bbox.y2    = std::max(bbox.y2, _position.y + bbox2.y2);
+            }
+            */
+        }
+        else if (CRegion* reg = Find<CRegion>(_self))
+        {
+            if (!reg->_points.empty())
+            {
+                Vec2f min = reg->_points[0];
+                Vec2f max = reg->_points[0];
+                for (const auto& p : reg->_points)
                 {
                     min.x = std::min(min.x, p.x);
                     min.y = std::min(min.y, p.y);
@@ -103,8 +111,8 @@ namespace fin
 
     bool CBase::HitTest(Vec2f pos) const
     {
-        if (ComponentTraits<CRegion>::Contains(_self))
-            return ComponentTraits<CRegion>::Get(_self).HitTest(pos);
+        if (Contains<CRegion>(_self))
+            return Get<CRegion>(_self).HitTest(pos);
 
         if (GetBoundingBox().contains(pos))
         {
@@ -497,6 +505,7 @@ namespace fin
                 continue;
             el._sprite = ref;
             el._offset = off;
+            _bbox.x1   = FLT_MIN;
             return n;
         }
         return -1;
@@ -507,12 +516,47 @@ namespace fin
         if (idx < 0 || idx >= (int)_items.size())
             return;
         _items[idx] = {};
+        _bbox.x1    = FLT_MIN;
+    }
+
+    void CAttachment::MoveTo(int idx, Vec2f off)
+    {
+        if (idx < 0 || idx >= (int)_items.size())
+            return;
+        _items[idx]._offset = off;
+        _bbox.x1            = FLT_MIN;
     }
 
     void CAttachment::Clear()
     {
         for (auto& el : _items)
             el = {};
+        _bbox = {};
+    }
+
+    Region<float> CAttachment::GetBoundingBox() const
+    {
+        if (_bbox.x1 == FLT_MIN)
+        {
+            _bbox.x1 = FLT_MAX;
+            _bbox.y1 = FLT_MAX;
+            _bbox.x2 = FLT_MIN;
+            _bbox.y2 = FLT_MIN;
+            for (auto& el : _items)
+            {
+                const auto* spr = el._sprite.sprite;
+                if (spr)
+                {
+                    _bbox.x1 = std::min(_bbox.x1, el._offset.x - spr->_origina.x);
+                    _bbox.y1 = std::min(_bbox.y1, el._offset.y - spr->_origina.y); 
+                    _bbox.x2 = std::max(_bbox.x2, el._offset.x - spr->_origina.x + spr->_source.width);
+                    _bbox.y2 = std::max(_bbox.y2, el._offset.y - spr->_origina.y + spr->_source.height); 
+                }
+            }
+            if (_bbox.x1 == FLT_MIN)
+                _bbox = {};
+        }
+        return _bbox;
     }
 
     void CAttachment::OnSerialize(ArchiveParams& ar)
@@ -564,9 +608,12 @@ namespace fin
             ImGui::PushID(&el);
             ret |= ImGui::SpriteInput("Sprite##att", &el._sprite);
             ret |= ImGui::InputFloat2("Offset", &el._offset.x);
+
             ImGui::PopID();
             ImGui::Separator();
         }
+        if (ret)
+            _bbox.x1 = FLT_MIN;
         return ret;
     }
 

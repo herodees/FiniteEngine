@@ -12,8 +12,9 @@ namespace fin
         ComponentsFlags_Private = 1 << 1, // Component is private and should not be shown in the component list
         ComponentsFlags_NoWorkspaceEditor = 1 << 2, // Component should not be shown in the workspace editor
         ComponentsFlags_NoEditor          = 1 << 3, // Component should not be shown in the editor at all
-        ComponentsFlags_NoPrefab          = 1 << 4,
-        ComponentsFlags_Script            = 1 << 5,
+        ComponentsFlags_NoPrefab          = 1 << 4, // Not available in prefab editor
+        ComponentsFlags_NoEmpty           = 1 << 5, // Component is removed if empty
+        ComponentsFlags_Script            = 1 << 6, // Scriptable user component
     };
     using ComponentsFlags = uint32_t;
 
@@ -58,13 +59,12 @@ namespace fin
 
     struct ComponentInfo
     {
-        std::string_view name;
-        std::string_view id;
-        std::string_view label;
-        uint32_t         index       = 0;
-        ComponentsFlags  flags       = 0;       // flags for the component
-        SparseSet*       storage     = nullptr; // owned only if not external
-        PluginHandle     owner       = nullptr; // owner plugin of the component
+        std::string_view name;              // entt type name
+        std::string_view id;                // type id used for serialization
+        std::string_view label;             // editor name
+        ComponentsFlags  flags   = 0;       // flags for the component
+        SparseSet*       storage = nullptr; // owned only if not external
+        PluginHandle     owner   = nullptr; // owner plugin of the component
 
         [[nodiscard]] IComponent* Get(const Entity ent) const
         {

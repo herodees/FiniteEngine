@@ -122,7 +122,6 @@ namespace fin
         ENTT_ASSERT(info != nullptr, "Invalid info");
         ENTT_ASSERT(std::find(_components.cbegin(), _components.cend(), info) == _components.cend(), "Component alredy exists");
 
-        info->index = uint32_t(_components.size());
         _components.push_back(info);
     }
 

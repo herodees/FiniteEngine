@@ -501,7 +501,7 @@ namespace fin
                 ImVec2 pos(base._items[s_attachment_id]._offset.x, base._items[s_attachment_id]._offset.y);
                 if (canvas.EndDrag(pos, &base))
                 {
-                    base._items[s_attachment_id]._offset = pos;
+                    base.MoveTo(s_attachment_id, pos);
                     modified = true;
                 }
             }

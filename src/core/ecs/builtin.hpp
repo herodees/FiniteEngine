@@ -176,10 +176,13 @@ namespace fin
         };
 
         std::array<Data, MaxAttachmentCount> _items;
+        mutable Region<float>                _bbox;
 
-        int Append(const Atlas::Pack& ref, Vec2f off);
-        void Remove(int idx);
-        void Clear();
+        int           Append(const Atlas::Pack& ref, Vec2f off);
+        void          Remove(int idx);
+        void          MoveTo(int idx, Vec2f off);
+        void          Clear();
+        Region<float> GetBoundingBox() const;
 
         void OnSerialize(ArchiveParams& ar) final;
         bool OnDeserialize(ArchiveParams& ar) final;
