@@ -177,7 +177,10 @@ namespace fin
                 {
                     if (spr->_pack.sprite)
                     {
-                        if (spr->_pack.is_alpha_visible(position.x - bbox.x1, position.y - bbox.y1))
+                        auto& base = Get<CBase>(obj);
+                        Vec2f pt{base._position.x - spr->_pack.sprite->_origina.x,
+                                 base._position.y - spr->_pack.sprite->_origina.y};
+                        if (spr->_pack.is_alpha_visible(position.x - pt.x, position.y - pt.y))
                         {
                             return obj;
                         }
@@ -202,7 +205,7 @@ namespace fin
             auto  obj  = (*it)->_ptr;
             auto& bbox = (*it)->_bbox;
 
-          //  if (bbox.contains(position))
+            if (bbox.contains(position))
             {
                 if (auto* spr = Find<CAttachment>(obj))
                 {

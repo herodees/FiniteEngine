@@ -107,6 +107,19 @@ namespace fin
     };
 
 
+
+    struct CSprite2D : ISprite2D
+    {
+        Sprite2D::Ptr _spr;
+        Vec2f         _origin;
+
+        void        OnSerialize(ArchiveParams& ar) final;
+        bool        OnDeserialize(ArchiveParams& ar) final;
+        bool        OnEdit(Entity self) final;
+    };
+
+
+
     /// @brief Region shape component.
     /// Represents an editable polygon area, optionally local.
     struct CRegion : IRegion

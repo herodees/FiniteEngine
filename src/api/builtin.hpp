@@ -53,6 +53,11 @@ namespace fin
         inline static std::string_view CID = "spr";
     };
 
+    struct ISprite2D : IComponent
+    {
+        inline static std::string_view CID = "sp2";
+    };
+
     struct IRegion : IComponent
     {
         virtual std::span<const Vec2f> GetPath() const = 0;

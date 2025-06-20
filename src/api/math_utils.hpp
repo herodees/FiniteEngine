@@ -477,7 +477,8 @@ namespace fin
         return { x, y, x2(), y2() };
     }
 
-
+    using Regionf = Region<float>;
+    using Regioni = Region<int32_t>;
 
     template <typename T>
     struct Line

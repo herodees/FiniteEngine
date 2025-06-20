@@ -19,6 +19,7 @@ namespace fin
         RegBuiltin<CPath>(CPath::CID, "Path", ComponentsFlags_NoWorkspaceEditor);
         RegBuiltin<CCollider>(CCollider::CID, "Collider", ComponentsFlags_Default);
         RegBuiltin<CSprite>(CSprite::CID, "Sprite", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CSprite2D>(CSprite2D::CID, "Sprite2D", ComponentsFlags_NoWorkspaceEditor);
         RegBuiltin<CAttachment>(CAttachment::CID, "Attachment", ComponentsFlags_Default);
         RegBuiltin<CRegion>(CRegion::CID, "Region", ComponentsFlags_Default);
         RegBuiltin<CCamera>(CCamera::CID, "Camera", ComponentsFlags_NoWorkspaceEditor);
@@ -59,9 +60,9 @@ namespace fin
         _position = pos;
     }
 
-    fin::Region<float> CBase::GetBoundingBox() const
+    Region<float> CBase::GetBoundingBox() const
     {
-        fin::Region<float> bbox{_position.x, _position.y, _position.x, _position.y};
+        Region<float> bbox{_position.x, _position.y, _position.x, _position.y};
         if (CSprite* spr = Find<CSprite>(_self))
         {
             if (spr->_pack.sprite)
@@ -71,7 +72,6 @@ namespace fin
                 bbox.x2 = bbox.x1 + spr->_pack.sprite->_source.width;
                 bbox.y2 = bbox.y1 + spr->_pack.sprite->_source.height;
             }
-            /*
             if (CAttachment* att = Find<CAttachment>(_self))
             {
                 auto bbox2 = att->GetBoundingBox();
@@ -80,7 +80,6 @@ namespace fin
                 bbox.x2    = std::max(bbox.x2, _position.x + bbox2.x2);
                 bbox.y2    = std::max(bbox.y2, _position.y + bbox2.y2);
             }
-            */
         }
         else if (CRegion* reg = Find<CRegion>(_self))
         {
@@ -97,7 +96,7 @@ namespace fin
                 }
 
                 // Offset by position if Region is local
-                bbox = fin::Region<float>(min + _position, max + _position);
+                bbox = Region<float>(min + _position, max + _position);
             }
         }
         return bbox;
@@ -614,6 +613,32 @@ namespace fin
         }
         if (ret)
             _bbox.x1 = FLT_MIN;
+        return ret;
+    }
+
+
+
+    void CSprite2D::OnSerialize(ArchiveParams& ar)
+    {
+        if (_spr)
+            ar.data.set_item("src", _spr->GetPath());
+        ar.data.set_item("x", _origin.x);
+        ar.data.set_item("y", _origin.y);
+    }
+
+    bool CSprite2D::OnDeserialize(ArchiveParams& ar)
+    {
+        _spr = Sprite2D::LoadShared(ar.data.get_item("src").str());
+        _origin.x = ar.data.get_item("x").get(0.f);
+        _origin.y = ar.data.get_item("y").get(0.f);
+        return !!_spr;
+    }
+
+    bool CSprite2D::OnEdit(Entity self)
+    {
+        bool ret{};
+        ret |= ImGui::SpriteInput("Sprite", &_spr);
+        ret |= ImGui::InputFloat2("Offset", &_origin.x);
         return ret;
     }
 

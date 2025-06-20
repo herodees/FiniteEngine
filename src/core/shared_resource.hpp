@@ -99,6 +99,16 @@ namespace fin
             return &texture;
         }
 
+        Regionf get_uv(Regionf pos) const
+        {
+            return {pos.x1 / texture.width, pos.y1 / texture.height, pos.x2 / texture.width, pos.y2 / texture.height};
+        }
+
+        Vec2f get_uv(Vec2f pos) const
+        {
+            return {pos.x / texture.width, pos.y / texture.height};
+        }
+
         bool is_alpha_visible(uint32_t x, uint32_t y) const;
 
         static Ptr load_shared(std::string_view pth);
@@ -181,18 +191,23 @@ namespace fin
         ~Sprite2D();
         Sprite2D&          operator=(Sprite2D&& s) noexcept;
         Sprite2D&          operator=(const Sprite2D&) = delete;
-        bool               load_from_file(std::string_view filePath);
-        void               parse_sprite_config(std::string_view content, std::string_view dir);
-        const std::string& get_path() const;
+        bool               LoadFromFile(std::string_view filePath);
+        void               ParseSprite(std::string_view content, std::string_view dir);
+        const std::string& GetPath() const;
+        Texture2D*         GetTexture() const;
+        Regionf            GetUVRegion() const;
+        const Rectf&       GetRect() const;
+        Vec2f              GetSize() const;
 
-        static Ptr load_shared(std::string_view pth);
+        static Ptr LoadShared(std::string_view pth);
+
         static bool CreateTextureAtlas(const std::string& folderPath,
                                        const std::string& atlasName,
                                        int                maxAtlasWidth  = 2048,
                                        int                maxAtlasHeight = 2048,
                                        bool               shrink_to_fit  = true);
 
-        explicit   operator bool() const;
+        explicit operator bool() const;
     };
 
 } // namespace fin

@@ -406,7 +406,7 @@ namespace fin
         return *this;
     }
 
-    bool Sprite2D::load_from_file(std::string_view filePath)
+    bool Sprite2D::LoadFromFile(std::string_view filePath)
     {
         _path = filePath;
         int size = 0;
@@ -415,8 +415,7 @@ namespace fin
             filePath.rfind('/') != std::string_view::npos
                 ? filePath = filePath.substr(0, filePath.rfind('/'))
                 : filePath = ".";
-            parse_sprite_config({(const char*)txt, (size_t)size}, filePath);
-            _texture = Texture2D::load_shared(filePath);
+            ParseSprite({(const char*)txt, (size_t)size}, filePath);
             UnloadFileData(txt);
         }
         return !!_texture;
@@ -435,7 +434,7 @@ namespace fin
         return str.substr(start, end - start + 1);
     }
 
-    void Sprite2D::parse_sprite_config(std::string_view content, std::string_view dir)
+    void Sprite2D::ParseSprite(std::string_view content, std::string_view dir)
     {
         auto get_int = [](std::string_view str) -> int
         {
@@ -494,6 +493,7 @@ namespace fin
             else if (key == "src")
             {
                 std::string base(dir);
+                base.push_back('/');
                 base.append(value);
                 _texture = Texture2D::load_shared(base);
             }
@@ -502,7 +502,32 @@ namespace fin
         }
     }
 
-    Sprite2D::Ptr Sprite2D::load_shared(std::string_view pth)
+    const std::string& Sprite2D::GetPath() const
+    {
+        return _path;
+    }
+
+    Texture2D* Sprite2D::GetTexture() const
+    {
+        return _texture.get();
+    }
+
+    Regionf Sprite2D::GetUVRegion() const
+    {
+        return GetTexture()->get_uv(_rect.region());
+    }
+
+    const Rectf& Sprite2D::GetRect() const
+    {
+        return _rect;
+    }
+
+    Vec2f Sprite2D::GetSize() const
+    {
+        return _rect.size();
+    }
+
+    Sprite2D::Ptr Sprite2D::LoadShared(std::string_view pth)
     {
         auto it = _shared_res._sprites.find(pth);
         if (it != _shared_res._sprites.end() && !it->second.expired())
@@ -510,13 +535,10 @@ namespace fin
 
         auto ptr                               = std::make_shared<Sprite2D>();
         _shared_res._sprites[std::string(pth)] = ptr;
-        ptr->load_from_file(pth);
+        ptr->LoadFromFile(pth);
 
         return ptr;
     }
-
-
-
 
     bool Sprite2D::CreateTextureAtlas(const std::string& folderPath,
                             const std::string& atlasName,
@@ -532,7 +554,7 @@ namespace fin
             {
                 std::string ext = entry.path().extension().string();
                 std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga")
+                if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".gif")
                 {
                     if (entry.path().stem().string() != atlasName)
                     {
@@ -681,8 +703,9 @@ namespace fin
         }
 
         // Save the atlas image
-        std::string atlasPath = folderPath + "/" + atlasName + ".png";
+        std::string atlasPath = folderPath + atlasName + ".qoi";
         ExportImage(atlasImg, atlasPath.c_str());
+        SaveFileText((folderPath + ".metadata").c_str(), "type=atlas");
 
         // Save sprite metadata files
         for (const auto& packedImg : packedImages)
@@ -697,7 +720,7 @@ namespace fin
                 data.append("y=").append(std::to_string((int)packedImg.rect.y)).append("\n");
                 data.append("width=").append(std::to_string((int)packedImg.rect.width)).append("\n");
                 data.append("height=").append(std::to_string((int)packedImg.rect.height)).append("\n");
-                data.append("src=").append(atlasName).append(".png\n");
+                data.append("src=.qoi\n");
                 SaveFileText(spriteFilePath.c_str(), data.c_str());
             }
         }
@@ -710,5 +733,10 @@ namespace fin
         TraceLog(LOG_INFO,
                  TextFormat("Successfully created texture atlas: %s (%dx%d)", atlasPath.c_str(), atlasWidth, atlasHeight));
         return true;
+    }
+
+    Sprite2D::operator bool() const
+    {
+        return !!_texture;
     }
 } // namespace fin

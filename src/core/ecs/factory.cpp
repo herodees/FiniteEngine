@@ -1,4 +1,4 @@
-#include "component.hpp"
+#include "factory.hpp"
 #include "builtin.hpp"
 #include <core/scene.hpp>
 #include <core/editor/imgui_control.hpp>
@@ -22,24 +22,12 @@ namespace fin
         return obj;
     }
 
-    struct FileDir
-    {
-        std::string                    path;
-        std::vector<std::string>       dirs;
-        std::vector<std::string>       files;
-        std::shared_ptr<ImGui::Editor> editor;
-        bool                           expanded{};
-        std::string_view               context;
-
-    };
-
     static ImGui::CanvasParams                                                                        _s_canvas;
-    static FileDir                                                                                    _s_file_dir;
-    static std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> _s_cache;
     static msg::Var                                                                                   _s_copy;
     static ComponentInfo*                                                                             _s_comp{};
 
-
+    void        ResetAtlasCache();
+    Atlas::Pack LoadSpriteCache(std::string_view atl, std::string_view spr);
 
 
     class ImportDialog : public ImGui::Dialog
@@ -147,30 +135,11 @@ namespace fin
 
 
 
-
-    void reset_atlas_cache()
-    {
-        _s_cache.clear();
-    }
-
     Atlas::Pack load_atlas(msg::Var& el)
     {
-        Atlas::Pack out;
         auto        atl = el.get_item("src");
         auto        spr = el.get_item("spr");
-        auto        it  = _s_cache.find(atl.str());
-        if (it == _s_cache.end())
-        {
-            out                 = Atlas::load_shared(atl.str(), spr.str());
-            _s_cache[atl.c_str()] = out.atlas;
-        }
-        else
-        {
-            out.atlas = it->second;
-            if (auto n = out.atlas->find_sprite(spr.str()))
-                out.sprite = &out.atlas->get(n);
-        }
-        return out;
+        return LoadSpriteCache(atl.str(), spr.str());
     }
 
     ComponentFactory::~ComponentFactory()
@@ -485,14 +454,6 @@ namespace fin
         }
     }
 
-
-
-    void ComponentFactory::SetRoot(const std::string& startPath)
-    {
-        _base_folder        = startPath;
-        _s_file_dir.expanded = false;
-        _s_file_dir.path     = startPath;
-    }
 
     bool ComponentFactory::Load()
     {
@@ -950,174 +911,6 @@ namespace fin
             }
 
             ImGui::EndPopup();
-        }
-    }
-
-    inline std::string_view get_file_icon(std::string_view file, uint32_t& clr)
-    {
-        clr    = 0xff808080;
-        auto p = file.rfind(".");
-        if (p == std::string_view::npos)
-            return ICON_FA_FILE_PEN;
-        auto ext = file.substr(p + 1);
-        if (ext == "ogg" || ext == "wav")
-        {
-            clr = 0xff0051f2;
-            return ICON_FA_FILE_AUDIO;
-        }
-        if (ext == "png" || ext == "jpg" || ext == "gif")
-        {
-            clr = 0xff60d71e;
-            return ICON_FA_FILE_IMAGE;
-        }
-        if (ext == "atlas")
-        {
-            clr = 0xffcc6f98;
-            return ICON_FA_FILE_ZIPPER;
-        }
-        if (ext == "prefab")
-        {
-            clr = 0xfff0f0f0;
-            return ICON_FA_FILE_CODE;
-        }
-        return ICON_FA_FILE;
-    }
-
-    void ComponentFactory::ImguiExplorer(Scene* scene)
-    {
-        reset_atlas_cache();
-
-        if (!_s_file_dir.expanded)
-        {
-            _s_file_dir.expanded = true;
-            _s_file_dir.dirs.clear();
-            _s_file_dir.files.clear();
-            if (_s_file_dir.path != _base_folder)
-            {
-                _s_file_dir.dirs.push_back("..");
-            }
-
-            for (const auto& entry : std::filesystem::directory_iterator(_s_file_dir.path))
-            {
-                if (entry.is_directory())
-                {
-                    _s_file_dir.dirs.push_back(entry.path().filename().string());
-                }
-                else if (entry.is_regular_file())
-                {
-                    _s_file_dir.files.push_back(entry.path().filename().string());
-                }
-            }
-        }
-
-        if (_s_file_dir.editor)
-        {
-            if (ImGui::LineSelect(ImGui::GetID(".."), false)
-                    .Space()
-                    .PushColor(0xff52d1ff)
-                    .Text(ICON_FA_FOLDER)
-                    .PopColor()
-                    .Space()
-                    .Text("..")
-                    .End() ||
-                !_s_file_dir.editor->imgui_show())
-            {
-                _s_file_dir.editor.reset();
-            }
-        }
-        else
-        {
-            std::string_view context;
-            for (auto& dir : _s_file_dir.dirs)
-            {
-                if (ImGui::LineSelect(ImGui::GetID(dir.c_str()), false)
-                        .Space()
-                        .PushColor(0xff52d1ff)
-                        .Text(ICON_FA_FOLDER)
-                        .PopColor()
-                        .Space()
-                        .Text(dir.c_str())
-                        .End())
-                {
-                    _s_file_dir.expanded = false;
-                    if (dir == "..")
-                    {
-                        _s_file_dir.path.pop_back();
-                        _s_file_dir.path.resize(_s_file_dir.path.rfind('/') + 1);
-                    }
-                    else
-                    {
-                        _s_file_dir.path += dir;
-                        _s_file_dir.path += '/';
-                    }
-                }
-
-                if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(1))
-                {
-                    context = dir;
-                }
-            }
-
-            std::string_view context2;
-            for (auto& file : _s_file_dir.files)
-            {
-                uint32_t clr;
-                auto     ico = get_file_icon(file, clr);
-
-                if (ImGui::LineSelect(ImGui::GetID(file.c_str()), false)
-                        .Space()
-                        .PushColor(clr)
-                        .Text(ico)
-                        .PopColor()
-                        .Space()
-                        .Text(file.c_str())
-                        .End())
-                {
-                    _s_file_dir.editor = ImGui::Editor::load_from_file(_s_file_dir.path + file);
-                }
-
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
-                {
-                    std::string_view ext(file);
-                    ext = ext.substr(ext.rfind('.') + 1);
-                    if (ext == "map")
-                    {
-                        scene->Load(_s_file_dir.path + file);
-                    }
-                }
-
-                if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(1))
-                {
-                    context2 = file;
-                }
-            }
-
-            if (!context.empty())
-            {
-                ImGui::OpenPopup("FolderContextMenu");
-                _s_file_dir.context = context;
-            }
-            if (ImGui::BeginPopup("FolderContextMenu"))
-            {
-                if (ImGui::MenuItem("Pack folder Sprites"))
-                {
-                    std::string dir(_s_file_dir.path);
-                    if (_s_file_dir.context != "..")
-                        dir.append(_s_file_dir.context).push_back('/');
-                    Sprite2D::CreateTextureAtlas(dir, "", 4096, 4096);
-                }
-                ImGui::EndPopup();
-            }
-
-            if (!context2.empty())
-            {
-                ImGui::OpenPopup("FileContextMenu");
-                _s_file_dir.context = context2;
-            }
-            if (ImGui::BeginPopup("FileContextMenu"))
-            {
-                ImGui::EndPopup();
-            }
         }
     }
 

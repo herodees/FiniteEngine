@@ -7,6 +7,7 @@
 
 namespace ImGui
 {
+    bool SpriteInput(const char* label, fin::Sprite2D::Ptr* sprite);
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack);
     bool TextureInput(const char* label, fin::Texture2D::Ptr* pack);
     bool SoundInput(const char* label, fin::SoundSource::Ptr* pack);

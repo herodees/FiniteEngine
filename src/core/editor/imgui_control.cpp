@@ -18,6 +18,11 @@ namespace ImGui
 
 
 
+    bool SpriteInput(const char* label, fin::Sprite2D::Ptr* sprite)
+    {
+        return false;
+    }
+
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack)
     {
         ImGui::PushID(ImGui::GetID(label));
