@@ -13,6 +13,7 @@ namespace ImGui
     bool SoundInput(const char* label, fin::SoundSource::Ptr* pack);
     bool PointVector(const char* label, std::vector<fin::Vec2f>* points, ImVec2 size, int* active = nullptr);
     bool PointVector(const char* label, fin::msg::Var* points, ImVec2 size, int* active = nullptr);
+    void SpriteImage(fin::Sprite2D* spr, ImVec2 size);
     void SpriteImage(fin::Atlas::Sprite* spr, ImVec2 size);
 
     bool OpenFileInput(const char* label, std::string& path, const char* filter);

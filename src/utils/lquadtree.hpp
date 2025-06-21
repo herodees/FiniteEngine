@@ -51,6 +51,7 @@ namespace fin
         };
 
         std::vector<Node>       nodes;
+        std::vector<int32_t>    outside;
         std::vector<ObjectSlot> objects;
         std::vector<int32_t>    active;
         int32_t                 rootIndex          = -1;
@@ -117,38 +118,87 @@ namespace fin
 
             if (!nodes[rootIndex].bounds.contains(objBounds))
             {
-            //    Rectf newBounds = getCombinedBounds(nodes[rootIndex].bounds, objBounds);
-            //    resize(newBounds);
+                outside.emplace_back(allocObject(obj));
+                return outside.back();
             }
-
             return insert(rootIndex, obj, objBounds);
         }
 
         void remove(const T& obj)
         {
-            remove(rootIndex, obj, boundsGetter(obj));
+            const Rectf objBounds = boundsGetter(obj);
+
+            if (!nodes[rootIndex].bounds.contains(objBounds))
+            {
+                for (auto& i : outside)
+                {
+                    if (objects[i].get() == &obj)
+                    {
+                        freeObject(i);
+                        outside[std::distance(outside.data(), &i)] = outside.back();
+                        outside.pop_back();
+                        return;
+                    }
+                }
+            }
+            else
+            {
+                remove(rootIndex, obj, objBounds);
+            }
         }
 
         int32_t find_at(float x, float y)
         {
-            return find_at(rootIndex, x, y);
+            for (auto i : outside)
+            {
+                if (boundsGetter(*objects[i].get()).contains(x, y))
+                    return i;
+            }
+
+            if (nodes[rootIndex].bounds.contains({x, y}))
+            {
+                return find_at(rootIndex, x, y);
+            }
+            return -1;
         }
 
         template <typename HT>
         int32_t find_at(float x, float y, HT htest)
         {
-            return find_at<HT>(rootIndex, x, y, htest);
+            for (auto i : outside)
+            {
+                if (boundsGetter(*objects[i].get()).contains(x, y) && htest(*objects[i].get(), x, y))
+                    return i;
+            }
+
+            if (nodes[rootIndex].bounds.contains({x, y}))
+            {
+                return find_at<HT>(rootIndex, x, y, htest);
+            }
+            return -1;
         }
 
         void query(const Rectf& area, std::vector<int32_t>& out) const
         {
             query(rootIndex, area, out);
+
+            for (auto i : outside)
+            {
+                if (boundsGetter(*objects[i].get()).intersects(area))
+                    out.emplace_back(i);
+            }
         }
 
         void activate(const Rectf& area)
         {
             active.clear();
             query(rootIndex, area, active);
+
+            for (auto i : outside)
+            {
+                if (boundsGetter(*objects[i].get()).intersects(area))
+                    active.emplace_back(i);
+            }
         }
 
         std::span<const int32_t> get_active() const
@@ -357,7 +407,7 @@ namespace fin
 
             return -1;
         }
-
+        
         void split(int32_t nodeIdx)
         {
             Node& node = nodes[nodeIdx];
@@ -394,8 +444,7 @@ namespace fin
                 if (idx != -1) // If the object belongs to a child node
                 {
                     // Insert the object into the appropriate child
-                    insert(node.children[idx], *objects[current].get(), objBounds);
-                    freeObject(current); // No longer needed in the parent node
+                    insert(node.children[idx], current, objBounds);
                 }
                 else // If the object doesn't fit any of the children, leave it in the parent
                 {
@@ -405,7 +454,7 @@ namespace fin
                 current = next;
             }
         }
-
+        
         Rectf getObjectBounds(int32_t nodeIdx) const
         {
             return boundsGetter(*objects[nodeIdx].get());
@@ -428,6 +477,36 @@ namespace fin
             }
 
             return -1;
+        }
+
+        int32_t insert(int32_t nodeIdx, int32_t objIdx, const Rectf& bounds)
+        {
+            Node& node = nodes[nodeIdx];
+
+            // If node has children, insert into the appropriate child node
+            if (node.hasChildren())
+            {
+                int32_t idx = getChildIndex(nodeIdx, bounds);
+                if (idx != -1)
+                {
+                    return insert(node.children[idx], objIdx, bounds); // Recursive insert into the child;
+                }
+            }
+
+            // Add the object to the current node's list
+            objects[objIdx].next = node.firstObject;
+            node.firstObject     = objIdx;
+            ++node.objectCount;
+
+            // If the number of objects exceeds the max limit and the node hasn't reached the max level
+            if (node.objectCount > MAX_OBJECTS && node.level < MAX_LEVELS)
+            {
+                // Split the node and redistribute the objects
+                if (!node.hasChildren()) // Split the node only if it hasn't been split already
+                    split(nodeIdx);
+            }
+
+            return objIdx;
         }
 
         int32_t insert(int32_t nodeIdx, const T& obj, const Rectf& bounds)

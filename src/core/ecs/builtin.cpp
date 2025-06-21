@@ -18,8 +18,7 @@ namespace fin
         RegBuiltin<CBody>(CBody::CID, "Body", ComponentsFlags_NoWorkspaceEditor);
         RegBuiltin<CPath>(CPath::CID, "Path", ComponentsFlags_NoWorkspaceEditor);
         RegBuiltin<CCollider>(CCollider::CID, "Collider", ComponentsFlags_Default);
-        RegBuiltin<CSprite>(CSprite::CID, "Sprite", ComponentsFlags_NoWorkspaceEditor);
-        RegBuiltin<CSprite2D>(CSprite2D::CID, "Sprite2D", ComponentsFlags_NoWorkspaceEditor);
+        RegBuiltin<CSprite2D>(CSprite2D::CID, "Sprite2D", ComponentsFlags_Default);
         RegBuiltin<CAttachment>(CAttachment::CID, "Attachment", ComponentsFlags_Default);
         RegBuiltin<CRegion>(CRegion::CID, "Region", ComponentsFlags_Default);
         RegBuiltin<CCamera>(CCamera::CID, "Camera", ComponentsFlags_NoWorkspaceEditor);
@@ -60,18 +59,16 @@ namespace fin
         _position = pos;
     }
 
-    Region<float> CBase::GetBoundingBox() const
+    Regionf CBase::GetBoundingBox() const
     {
-        Region<float> bbox{_position.x, _position.y, _position.x, _position.y};
-        if (CSprite* spr = Find<CSprite>(_self))
+        Regionf bbox{_position.x, _position.y, _position.x, _position.y};
+        if (CSprite2D* spr = Find<CSprite2D>(_self))
         {
-            if (spr->_pack.sprite)
+            if (spr->_spr)
             {
-                bbox.x1 -= spr->_pack.sprite->_origina.x;
-                bbox.y1 -= spr->_pack.sprite->_origina.y;
-                bbox.x2 = bbox.x1 + spr->_pack.sprite->_source.width;
-                bbox.y2 = bbox.y1 + spr->_pack.sprite->_source.height;
+                bbox = spr->GetRegion(_position);
             }
+
             if (CAttachment* att = Find<CAttachment>(_self))
             {
                 auto bbox2 = att->GetBoundingBox();
@@ -247,28 +244,6 @@ namespace fin
         }
 
         return ret;
-    }
-
-
-
-
-    
-    bool CSprite::OnDeserialize(ArchiveParams& ar)
-    {
-        Deserialize(_pack, ar.data);
-        return true;
-    }
-
-    void CSprite::OnSerialize(ArchiveParams& ar)
-    {
-        Serialize(_pack, ar.data);
-    }
-
-    bool CSprite::OnEdit(Entity ent)
-    {
-        auto r = ImGui::SpriteInput("Sprite##spr", &_pack);
-
-        return r;
     }
 
 
@@ -618,6 +593,26 @@ namespace fin
 
 
 
+    Regionf CSprite2D::GetRegion(Vec2f pos) const
+    {
+        Vec2f org{pos.x - _origin.x, pos.y - _origin.y};
+        if (_spr)
+        {
+            org -= _spr->GetOrigin();
+            return Regionf(org, org + _spr->GetSize());
+        }
+        return Regionf(org, org);
+    }
+
+    bool CSprite2D::IsAlphaVisible(uint32_t x, uint32_t y) const
+    {
+        if (_spr)
+        {
+            return _spr->IsAlphaVisible(x, y);
+        }
+        return false;
+    }
+
     void CSprite2D::OnSerialize(ArchiveParams& ar)
     {
         if (_spr)
@@ -639,6 +634,43 @@ namespace fin
         bool ret{};
         ret |= ImGui::SpriteInput("Sprite", &_spr);
         ret |= ImGui::InputFloat2("Offset", &_origin.x);
+        return ret;
+    }
+
+    bool CSprite2D::OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas)
+    {
+        if (!_spr)
+            return false;
+
+        bool ret = false;
+        if (!canvas.snap_grid.x || !canvas.snap_grid.y)
+            canvas.snap_grid = ImVec2(1, 1);
+
+        if (auto* base = Find<CBase>(ent))
+        {
+            ImVec2  mouse_pos = canvas.ScreenToWorld(ImGui::GetIO().MousePos);
+            Regionf reg(base->_position.x - _origin.x,
+                        base->_position.y - _origin.y,
+                        base->_position.x - _origin.x,
+                        base->_position.y - _origin.y);
+            reg.x2 += _spr->GetSize().x;
+            reg.y2 += _spr->GetSize().y;
+
+            if (reg.contains(mouse_pos))
+            {
+                ImVec2 org{-_origin.x, -_origin.y};
+                canvas.BeginDrag(org, this);
+            }
+        }
+
+        ImVec2 org{-_origin.x, -_origin.y};
+        if (canvas.EndDrag(org, this))
+        {
+            _origin.x = -org.x;
+            _origin.y = -org.y;
+            ret       = true;
+        }
+
         return ret;
     }
 

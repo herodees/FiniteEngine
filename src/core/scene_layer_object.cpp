@@ -145,21 +145,18 @@ namespace fin
         auto   cb  = [&ret, position](lq::SpatialDatabase::Proxy* obj, float dist)
         {
             auto ent = static_cast<CBase*>(obj)->_self;
-            if (auto* spr = Find<CSprite>(ent))
+            if (auto* spr = Find<CSprite2D>(ent))
             {
-                if (spr->_pack.sprite)
+                if (spr->_spr)
                 {
-                    Vec2f bbox;
-                    bbox.x = static_cast<CBase*>(obj)->_position.x - spr->_pack.sprite->_origina.x;
-                    bbox.y = static_cast<CBase*>(obj)->_position.y - spr->_pack.sprite->_origina.y;
-                    if (spr->_pack.is_alpha_visible(position.x - bbox.x, position.y - bbox.y))
+                    auto rc = spr->GetRegion(static_cast<CBase*>(obj)->_position);
+                    if (spr->_spr->IsAlphaVisible(position.x - rc.x1, position.y - rc.y1))
                     {
                         ret = ent;
                     }
                 }
             }
         };
-
         _spatial_db.map_over_all_objects_in_locality(position.x, position.y, TileSize, cb);
         return entt::null;
     }
@@ -168,25 +165,22 @@ namespace fin
     {
         for (auto it = _iso.rbegin(); it != _iso.rend(); ++it)
         {
-            auto obj  = (*it)->_ptr;
+            auto  obj  = (*it)->_ptr;
             auto& bbox = (*it)->_bbox;
 
             if (bbox.contains(position))
             {
-                if (auto* spr = Find<CSprite>(obj))
+                if (auto* spr = Find<CSprite2D>(obj))
                 {
-                    if (spr->_pack.sprite)
+                    if (spr->_spr)
                     {
                         auto& base = Get<CBase>(obj);
-                        Vec2f pt{base._position.x - spr->_pack.sprite->_origina.x,
-                                 base._position.y - spr->_pack.sprite->_origina.y};
-                        if (spr->_pack.is_alpha_visible(position.x - pt.x, position.y - pt.y))
+                        auto  rc   = spr->GetRegion(base._position);
+                        if (spr->_spr->IsAlphaVisible(position.x - rc.x1, position.y - rc.y1))
                         {
                             return obj;
                         }
                     }
-                    else
-                        return obj;
                 }
                 else
                 {
@@ -395,24 +389,20 @@ namespace fin
         dc.set_color(WHITE);
 
         auto& reg = GetScene()->GetFactory().GetRegister();
-        auto sprites = View<CSprite, CBase>();
+        auto sprites = View<CSprite2D, CBase>();
 
         for (auto ent : _iso)
         {
             if (sprites.Contains(ent->_ptr))
             {
                 auto& base   = Get<CBase>(ent->_ptr);
-                auto& sprite = Get<CSprite>(ent->_ptr);
+                auto& sprite = Get<CSprite2D>(ent->_ptr);
 
-                if (sprite._pack.sprite)
+                if (sprite._spr)
                 {
-                    Rectf dest;
-                    dest.x      = base._position.x - sprite._pack.sprite->_origina.x;
-                    dest.y      = base._position.y - sprite._pack.sprite->_origina.y;
-                    dest.width  = sprite._pack.sprite->_source.width;
-                    dest.height = sprite._pack.sprite->_source.height;
-
-                    dc.render_texture(sprite._pack.sprite->_texture, sprite._pack.sprite->_source, dest);
+                    dc.render_texture(sprite._spr->GetTexture()->get_texture(),
+                                      sprite._spr->GetRect(),
+                                      sprite.GetRegion(base._position).rect());
                 }
 
                 if (Contains<CAttachment>(ent->_ptr))

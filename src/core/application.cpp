@@ -445,6 +445,15 @@ namespace fin
                 ImGui::EndMenu();
             }
 
+            if (ImGui::BeginMenu("Prefabs"))
+            {
+                if (ImGui::MenuItem(ICON_FA_FILE_IMPORT " Import Prefab from Atlas", NULL))
+                {
+                    _map.GetFactory().ImguiShowPrefabImport();
+                }
+                ImGui::EndMenu();
+            }
+
             if (ImGui::BeginMenu("View"))
             {
                 if (ImGui::MenuItem(ICON_FA_BORDER_ALL " Visible grid", NULL, gSettings.visible_grid))

@@ -17,6 +17,7 @@ namespace fin
     };
 
     static SharedResource _shared_res;
+    constexpr int         ICON = 64;
 
     Surface::Surface(Surface&& s) noexcept : surface{}
     {
@@ -190,6 +191,16 @@ namespace fin
         return true;
     }
 
+    bool Texture2D::load_from_image(const Image& loadedSurface, std::string_view path)
+    {
+        if (load_from_image(loadedSurface))
+        {
+            Texture2D::path = path;
+            return true;
+        }
+        return false;
+    }
+
     bool Texture2D::update_texture_data(const void* pixels)
     {
         if (!texture.id)
@@ -259,8 +270,22 @@ namespace fin
 
         auto ptr                                = std::make_shared<Texture2D>();
         _shared_res._textures[std::string(pth)] = ptr;
-        ptr->load_from_file(pth);
 
+        if (pth == std::string_view("@empty"))
+        {
+            Image img = GenImageColor(ICON, ICON, BLANK);
+            ImageDrawRectangleLines(&img, {0, 0, ICON, ICON}, 2, MAGENTA);
+            ImageDrawLine(&img, 0, 0, ICON, ICON, MAGENTA);
+            ImageDrawLine(&img, ICON, 0, 0, ICON, MAGENTA);
+            ImageDrawRectangle(&img, 2, ICON / 2 - 5, ICON-4, 12, {255, 0, 255, 128});
+            ImageDrawText(&img, "EMPTY", (ICON - 35) / 2, ICON / 2 - 3, 10, WHITE);
+            ptr->load_from_image(img, "@empty");
+            UnloadImage(img);
+        }
+        else
+        {
+            ptr->load_from_file(pth);
+        }
         return ptr;
     }
 
@@ -418,7 +443,26 @@ namespace fin
             ParseSprite({(const char*)txt, (size_t)size}, filePath);
             UnloadFileData(txt);
         }
+        else
+        {
+            _texture = Texture2D::load_shared(std::string_view("@empty"));
+            _rect    = {0, 0, ICON, ICON};
+            _origin  = {};
+        }
         return !!_texture;
+    }
+
+    bool Sprite2D::SaveToFile(std::string_view filePath) const
+    {
+        std::string data;
+        data.append("x=").append(std::to_string((int)_rect.x)).append("\n");
+        data.append("y=").append(std::to_string((int)_rect.y)).append("\n");
+        data.append("width=").append(std::to_string((int)_rect.width)).append("\n");
+        data.append("height=").append(std::to_string((int)_rect.height)).append("\n");
+        data.append("ox=").append(std::to_string(_origin.x)).append("\n");
+        data.append("oy=").append(std::to_string(_origin.y)).append("\n");
+        data.append("src=").append(_texture ? GetFileName(_texture.get()->get_path().c_str()) : "").append("\n");
+        return SaveFileText(std::string(filePath).c_str(), data.c_str());
     }
 
     // Helper function to trim whitespace from a string_view
@@ -436,14 +480,15 @@ namespace fin
 
     void Sprite2D::ParseSprite(std::string_view content, std::string_view dir)
     {
-        auto get_int = [](std::string_view str) -> int
+        auto get_val = [](std::string_view str, auto def) -> auto
         {
-            int result     = 0;
+            decltype(def) result = 0;
             auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), result);
             if (ec != std::errc())
-                return 0; // Error in conversion
+                return def; // Error in conversion
             return result;
         };
+
         // Parse line by line
         while (!content.empty())
         {
@@ -476,19 +521,27 @@ namespace fin
             // Assign to the appropriate field
             if (key == "x")
             {
-                _rect.x = get_int(value);
+                _rect.x = get_val(value, 0);
             }
             else if (key == "y")
             {
-                _rect.y = get_int(value);
+                _rect.y = get_val(value, 0);
             }
             else if (key == "width")
             {
-                _rect.width = get_int(value);
+                _rect.width = get_val(value, 0);
             }
             else if (key == "height")
             {
-                _rect.height = get_int(value);
+                _rect.height = get_val(value, 0);
+            }
+            else if (key == "ox")
+            {
+                _origin.x = get_val(value, 0.f);
+            }
+            else if (key == "oy")
+            {
+                _origin.y = get_val(value, 0.f);
             }
             else if (key == "src")
             {
@@ -499,6 +552,13 @@ namespace fin
             }
             // Move to next line
             content = (end_of_line == std::string_view::npos) ? std::string_view() : content.substr(end_of_line + 1);
+        }
+
+        if (!_texture)
+        {
+            _texture = Texture2D::load_shared(std::string_view("@empty"));
+            _rect    = {0, 0, ICON, ICON};
+            _origin  = {};
         }
     }
 
@@ -517,6 +577,11 @@ namespace fin
         return GetTexture()->get_uv(_rect.region());
     }
 
+    Rectf Sprite2D::GetRect(Vec2f pos) const
+    {
+        return Rectf(pos.x - _origin.x, pos.y - _origin.y, _rect.width, _rect.height);
+    }
+
     const Rectf& Sprite2D::GetRect() const
     {
         return _rect;
@@ -525,6 +590,25 @@ namespace fin
     Vec2f Sprite2D::GetSize() const
     {
         return _rect.size();
+    }
+
+    Vec2f Sprite2D::GetOrigin() const
+    {
+        return _origin;
+    }
+
+    void Sprite2D::SetOrigin(Vec2f o)
+    {
+        _origin = o;
+    }
+
+    bool Sprite2D::IsAlphaVisible(int x, int y) const
+    {
+        if (_texture)
+        {
+            return _texture->is_alpha_visible(uint32_t(x + _rect.x), uint32_t(y + _rect.y));
+        }
+        return false;
     }
 
     Sprite2D::Ptr Sprite2D::LoadShared(std::string_view pth)
@@ -720,6 +804,11 @@ namespace fin
                 data.append("y=").append(std::to_string((int)packedImg.rect.y)).append("\n");
                 data.append("width=").append(std::to_string((int)packedImg.rect.width)).append("\n");
                 data.append("height=").append(std::to_string((int)packedImg.rect.height)).append("\n");
+                if (auto el = Sprite2D::LoadShared(spriteFilePath))
+                {
+                    data.append("ox=").append(std::to_string(el->GetOrigin().x)).append("\n");
+                    data.append("oy=").append(std::to_string(el->GetOrigin().y)).append("\n");
+                }
                 data.append("src=.qoi\n");
                 SaveFileText(spriteFilePath.c_str(), data.c_str());
             }

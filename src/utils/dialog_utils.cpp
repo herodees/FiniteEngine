@@ -139,4 +139,12 @@ namespace fin
         return res.result();
     }
 
+
+    std::string open_folder_dialog(const std::string& title, const std::string& initial_path)
+    {
+        auto res = pfd::select_folder(title, initial_path, pfd::opt::force_path);
+        return res.result();
+    }
+
+
 } // namespace fin

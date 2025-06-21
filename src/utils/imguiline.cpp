@@ -19,6 +19,7 @@ static LineConstructor& Create(const ImVec2& from, const ImVec2& to, bool visibl
     g_line.m_selected = false;
     g_line.m_selectable = false;
     g_line.m_tip = -1;
+    g_line.m_expanded   = nullptr;
     return g_line;
 }
 

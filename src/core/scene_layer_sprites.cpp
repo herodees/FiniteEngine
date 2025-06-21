@@ -14,9 +14,9 @@ namespace fin
     public:
         struct Node
         {
-            Atlas::Pack _sprite;
-            Rectf       _bbox;
-            uint32_t    _index{};
+            Sprite2D::Ptr _sprite;
+            Rectf         _bbox;
+            uint32_t      _index{};
 
             bool operator==(const Node& ot) const
             {
@@ -73,13 +73,13 @@ namespace fin
             for (auto n : _spatial.get_active())
             {
                 auto& nde = _spatial[n];
-                dc.render_texture(nde._sprite.sprite->_texture, nde._sprite.sprite->_source, nde._bbox);
+                dc.render_texture(nde._sprite->GetTexture()->get_texture(), nde._sprite->GetRect(), nde._bbox);
             }
 
             dc.set_color(WHITE);
-            if (_edit._sprite.sprite)
+            if (_edit._sprite)
             {
-                dc.render_texture(_edit._sprite.sprite->_texture, _edit._sprite.sprite->_source, _edit._bbox);
+                dc.render_texture(_edit._sprite->GetTexture()->get_texture(), _edit._sprite->GetRect(), _edit._bbox);
             }
         }
 
@@ -93,8 +93,7 @@ namespace fin
             {
                 msg::Var item;
                 item.set_item("i", node._index);
-                item.set_item("a", node._sprite.atlas->get_path());
-                item.set_item("s", node._sprite.sprite->_name);
+                item.set_item("s", node._sprite->GetPath());
                 item.set_item("x", node._bbox.x);
                 item.set_item("y", node._bbox.y);
                 items.push_back(item);
@@ -118,14 +117,14 @@ namespace fin
             for (auto& el : els.elements())
             {
                 Node nde;
-                nde._sprite = Atlas::load_shared(el["a"].str(), el["s"].str());
-                if (nde._sprite.sprite)
+                nde._sprite = Sprite2D::LoadShared(el["s"].str());
+                if (nde._sprite)
                 {
                     nde._index       = el["i"].get(0u);
                     nde._bbox.x      = el["x"].get(0.f);
                     nde._bbox.y      = el["y"].get(0.f);
-                    nde._bbox.width  = nde._sprite.sprite->_source.width;
-                    nde._bbox.height = nde._sprite.sprite->_source.height;
+                    nde._bbox.width  = nde._sprite->GetSize().x;
+                    nde._bbox.height = nde._sprite->GetSize().y;
                     _spatial.insert(nde);
                 }
             }
@@ -146,7 +145,7 @@ namespace fin
 
                 if (spr._bbox.contains(position))
                 {
-                    if (spr._sprite.is_alpha_visible(position.x - spr._bbox.x, position.y - spr._bbox.y))
+                    if (spr._sprite->IsAlphaVisible(position.x - spr._bbox.x, position.y - spr._bbox.y))
                         return *it;
                 }
             }
@@ -204,28 +203,30 @@ namespace fin
 
             if (ImGui::BeginDragDropTarget())
             {
-                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE",
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE2D",
                                                                                ImGuiDragDropFlags_AcceptPeekOnly |
                                                                                    ImGuiDragDropFlags_AcceptNoPreviewTooltip))
                 {
-                    if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
+                    IM_ASSERT(payload->DataSize == sizeof(fin::Sprite2D*));
+                    if (auto* payload_n = *(fin::Sprite2D**)payload->Data)
                     {
-                        _edit._sprite      = *object;
-                        _edit._bbox.width  = _edit._sprite.sprite->_source.width;
-                        _edit._bbox.height = _edit._sprite.sprite->_source.height;
+                        _edit._sprite      = payload_n->shared_from_this();
+                        _edit._bbox.width  = _edit._sprite->GetSize().x;
+                        _edit._bbox.height = _edit._sprite->GetSize().y;
                         _edit._bbox.x      = mouse_pos.x;
                         _edit._bbox.y      = mouse_pos.y;
                         _edit._index       = _max_index;
                     }
                 }
-                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE",
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE2D",
                                                                                ImGuiDragDropFlags_AcceptNoPreviewTooltip))
                 {
-                    if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
+                    IM_ASSERT(payload->DataSize == sizeof(fin::Sprite2D*));
+                    if (auto* payload_n = *(fin::Sprite2D**)payload->Data)
                     {
-                        _edit._sprite      = *object;
-                        _edit._bbox.width  = _edit._sprite.sprite->_source.width;
-                        _edit._bbox.height = _edit._sprite.sprite->_source.height;
+                        _edit._sprite = payload_n->shared_from_this();
+                        _edit._bbox.width  = _edit._sprite->GetSize().x;
+                        _edit._bbox.height = _edit._sprite->GetSize().y;
                         _edit._bbox.x      = mouse_pos.x;
                         _edit._bbox.y      = mouse_pos.y;
                         _edit._index       = _max_index;
@@ -327,9 +328,9 @@ namespace fin
                     {
                         ImGui::PushID(n);
                         auto& el = _spatial[n];
-                        if (el._sprite.sprite)
+                        if (el._sprite)
                         {
-                            if (ImGui::Selectable(el._sprite.sprite->_name.c_str(), n == _select))
+                            if (ImGui::Selectable(GetFileName(el._sprite->GetPath().c_str()), n == _select))
                             {
                                 _select = n;
                             }
@@ -349,9 +350,9 @@ namespace fin
                             if (!_spatial.is_empty(n))
                             {
                                 auto& el = _spatial[n];
-                                if (el._sprite.sprite)
+                                if (el._sprite)
                                 {
-                                    if (ImGui::Selectable(el._sprite.sprite->_name.c_str(), n == _select))
+                                    if (ImGui::Selectable(GetFileName(el._sprite->GetPath().c_str()), n == _select))
                                     {
                                         _select = n;
                                     }

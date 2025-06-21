@@ -22,51 +22,55 @@ namespace fin
         return obj;
     }
 
-    static ImGui::CanvasParams                                                                        _s_canvas;
-    static msg::Var                                                                                   _s_copy;
-    static ComponentInfo*                                                                             _s_comp{};
+    static ImGui::CanvasParams _s_canvas;
+    static msg::Var            _s_copy;
+    static ComponentInfo*      _s_comp{};
 
-    void        ResetAtlasCache();
-    Atlas::Pack LoadSpriteCache(std::string_view atl, std::string_view spr);
+    void          ResetAtlasCache();
+    Sprite2D::Ptr LoadSpriteChache(std::string_view spr);
 
 
     class ImportDialog : public ImGui::Dialog
     {
     public:
-        ImportDialog(ComponentFactory& factory) : _factory(factory)
+        ImportDialog(ComponentFactory& factory, const std::string& dir) : _factory(factory)
         {
             _components.resize(_factory.GetRegister().GetComponents().size());
+
+            auto files = ComponentFactory::GetFolderFiles(dir, ".sprite");
+            for (auto& s : files)
+            {
+                _factory.NormalizeAssetPath(s);
+                _files.emplace_back(std::move(s), true);
+            }
+            _valid = !_files.empty();
         }
 
         bool OnImport()
         {
-            if (!_atlas)
-                return false;
-
-            for (auto i = 0; i < _atlas->size(); ++i)
+            for (auto i = 0; i < _files.size(); ++i)
             {
-                auto& spr = _atlas->get(i + 1);
-                auto  obj = create_empty_prefab(spr._name, _group);
+                auto& spr = _files[i];
+                if (!spr.second)
+                    continue;
+                auto  obj = create_empty_prefab(GetFileNameWithoutExt(spr.first.c_str()), _group);
                 auto  cls = obj.get_item(Sc::Class);
 
                 auto&  cmps = _factory.GetRegister().GetComponents();
                 size_t n    = 0;
                 for (auto& el : cmps)
                 {
-                    if (_components[n++])
+                    if (el->id == CSprite2D::CID)
                     {
-                        if (el->id == CSprite::CID)
-                        {
-                            msg::Var ar;
-                            ar.set_item("src", _atlas.get()->get_path());
-                            ar.set_item("spr", spr._name);
-                            cls.set_item(el->id, ar);
-                        }
-                        else
-                        {
-                            cls.set_item(el->id, nullptr);
-                        }
+                        msg::Var ar;
+                        ar.set_item("src", spr.first);
+                        cls.set_item(el->id, ar);
                     }
+                    else if (_components[n])
+                    {
+                        cls.set_item(el->id, nullptr);
+                    }
+                    ++n;
                 }
                 _factory.PushPrefabData(obj);
             }
@@ -76,10 +80,6 @@ namespace fin
 
         bool OnUpdate() override
         {
-            if (ImGui::OpenFileName("Sprite Atlas", _path, ".atlas"))
-            {
-                _atlas = Atlas::load_shared(_path);
-            }
             if (ImGui::InputText("Group", &_group))
             {
             }
@@ -94,7 +94,7 @@ namespace fin
                         ++n;
                         continue;
                     }
-                    if (el->id == CSprite::CID || el->id == CBase::CID)
+                    if (el->id == CSprite2D::CID || el->id == CBase::CID)
                     {
                         _components[n] = true;
                     }
@@ -103,25 +103,31 @@ namespace fin
                 ImGui::EndCombo();
             }
 
-            if (ImGui::BeginChildFrame(ImGui::GetID(this), {-1, -2 * ImGui::GetFrameHeightWithSpacing()}) && _atlas)
+            if (ImGui::BeginChildFrame(ImGui::GetID(this), {-1, -1 * ImGui::GetFrameHeightWithSpacing()}) && !_files.empty())
             {
-                for (auto n = 0; n < _atlas->size(); ++n)
+                for (auto& file : _files)
                 {
-                    auto& spr = _atlas->get(n+1);
-                    ImGui::Selectable(spr._name.c_str());
+                    ImGui::Checkbox(file.first.c_str(), &file.second);
                 }
             }
             ImGui::EndChildFrame();
 
-            ImGui::NewLine();
-            ImGui::Separator();
-            if (ImGui::Button("Cancel"))
-                _valid = false;
-
-            ImGui::SameLine();
-            if (ImGui::Button("Import") && OnImport())
-                _valid = false;
-
+            if (ImGui::LineItem("ftr", {-1, ImGui::GetFrameHeight()})
+                    .Spring()
+                    .PushStyle(ImStyle_Button, 1)
+                    .Text("  Cancel  ")
+                    .PopStyle()
+                    .Space()
+                    .PushStyle(ImStyle_Header, 2)
+                    .Text("   Import   ")
+                    .PopStyle()
+                    .End())
+            {
+                if (ImGui::Line().HoverId() == 1)
+                    _valid = false;
+                if (ImGui::Line().HoverId() == 2 && OnImport())
+                    _valid = false;
+            }
             return _valid;
         }
 
@@ -129,18 +135,11 @@ namespace fin
         std::string          _path;
         std::string          _group;
         std::vector<uint8_t> _components;
-        Atlas::Ptr           _atlas;
+        std::vector<std::pair<std::string, bool>> _files;
         bool                 _valid = true;
     };
 
 
-
-    Atlas::Pack load_atlas(msg::Var& el)
-    {
-        auto        atl = el.get_item("src");
-        auto        spr = el.get_item("spr");
-        return LoadSpriteCache(atl.str(), spr.str());
-    }
 
     ComponentFactory::~ComponentFactory()
     {
@@ -258,6 +257,11 @@ namespace fin
         }
     }
 
+    bool ComponentFactory::IsPrefabMode() const
+    {
+        return _prefab_explorer;
+    }
+
     bool ComponentFactory::SetEntityName(Entity entity, std::string_view name)
     {
         if (name.empty())
@@ -304,6 +308,8 @@ namespace fin
         auto it = _named.find(entity);
         return it == _named.end() ? entt::null : it->second;
     }
+
+
 
     int ComponentFactory::PushPrefabData(msg::Var& obj)
     {
@@ -868,18 +874,28 @@ namespace fin
                             {
                                 SelectPrefab(scene, n);
                             }
-     
+
                             ImGui::SetDragDropPayload("ENTITY", &_edit, sizeof(Entity));
                             ImGui::EndDragDropSource();
                         }
 
-                        auto spr  = val.get_item(Sc::Class).get_item(CSprite::CID);
-                        auto pack = load_atlas(spr);
-                        if (pack.sprite)
+                        auto spr = val.get_item(Sc::Class).get_item(CSprite2D::CID);
+                        if (spr.is_undefined())
                         {
                             ImGui::SameLine();
-                            ImGui::SpriteImage(pack.sprite, {25, 25});
+                            ImGui::SpriteImage((Sprite2D*)nullptr, {25, 25});
                         }
+                        else if (auto pack = LoadSpriteChache(spr.get_item("src").str()))
+                        {
+                            ImGui::SameLine();
+                            ImGui::SpriteImage(pack.get(), {25, 25});
+                        }
+                        else
+                        {
+                            ImGui::SameLine();
+                            ImGui::SpriteImage((Sprite2D*)nullptr, {25, 25});
+                        }
+
                         ImGui::SameLine();
                         ImGui::Text(id.c_str());
                     }
@@ -940,10 +956,6 @@ namespace fin
                 .Tooltip("Create New Prefab")
                 .Text(ICON_FA_FILE_CIRCLE_PLUS)
                 .PopStyle()
-                .PushStyle(ImStyle_Button, 12)
-                .Tooltip("Import Prefabs from Atlas")
-                .Text(ICON_FA_FILE_IMPORT)
-                .PopStyle()
                 .PushStyle(ImStyle_Button, 11)
                 .Tooltip("Save All Prefabs")
                 .Text(ICON_FA_FLOPPY_DISK)
@@ -975,9 +987,6 @@ namespace fin
                 case 11:
                     SelectPrefab(scene, _selected);
                     Save();
-                    break;
-                case 12:
-                    ImGui::Dialog::Show<ImportDialog>("Import Sprites", {800,600}, 0, *this);
                     break;
                 case 20:
                 {
@@ -1012,6 +1021,15 @@ namespace fin
         ImGui::EndChildFrame();
     }
 
+    void ComponentFactory::ImguiShowPrefabImport()
+    {
+        auto dir = open_folder_dialog("Import Atlas Folder", _base_folder);
+        if (!dir.empty() && IsAssetFolder(dir))
+        {
+            ImGui::Dialog::Show<ImportDialog>("Import Sprites", {800, 600}, 0, *this, dir);
+        }
+    }
+
     bool ComponentFactory::ImguiWorkspace(Scene* scene)
     {
         static bool init_canvas = true;
@@ -1039,29 +1057,20 @@ namespace fin
 
             if (_prefab_edit != entt::null && Contains<CBase>(_prefab_edit))
             {
-                if (auto* s = Find<CSprite>(_prefab_edit))
+                if (auto* s = Find<CSprite2D>(_prefab_edit))
                 {
-                    auto& spr = s->_pack;
-                    if (spr.sprite)
+                    if (s->_spr && s->_spr->GetTexture())
                     {
-                        Region<float> reg( -spr.sprite->_origina.x,
-                                           -spr.sprite->_origina.y,
-                                           spr.sprite->_source.width - spr.sprite->_origina.x,
-                                           spr.sprite->_source.height - spr.sprite->_origina.y);
-
-                        ImVec2 txs(spr.sprite->_texture->width, spr.sprite->_texture->height);
+                        Regionf reg(s->GetRegion({}));
+                        Regionf uvs(s->_spr->GetUVRegion());
 
                         ImGui::DrawTexture(_s_canvas,
-                                           (ImTextureID)spr.sprite->_texture,
+                                           (ImTextureID)s->_spr->GetTexture()->get_texture(),
                                            {reg.x1, reg.y1},
                                            {reg.x2, reg.y2},
-                                           {spr.sprite->_source.x / txs.x, spr.sprite->_source.y / txs.y},
-                                           {spr.sprite->_source.x2() / txs.x, spr.sprite->_source.y2() / txs.y}, 0xffffffff);
-
-
-                        ImGui::GetWindowDrawList()->AddRect(_s_canvas.WorldToScreen({reg.x1, reg.y1}),
-                                                            _s_canvas.WorldToScreen({reg.x2, reg.y2}),
-                                                            0xffffffff);
+                                           {uvs.x1, uvs.y1},
+                                           {uvs.x2, uvs.y2},
+                                           0xffffffff);
                     }
                 }
 

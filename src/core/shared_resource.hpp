@@ -73,6 +73,7 @@ namespace fin
         bool load_from_file(const std::filesystem::path& filePath);
         bool load_from_surface(const Surface& loadedSurface);
         bool load_from_image(const Image& loadedSurface);
+        bool load_from_image(const Image& loadedSurface, std::string_view path);
         bool update_texture_data(const void* pixels);
         bool update_texture_data(const void* pixels, const Rectf& rc);
         void set_repeat(bool r);
@@ -175,12 +176,13 @@ namespace fin
 
 
 
-    class Sprite2D : std::enable_shared_from_this<Sprite2D>
+    class Sprite2D : public std::enable_shared_from_this<Sprite2D>
     {
     private:
         Texture2D::Ptr _texture;
         std::string    _path;
-        Rectf          _rect{};
+        Vec2f          _origin;
+        Rectf          _rect;
 
     public:
         using Ptr = std::shared_ptr<Sprite2D>;
@@ -192,12 +194,17 @@ namespace fin
         Sprite2D&          operator=(Sprite2D&& s) noexcept;
         Sprite2D&          operator=(const Sprite2D&) = delete;
         bool               LoadFromFile(std::string_view filePath);
+        bool               SaveToFile(std::string_view filePath) const;
         void               ParseSprite(std::string_view content, std::string_view dir);
         const std::string& GetPath() const;
         Texture2D*         GetTexture() const;
         Regionf            GetUVRegion() const;
+        Rectf              GetRect(Vec2f pos) const;
         const Rectf&       GetRect() const;
         Vec2f              GetSize() const;
+        Vec2f              GetOrigin() const;
+        void               SetOrigin(Vec2f o);
+        bool               IsAlphaVisible(int x, int y) const;
 
         static Ptr LoadShared(std::string_view pth);
 

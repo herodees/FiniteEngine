@@ -18,10 +18,6 @@ namespace ImGui
 
 
 
-    bool SpriteInput(const char* label, fin::Sprite2D::Ptr* sprite)
-    {
-        return false;
-    }
 
     bool SpriteInput(const char* label, fin::Atlas::Pack* pack)
     {
@@ -286,6 +282,33 @@ namespace ImGui
         return modified;
     }
 
+    void SpriteImage(fin::Sprite2D* spr, ImVec2 size)
+    {
+        if (spr && spr->GetTexture())
+        {
+            auto  uv  = spr->GetUVRegion();
+            auto  sze = spr->GetSize();
+            float sz  = std::max(sze.x, sze.y);
+
+            float msx = size.x / sz;
+            float msy = size.y / sz;
+
+            ImVec2 actual_size = {sze.x * msx, sze.y * msy};
+            ImVec2 offset = {(size.x - actual_size.x) * 0.5f, (size.y - actual_size.y) * 0.5f};
+
+            ImVec2 cursor = ImGui::GetCursorPos();
+            ImGui::SetCursorPos({cursor.x + offset.x, cursor.y + offset.y});
+
+            ImGui::Image((ImTextureID)spr->GetTexture()->get_texture(),
+                         actual_size,
+                         ImVec2{uv.x1, uv.y1},
+                         ImVec2{uv.x2, uv.y2});
+
+            ImGui::SetCursorPos(cursor); // Reset before dummy
+        }
+        ImGui::Dummy(size);
+    }
+
     void SpriteImage(fin::Atlas::Sprite* spr, ImVec2 size)
     {
         ImGui::Image((ImTextureID)spr->_texture,
@@ -474,6 +497,77 @@ namespace ImGui
         return ret;
     }
 
+    bool SpriteInput(const char* label, fin::Sprite2D::Ptr* sprite)
+    {
+        bool modified = false;
+        ImGui::PushID(ImGui::GetID(label));
+        auto sze = ImGui::GetFrameHeight();
+        if (sprite->get() && sprite->get()->GetTexture())
+        {
+            auto reg = sprite->get()->GetUVRegion();
+            ImGui::Image((ImTextureID)sprite->get()->GetTexture()->get_texture(),
+                         {sze, sze},
+                         {reg.x1, reg.y1},
+                         {reg.x2, reg.y2});
+
+
+            if (ImGui::BeginItemTooltip())
+            {
+                auto size = sprite->get()->GetSize();
+                ImGui::Image((ImTextureID)sprite->get()->GetTexture()->get_texture(),
+                             {size.x, size.y},
+                             {reg.x1, reg.y1},
+                             {reg.x2, reg.y2});
+                ImGui::Text("Path: %s", sprite->get()->GetPath().c_str());
+                ImGui::Text("Size: %.0fx%.0f", size.x, size.y);
+                ImGui::EndTooltip();
+            }
+
+            ImGui::SameLine();
+        }
+        else
+        {
+            ImGui::InvisibleButton("##img", {sze, sze});
+            ImGui::SameLine();
+        }
+
+        if (ImGui::BeginCombo(label, sprite->get() ? sprite->get()->GetPath().c_str() : "None"))
+        {
+            if (ImGui::IsWindowAppearing())
+            {
+                s_active         = ".";
+                s_root._expanded = false;
+            }
+            if (MenuItem("None", nullptr, !sprite->get()))
+            {
+                *sprite = nullptr;
+                modified = true;
+            }
+            std::string path;
+            if (FileMenu(path, ".sprite"))
+            {
+                *sprite = fin::Sprite2D::LoadShared(path);
+            }
+            ImGui::EndCombo();
+        }
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE2D"))
+            {
+                IM_ASSERT(payload->DataSize == sizeof(fin::Sprite2D*));
+                if (auto* payload_n = *(fin::Sprite2D**)payload->Data)
+                {
+                    *sprite = payload_n->shared_from_this();
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+
+
+        ImGui::PopID();
+        return modified;
+    }
 
 
 

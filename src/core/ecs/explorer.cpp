@@ -31,7 +31,7 @@ namespace fin
             std::string                                   _metatype;
             std::string_view                              _context;
             size_t                                        _selected{};
-            float                                         _icon_size = 64.0f;
+            float                                         _icon_size = 56.f;
             float                                         _padding   = 10.0f;
             bool                                          _expanded{};
 
@@ -42,10 +42,12 @@ namespace fin
 
             void ShowGrid(auto& items);
             void GetItem(const std::pair<Sprite2D::Ptr, size_t>& item, IconData& data);
+            void OpenItem(const std::pair<Sprite2D::Ptr, size_t>& item);
         };
 
         FileExplorer gFileExplorer;
         std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> gAtlasCache;
+        std::unordered_map<std::string, Sprite2D::Ptr, std::string_hash, std::equal_to<>> gSpriteCache;
 
         std::string_view GetFileExt(std::string_view file)
         {
@@ -83,11 +85,92 @@ namespace fin
             return ICON_FA_FILE;
         }
 
+
+
+        class SpriteProperties : public ImGui::Dialog
+        {
+            bool                _update = true;
+            Sprite2D::Ptr       _sprite;
+            ImGui::CanvasParams _canvas;
+
+        public:
+            SpriteProperties(Sprite2D::Ptr spr) : _sprite(spr) {};
+            bool OnUpdate() final
+            {
+                if (ImGui::BeginCanvas("Sprite Properties", {-1, -ImGui::GetFrameHeightWithSpacing()}, _canvas))
+                {
+                    if (_canvas.canvas_size.x > 0 && _update)
+                    {
+                        _canvas.snap_grid = {1, 1};
+                        _update = false;
+                        _canvas.CenterOnScreen();
+                    }
+                    auto rc = _sprite->GetRect({0, 0});
+                    Regionf uvs(_sprite->GetUVRegion());
+                    ImGui::DrawOrigin(_canvas, -1);
+
+                    ImGui::DrawTexture(_canvas,
+                                       (ImTextureID)_sprite->GetTexture()->get_texture(),
+                                       {rc.x, rc.y},
+                                       {rc.x2(), rc.y2()},
+                                       {uvs.x1, uvs.y1},
+                                       {uvs.x2, uvs.y2},
+                                       0xffffffff);
+
+                    ImVec2 org{-_sprite->GetOrigin().x, -_sprite->GetOrigin().y};
+                    _canvas.BeginDrag(org, this);
+
+                    if (_canvas.EndDrag(org, this))
+                    {
+                        _sprite->SetOrigin({-org.x, -org.y});
+                    }
+
+                    ImGui::DrawGrid(_canvas);
+                    ImGui::DrawRuler(_canvas);
+                    ImGui::EndCanvas();
+                }
+
+                if (ImGui::LineItem("ftr", { -1, ImGui::GetFrameHeight() })
+                    .Spring()
+                    .PushStyle(ImStyle_Button, 1)
+                    .Text("  Cancel  ")
+                    .PopStyle()
+                    .Space()
+                    .PushStyle(ImStyle_Header, 2)
+                    .Text("   Save   ")
+                    .PopStyle()
+                    .End())
+                {
+                    if (ImGui::Line().HoverId() == 1)
+                        _sprite.reset();
+                    if (ImGui::Line().HoverId() == 2 && _sprite->SaveToFile(_sprite->GetPath()))
+                        _sprite.reset();
+                }
+                return !!_sprite;
+            };
+        };
     } // namespace
 
     void ResetAtlasCache()
     {
         gAtlasCache.clear();
+        gSpriteCache.clear();
+    }
+
+    Sprite2D::Ptr LoadSpriteChache(std::string_view spr)
+    {
+        Sprite2D::Ptr ret;
+        auto it = gSpriteCache.find(spr);
+        if (it == gSpriteCache.end())
+        {
+            ret = Sprite2D::LoadShared(spr);
+            gSpriteCache[std::string(spr)] = ret;
+        }
+        else
+        {
+            return it->second;
+        }
+        return ret;
     }
 
     Atlas::Pack LoadSpriteCache(std::string_view atl, std::string_view spr)
@@ -121,6 +204,115 @@ namespace fin
         gFileExplorer._path     = startPath;
     }
 
+    std::string ComponentFactory::GetFolderMetadataType(std::string_view folder)
+    {
+        std::string dir(folder);
+        if (dir.empty())
+        {
+            dir = "./";
+        }
+        else if (dir.back() != '/' && dir.back() != '\\')
+        {
+            dir.push_back('/');
+        }
+        dir.append(MetadataFile);
+
+        if (auto* txt = LoadFileText(dir.c_str()))
+        {
+            dir.clear();
+            std::string_view tpe(txt);
+            auto             pos1 = tpe.find('=');
+            auto             pos2 = tpe.find('\n');
+            if (pos1 != std::string::npos)
+            {
+                dir = tpe.substr(pos1 + 1, pos2 - pos1);
+            }
+            UnloadFileText(txt);
+            return dir;
+        }
+        return std::string();
+    }
+
+    std::vector<std::string> ComponentFactory::GetFolderFiles(std::string_view folder, std::string_view ext)
+    {
+        std::vector<std::string> out;
+        std::string              dir(folder);
+        std::string              ex(ext);
+
+        auto list = LoadDirectoryFilesEx(dir.c_str(), ex.c_str(), false);
+
+        out.reserve(list.count);
+        for (int i = 0; i < list.count; i++)
+        {
+            out.emplace_back(list.paths[i]);
+        }
+        UnloadDirectoryFiles(list);
+
+        return out;
+    }
+
+    bool ComponentFactory::IsAssetFolder(std::string_view path) const
+    {
+        try
+        {
+            std::filesystem::path base   = std::filesystem::canonical(_base_folder);
+            std::filesystem::path target = std::filesystem::canonical(path);
+
+            auto base_it   = base.begin();
+            auto target_it = target.begin();
+
+            for (; base_it != base.end() && target_it != target.end(); ++base_it, ++target_it)
+            {
+                if (*base_it != *target_it)
+                {
+                    return false;
+                }
+            }
+            return base_it == base.end();
+        }
+        catch (const std::filesystem::filesystem_error& e)
+        {
+            return false;
+        }
+        return false;
+    }
+
+    bool ComponentFactory::NormalizeAssetPath(std::string& str) const
+    {
+        try
+        {
+            std::filesystem::path base      = std::filesystem::canonical(_base_folder);
+            std::filesystem::path target    = std::filesystem::canonical(str);
+            auto                  base_it   = base.begin();
+            auto                  target_it = target.begin();
+
+            for (; base_it != base.end() && target_it != target.end(); ++base_it, ++target_it)
+            {
+                if (*base_it != *target_it)
+                {
+                    return false;
+                }
+            }
+            if (base_it == base.end())
+            {
+                str = _base_folder;
+                str.pop_back();
+                for (; target_it != target.end(); ++target_it)
+                {
+                    str.push_back('/');
+                    str.append(target_it->string());
+                }
+                return true;
+            }
+        }
+
+        catch (const std::filesystem::filesystem_error& e)
+        {
+            return false;
+        }
+        return false;
+    }
+
     void FileExplorer::Show(Scene* scene, StringView base_folder)
     {
         if (!_expanded)
@@ -135,7 +327,7 @@ namespace fin
                 _dirs.push_back("..");
             }
 
-            _metatype.clear();
+            _metatype = ComponentFactory::GetFolderMetadataType(_path);
             for (const auto& entry : std::filesystem::directory_iterator(_path))
             {
                 if (entry.is_directory())
@@ -145,20 +337,6 @@ namespace fin
                 else if (entry.is_regular_file())
                 {
                     _files.push_back(entry.path().filename().string());
-                    if (_files.back() == MetadataFile)
-                    {
-                        if (auto* txt = LoadFileText(entry.path().string().c_str()))
-                        {
-                            std::string_view tpe(txt);
-                            auto pos1 = tpe.find('=');
-                            auto pos2 = tpe.find('\n');
-                            if (pos1 != std::string::npos)
-                            {
-                                _metatype = tpe.substr(pos1 + 1, pos2 - pos1);
-                            }
-                            UnloadFileText(txt);
-                        }
-                    }
                 }
             }
         }
@@ -330,7 +508,7 @@ namespace fin
             _icon_size = std::clamp(_icon_size + io.MouseWheel * 4.0f, 32.0f, 256.0f);
         }
 
-        IconData data{};
+        static IconData data{};
         size_t n = 0;
         for (auto& el : items)
         {
@@ -362,10 +540,15 @@ namespace fin
                 _selected = n;
             }
 
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+            {
+                OpenItem(el);
+            }
+
             if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
             {
                 _selected = n;
-                ImGui::SetDragDropPayload(data.type, data.drag, data.drag_size);
+                ImGui::SetDragDropPayload(data.type, &data.drag, data.drag_size);
                 ImGui::EndDragDropSource();
             }
 
@@ -395,4 +578,12 @@ namespace fin
         data.drag_size  = sizeof(Sprite2D*);
         data.type       = "SPRITE2D";
     }
+
+    void FileExplorer::OpenItem(const std::pair<Sprite2D::Ptr, size_t>& item)
+    {
+        ImGui::Dialog::ShowOnce<SpriteProperties>("Sprite Properties", {800, 600}, 0, item.first);
+    }
+
+
+
 } // namespace fin

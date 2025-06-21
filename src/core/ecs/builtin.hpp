@@ -37,15 +37,16 @@ namespace fin
     {
         static constexpr auto in_place_delete = true;
 
-        Region<float> GetBoundingBox() const final;
-        bool          HitTest(Vec2f pos) const final;
-        void          UpdateSparseGrid() final;
-        Vec2f         GetPosition() const final;
-        void          SetPosition(Vec2f pos) final;
-        void          OnSerialize(ArchiveParams& ar) final;
-        bool          OnDeserialize(ArchiveParams& ar) final;
-        bool          OnEdit(Entity ent) final;
+        Regionf GetBoundingBox() const final;
+        bool    HitTest(Vec2f pos) const final;
+        void    UpdateSparseGrid() final;
+        Vec2f   GetPosition() const final;
+        void    SetPosition(Vec2f pos) final;
+        void    OnSerialize(ArchiveParams& ar) final;
+        bool    OnDeserialize(ArchiveParams& ar) final;
+        bool    OnEdit(Entity ent) final;
     };
+
 
 
     /// @brief Physics body component.
@@ -58,6 +59,7 @@ namespace fin
     };
 
 
+
     /// @brief Pathfinding component.
     /// Stores computed navigation paths.
     struct CPath : IPath
@@ -65,10 +67,11 @@ namespace fin
         std::vector<Vec2i> _path;
 
         std::span<const Vec2i> GetPath() const final;
-        void OnSerialize(ArchiveParams& ar) final;
-        bool OnDeserialize(ArchiveParams& ar) final;
-        bool OnEdit(Entity self) final;
+        void                   OnSerialize(ArchiveParams& ar) final;
+        bool                   OnDeserialize(ArchiveParams& ar) final;
+        bool                   OnEdit(Entity self) final;
     };
+
 
 
     /// @brief Isometric rendering & logic marker.
@@ -82,6 +85,7 @@ namespace fin
     };
 
 
+
     /// @brief Polygonal collider component.
     /// Defines a shape used for collision detection and hit tests.
     struct CCollider : ICollider
@@ -89,33 +93,26 @@ namespace fin
         std::vector<Vec2f> _points;
 
         std::span<const Vec2f> GetPath() const final;
-        void OnSerialize(ArchiveParams& ar) final;
-        bool OnDeserialize(ArchiveParams& ar) final;
-        bool OnEdit(Entity self) final;
-        bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
-    };
-
-
-    /// @brief Sprite component for rendering.
-    /// Holds atlas data for static/dynamic sprites.
-    struct CSprite : ISprite
-    {
-        Atlas::Pack _pack;
-        void        OnSerialize(ArchiveParams& ar) final;
-        bool        OnDeserialize(ArchiveParams& ar) final;
-        bool        OnEdit(Entity self) final;
+        void                   OnSerialize(ArchiveParams& ar) final;
+        bool                   OnDeserialize(ArchiveParams& ar) final;
+        bool                   OnEdit(Entity self) final;
+        bool                   OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
     };
 
 
 
+    /// @brief 2D sprite component.
     struct CSprite2D : ISprite2D
     {
         Sprite2D::Ptr _spr;
         Vec2f         _origin;
 
-        void        OnSerialize(ArchiveParams& ar) final;
-        bool        OnDeserialize(ArchiveParams& ar) final;
-        bool        OnEdit(Entity self) final;
+        Regionf GetRegion(Vec2f pos) const;
+        bool IsAlphaVisible(uint32_t x, uint32_t y) const;
+        void OnSerialize(ArchiveParams& ar) final;
+        bool OnDeserialize(ArchiveParams& ar) final;
+        bool OnEdit(Entity self) final;
+        bool OnEditCanvas(Entity ent, ImGui::CanvasParams& canvas) final;
     };
 
 
@@ -136,6 +133,7 @@ namespace fin
     };
 
 
+
     /// @brief Camera control component.
     /// Manages viewport position, zoom, and movement smoothing.
     struct CCamera : ICamera
@@ -154,6 +152,7 @@ namespace fin
     };
 
 
+
     /// @brief Prefab data component.
     /// Used to store serialized prefab state.
     struct CPrefab : IPrefab
@@ -163,6 +162,7 @@ namespace fin
         void OnSerialize(ArchiveParams& ar) final;
         bool OnDeserialize(ArchiveParams& ar) final;
     };
+
 
 
     /// @brief Named entity component.

@@ -469,6 +469,64 @@ namespace fin
         {
             return other.x1 >= x1 && other.y1 >= y1 && other.x2 <= x2 && other.y2 <= y2;
         }
+
+        // Intersection
+        Region<T> intersection(const Region<T>& r) const
+        {
+            Region<T> out;
+            out.x1 = (x1 > r.x1) ? x1 : r.x1;
+            out.y1 = (y1 > r.y1) ? y1 : r.y1;
+            out.x2 = (x2 < r.x2) ? x2 : r.x2;
+            out.y2 = (y2 < r.y2) ? y2 : r.y2;
+            if (out.x1 > out.x2 || out.y1 > out.y2)
+                return {0, 0, 0, 0}; // Empty region
+            return out;
+        }
+
+        // Union (bounding box of both)
+        Region<T> unite(const Region<T>& r) const
+        {
+            Region<T> out;
+            out.x1 = (x1 < r.x1) ? x1 : r.x1;
+            out.y1 = (y1 < r.y1) ? y1 : r.y1;
+            out.x2 = (x2 > r.x2) ? x2 : r.x2;
+            out.y2 = (y2 > r.y2) ? y2 : r.y2;
+            return out;
+        }
+
+        Region<T> expand(T amount) const
+        {
+            return {x1 - amount, y1 - amount, x2 + amount, y2 + amount};
+        }
+
+        // Translate region by a vector
+        Region<T> operator+(const Vec2<T>& offset) const
+        {
+            return {x1 + offset.x, y1 + offset.y, x2 + offset.x, y2 + offset.y};
+        }
+
+        Region<T> operator-(const Vec2<T>& offset) const
+        {
+            return {x1 - offset.x, y1 - offset.y, x2 - offset.x, y2 - offset.y};
+        }
+
+        Region<T>& operator+=(const Vec2<T>& offset)
+        {
+            x1 += offset.x;
+            y1 += offset.y;
+            x2 += offset.x;
+            y2 += offset.y;
+            return *this;
+        }
+
+        Region<T>& operator-=(const Vec2<T>& offset)
+        {
+            x1 -= offset.x;
+            y1 -= offset.y;
+            x2 -= offset.x;
+            y2 -= offset.y;
+            return *this;
+        }
     };
 
     template<typename T>

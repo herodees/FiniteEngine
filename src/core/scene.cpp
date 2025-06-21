@@ -665,9 +665,16 @@ namespace fin
     {
         if (ImGui::Begin("Explorer"))
         {
-            if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+            if (GetFactory().IsPrefabMode())
             {
-                _edit_prefabs = true;
+                if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+                {
+                    _edit_prefabs = true;
+                }
+            }
+            else
+            {
+                _edit_prefabs = false;
             }
             GetFactory().ImguiItems(this);
         }

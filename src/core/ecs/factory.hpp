@@ -41,10 +41,18 @@ namespace fin
         void SaveEntity(Entity entity, msg::Var& ar);
 
         void OnLayerUpdate(float dt, SparseSet& active);
+        bool IsPrefabMode() const;
 
         bool             SetEntityName(Entity entity, std::string_view name);
         std::string_view GetEntityName(Entity entity) const;
         Entity           GetEntityByName(std::string_view entity) const;
+
+        static std::string GetFolderMetadataType(std::string_view folder);
+        static std::vector<std::string> GetFolderFiles(std::string_view folder, std::string_view ext);
+        bool                            IsAssetFolder(std::string_view path) const;
+        bool                            NormalizeAssetPath(std::string& str) const;
+
+        void ImguiShowPrefabImport();
 
     private:
         int  PushPrefabData(msg::Var& obj);

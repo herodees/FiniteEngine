@@ -48,14 +48,9 @@ namespace fin
         inline static std::string_view CID = "cld";
     };
 
-    struct ISprite : IComponent
-    {
-        inline static std::string_view CID = "spr";
-    };
-
     struct ISprite2D : IComponent
     {
-        inline static std::string_view CID = "sp2";
+        inline static std::string_view CID = "spr";
     };
 
     struct IRegion : IComponent
@@ -106,7 +101,7 @@ namespace fin
         ret &= LoadBuiltinComponent<IPath>(IPath::CID);
         ret &= LoadBuiltinComponent<IIsometric>(IIsometric::CID);
         ret &= LoadBuiltinComponent<ICollider>(ICollider::CID);
-        ret &= LoadBuiltinComponent<ISprite>(ISprite::CID);
+        ret &= LoadBuiltinComponent<ISprite2D>(ISprite2D::CID);
         ret &= LoadBuiltinComponent<IRegion>(IRegion::CID);
         ret &= LoadBuiltinComponent<ICamera>(ICamera::CID);
         ret &= LoadBuiltinComponent<IAttachment>(IAttachment::CID);
