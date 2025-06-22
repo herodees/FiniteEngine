@@ -29,7 +29,6 @@ namespace fin
     void          ResetAtlasCache();
     Sprite2D::Ptr LoadSpriteChache(std::string_view spr);
 
-
     class ImportDialog : public ImGui::Dialog
     {
     public:

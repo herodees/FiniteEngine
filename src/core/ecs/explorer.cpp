@@ -82,8 +82,82 @@ namespace fin
                 clr = 0xfff0f0f0;
                 return ICON_FA_FILE_CODE;
             }
+            if (ext == "shader")
+            {
+                clr = 0xffccaf98;
+                return ICON_FA_FILE_CODE;
+            }
             return ICON_FA_FILE;
         }
+
+
+        
+
+
+        class ShaderProperties : public ImGui::Dialog
+        {
+            Shader2D::Ptr _shader;
+            Shader        _sh{};
+            std::string   _vs;
+            std::string   _fs;
+        public:
+            ShaderProperties(Shader2D::Ptr spr) :
+            _shader(spr),
+            _vs(_shader->GetVertexShader()),
+            _fs(_shader->GetFragmentShader()) {};
+            ~ShaderProperties() final
+            {
+                if (_sh.id)
+                    UnloadShader(_sh);
+            }
+            bool OnUpdate() final
+            {
+                bool ret{};
+                if (ImGui::BeginTabBar("##TabBar"))
+                {
+                    if (ImGui::BeginTabItem("Vertex"))
+                    {
+                        ret |= ImGui::InputTextMultiline("##vs", &_fs, {-1, -ImGui::GetFrameHeightWithSpacing()});
+                        ImGui::EndTabItem();
+                    }
+
+                    if (ImGui::BeginTabItem("Fragment"))
+                    {
+                        ret |= ImGui::InputTextMultiline("##fs", &_vs, {-1, -ImGui::GetFrameHeightWithSpacing()});
+                        ImGui::EndTabItem();
+                    }
+                    ImGui::EndTabBar();
+                }
+
+                if (ImGui::LineItem("ftr", {-1, ImGui::GetFrameHeight()})
+                        .PushStyle(ImStyle_Button, -1)
+                        .Text("  Compile  ")
+                        .PopStyle()
+                        .Spring()
+                        .PushStyle(ImStyle_Button, 1)
+                        .Text("  Cancel  ")
+                        .PopStyle()
+                        .Space()
+                        .PushStyle(ImStyle_Header, 2)
+                        .Text("   Save   ")
+                        .PopStyle()
+                        .End())
+                {
+                    if (ImGui::Line().HoverId() == -1)
+                    {
+                        if (_sh.id)
+                            UnloadShader(_sh);
+                        _sh = LoadShaderFromMemory(_shader->GetVertexShader().c_str(), _shader->GetFragmentShader().c_str());
+                    }
+                    if (ImGui::Line().HoverId() == 1)
+                        _shader.reset();
+                    if (ImGui::Line().HoverId() == 2 && _shader->SaveToFile(_shader->GetPath()))
+                        _shader.reset();
+                }
+
+                return !!_shader;
+            };
+        };
 
 
 
@@ -444,6 +518,11 @@ namespace fin
                 if (ext == "map")
                 {
                     scene->Load(_path + file);
+                }
+                else if (ext == "shader")
+                {
+                    auto shader = Shader2D::LoadShared(_path + file);
+                    ImGui::Dialog::ShowOnce<ShaderProperties>("Shader Properties", {800, 600}, 0, shader);
                 }
             }
 

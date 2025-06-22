@@ -45,7 +45,7 @@ set(BUILD_SHARED_LIBS FALSE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) # don't build the supplied examples
 set(BUILD_GAMES OFF CACHE BOOL "" FORCE) # don't build the supplied example games
 set(PLATFORM "Desktop" CACHE STRING "" FORCE) # build Raylib for Desktop
-set(OPENGL_VERSION "ES 3.0" CACHE STRING "" FORCE) # build Raylib for OpenGL ES 2.0
+set(OPENGL_VERSION "ES 2.0" CACHE STRING "" FORCE) # build Raylib for OpenGL ES 2.0
 set(CUSTOMIZE_BUILD ON CACHE BOOL "" FORCE) # build Raylib with custom frame control
 set(SUPPORT_CUSTOM_FRAME_CONTROL ON CACHE BOOL "" FORCE) # build Raylib with custom frame control
 set(RLGL_SHOW_GL_DETAILS_INFO TRUE)

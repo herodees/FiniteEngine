@@ -402,7 +402,7 @@ namespace fin
                 {
                     if (ImGui::IsItemClicked(0))
                     {
-                        _active_point = reg->Find(mouse_pos, 5);
+                        _active_point = reg->Find(mouse_pos, 5 / canvas.zoom);
                         if (_active_point != -1)
                         {
                             ImVec2 pt = {reg->GetPoint(_active_point).x, reg->GetPoint(_active_point).y};

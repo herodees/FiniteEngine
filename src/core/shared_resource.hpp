@@ -5,7 +5,7 @@
 namespace fin
 {
 
-    class Surface : std::enable_shared_from_this<Surface>
+    class Surface : public std::enable_shared_from_this<Surface>
     {
     private:
         Image surface{};
@@ -49,7 +49,7 @@ namespace fin
     };
 
 
-    class Texture2D : std::enable_shared_from_this<Texture2D>
+    class Texture2D : public std::enable_shared_from_this<Texture2D>
     {
     private:
         Texture              texture{};
@@ -149,7 +149,7 @@ namespace fin
     };
 
 
-    class SoundSource : std::enable_shared_from_this<SoundSource>
+    class SoundSource : public std::enable_shared_from_this<SoundSource>
     {
     private:
         Sound sound{};
@@ -174,6 +174,78 @@ namespace fin
         explicit operator bool() const;
     };
 
+    enum class GlslType
+    {
+        Float,
+        Int,
+        Bool,
+        Vec2,
+        Vec3,
+        Vec4,
+        IVec2,
+        IVec3,
+        IVec4,
+        BVec2,
+        BVec3,
+        BVec4,
+        Mat2,
+        Mat3,
+        Mat4,
+        Sampler2D,
+        SamplerCube,
+        Unknown
+    };
+
+    GlslType stringToGlslType(std::string_view str) noexcept;
+    std::string_view glslTypeToString(GlslType type) noexcept;
+
+    struct Uniform
+    {
+        GlslType    type;
+        std::string name;
+        int         arraySize = 0;
+    };
+
+    class Shader2D : public std::enable_shared_from_this<Shader2D>
+    {
+    private:
+        Shader               _shader{};
+        std::string          _path;
+        std::string          _vs;
+        std::string          _fs;
+        std::vector<Uniform> _uniforms;
+
+    public:
+        using Ptr = std::shared_ptr<Shader2D>;
+
+        Shader2D() = default;
+        Shader2D(Shader2D&& s) noexcept;
+        Shader2D(const Shader2D&) = delete;
+        ~Shader2D();
+        Shader2D& operator=(Shader2D&& s) noexcept;
+        Shader2D& operator=(const Shader2D&) = delete;
+
+        bool         LoadFromFile(std::string_view filePath);
+        bool         SaveToFile(std::string_view filePath) const;
+        bool         LoadFromMemory(std::string_view vs, std::string_view fs, std::string_view filePath);
+        int32_t      GetShaderLocationAttrib(const char* id) const;
+        int32_t      GetShaderLocation(const char* id) const;
+        void         SetShaderValue(Shader shader, int32_t locIndex, const Vec2f* value, size_t size = 1);
+        void         SetShaderValue(Shader shader, int32_t locIndex, const float* value, size_t size = 1);
+        void         SetShaderValue(Shader shader, int32_t locIndex, const int32_t* value, size_t size = 1);
+        void         SetShaderValue(Shader shader, int32_t locIndex, const uint32_t* value, size_t size = 1);
+        void         SetShaderSampler2D(Shader shader, int32_t locIndex, const int32_t* value, size_t size = 1);
+        void         SetShaderValueMatrix(Shader shader, int32_t locIndex, Matrix mat);
+        void         SetShaderValueTexture(Shader shader, int32_t locIndex, Texture texture);
+        std::string& GetVertexShader();
+        std::string& GetFragmentShader();
+
+        const std::string& GetPath() const;
+
+        static Ptr LoadShared(std::string_view pth);
+
+        explicit operator bool() const;
+    };
 
 
     class Sprite2D : public std::enable_shared_from_this<Sprite2D>

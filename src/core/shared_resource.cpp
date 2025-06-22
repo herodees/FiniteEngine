@@ -1,8 +1,10 @@
 #include "shared_resource.hpp"
 #include "atlas.hpp"
 #include <imstb_rectpack.h>
+#include <rlgl.h>
+#include <utils/svstream.hpp>
 
-    namespace fs = std::filesystem;
+namespace fs = std::filesystem;
 
 namespace fin
 {
@@ -14,6 +16,7 @@ namespace fin
         std::unordered_map<std::string, std::weak_ptr<Surface>, std::string_hash, std::equal_to<>>     _surfaces;
         std::unordered_map<std::string, std::weak_ptr<SoundSource>, std::string_hash, std::equal_to<>> _sounds;
         std::unordered_map<std::string, std::weak_ptr<Sprite2D>, std::string_hash, std::equal_to<>>    _sprites;
+        std::unordered_map<std::string, std::weak_ptr<Shader2D>, std::string_hash, std::equal_to<>>    _shaders;
     };
 
     static SharedResource _shared_res;
@@ -42,6 +45,301 @@ namespace fin
             UnloadImage(surface);
         }
         surface = {};
+    }
+
+    Shader2D::Shader2D(Shader2D&& s) noexcept
+    {
+        std::swap(s._shader, _shader);
+        std::swap(s._path, _path);
+    }
+
+    Shader2D::~Shader2D()
+    {
+        if (_shader.id)
+            UnloadShader(_shader);
+    }
+
+    Shader2D& Shader2D::operator=(Shader2D&& s) noexcept
+    {
+        std::swap(s._shader, _shader);
+        std::swap(s._path, _path);
+        return *this;
+    }
+
+    bool Shader2D::SaveToFile(std::string_view filePath) const
+    {
+        std::string str;
+        str.append("#type vertex\n");
+        str.append(_vs);
+        str.append("#type fragment\n");
+        str.append(_fs);
+        return SaveFileText(std::string(filePath).c_str(), str.c_str());
+    }
+
+    bool Shader2D::LoadFromFile(std::string_view filePath)
+    {
+        _path = filePath;
+
+        // Unload existing shader if it exists
+        if (_shader.id)
+        {
+            UnloadShader(_shader);
+            _shader = {0};
+        }
+
+        // Load the entire file text
+        char* fileText = LoadFileText(_path.c_str());
+        if (!fileText)
+        {
+            return false;
+        }
+
+        // Find vertex and fragment shader sections
+        const char* vertexMarker   = "#type vertex";
+        const char* fragmentMarker = "#type fragment";
+
+        char* vertexStart   = strstr(fileText, vertexMarker);
+        char* fragmentStart = strstr(fileText, fragmentMarker);
+
+        if (!vertexStart || !fragmentStart)
+        {
+            UnloadFileText(fileText);
+            return false; // Missing one of the shader types
+        }
+
+        // Move pointers to the start of the actual shader code
+        vertexStart += strlen(vertexMarker);
+        while (*vertexStart == '\r' || *vertexStart == '\n')
+            vertexStart++;
+
+        fragmentStart += strlen(fragmentMarker);
+        while (*fragmentStart == '\r' || *fragmentStart == '\n')
+            fragmentStart++;
+
+        // Extract shader code (assume fragment comes after vertex)
+        char* vertexEnd   = fragmentStart - strlen(fragmentMarker) - 1;
+        char* fragmentEnd = fileText + strlen(fileText);
+
+        // Null-terminate the shader strings
+        *vertexEnd             = '\0';
+        char* vertexShaderCode = vertexStart;
+
+        *fragmentEnd             = '\0';
+        char* fragmentShaderCode = fragmentStart;
+
+        _vs.assign(vertexShaderCode);
+        _fs.assign(fragmentShaderCode);
+        // Load shader from memory
+        _shader = LoadShaderFromMemory(vertexShaderCode, fragmentShaderCode);
+
+        // Cleanup
+        UnloadFileText(fileText);
+
+        return _shader.id != 0;
+    }
+
+    std::string stripComments(const std::string_view src) noexcept
+    {
+        std::string out;
+        const char* p              = src.data();
+        const char* end            = p + src.size();
+        bool        inLineComment  = false;
+        bool        inBlockComment = false;
+
+        while (p < end)
+        {
+            if (!inLineComment && !inBlockComment && *p == '/' && (p + 1 < end))
+            {
+                if (*(p + 1) == '/')
+                {
+                    inLineComment = true;
+                    p += 2;
+                    continue;
+                }
+                if (*(p + 1) == '*')
+                {
+                    inBlockComment = true;
+                    p += 2;
+                    continue;
+                }
+            }
+
+            if (inLineComment && *p == '\n')
+            {
+                inLineComment = false;
+            }
+            else if (inBlockComment && *p == '*' && (p + 1 < end) && *(p + 1) == '/')
+            {
+                inBlockComment = false;
+                p += 2;
+                continue;
+            }
+            else if (!inLineComment && !inBlockComment)
+            {
+                out += *p;
+            }
+            ++p;
+        }
+
+        return out;
+    }
+
+    std::vector<Uniform> parseUniforms(std::string_view source) noexcept
+    {
+        std::vector<Uniform> uniforms;
+
+        std::string      cleaned = stripComments(source);
+        std::string_view cleanedView(cleaned);
+
+        std::string_view_stream s(cleanedView);
+
+        while (!s.eof())
+        {
+            s.skipWhitespace();
+
+            auto kw = s.parseIdentifier();
+            if (kw != "uniform")
+            {
+                s.skipUntil(';');
+                continue;
+            }
+
+            auto     typeStr = s.parseIdentifier();
+            GlslType type    = stringToGlslType(typeStr);
+            if (type == GlslType::Unknown)
+            {
+                s.skipUntil(';');
+                continue;
+            }
+
+            while (!s.eof())
+            {
+                s.skipWhitespace();
+                auto name = s.parseIdentifier();
+                if (name.empty())
+                    break;
+
+                int arraySize = 0;
+                s.skipWhitespace();
+                if (s.expect('['))
+                {
+                    arraySize = s.parseInteger();
+                    s.expect(']');
+                }
+
+                auto& un     = uniforms.emplace_back();
+                un.type      = type;
+                un.name      = name;
+                un.arraySize = arraySize;
+
+                s.skipWhitespace();
+                if (s.expect(','))
+                {
+                    continue; // more names
+                }
+                else if (s.expect(';'))
+                {
+                    break; // end of declaration
+                }
+                else
+                {
+                    s.skipUntil(';');
+                    break;
+                }
+            }
+        }
+        return uniforms;
+    }
+
+    bool Shader2D::LoadFromMemory(std::string_view vs, std::string_view fs, std::string_view filePath)
+    {
+        _path = filePath;
+
+        // Unload existing shader if it exists
+        if (_shader.id)
+        {
+            UnloadShader(_shader);
+            _shader = {0};
+        }
+
+        _vs.assign(vs);
+        _fs.assign(fs);
+
+        _shader = LoadShaderFromMemory(_vs.c_str(), _fs.c_str());
+
+        return _shader.id != 0;
+    }
+
+    int32_t Shader2D::GetShaderLocationAttrib(const char* id) const
+    {
+        return ::GetShaderLocationAttrib(_shader, id);
+    }
+
+    int32_t Shader2D::GetShaderLocation(const char* id) const
+    {
+        return ::GetShaderLocation(_shader, id);
+    }
+
+    void Shader2D::SetShaderValue(Shader shader, int32_t locIndex, const Vec2f* value, size_t size)
+    {
+        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_VEC2, size);
+    }
+
+    void Shader2D::SetShaderValue(Shader shader, int32_t locIndex, const float* value, size_t size)
+    {
+        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_FLOAT, size);
+    }
+
+    void Shader2D::SetShaderValue(Shader shader, int32_t locIndex, const int32_t* value, size_t size)
+    {
+        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_INT, size);
+    }
+
+    void Shader2D::SetShaderValue(Shader shader, int32_t locIndex, const uint32_t* value, size_t size)
+    {
+        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_UINT, size);
+    }
+
+    void Shader2D::SetShaderSampler2D(Shader shader, int32_t locIndex, const int32_t* value, size_t size)
+    {
+        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_SAMPLER2D, size);
+    }
+
+    void Shader2D::SetShaderValueMatrix(Shader shader, int32_t locIndex, Matrix mat)
+    {
+        ::SetShaderValueMatrix(_shader, locIndex, mat);
+    }
+
+    void Shader2D::SetShaderValueTexture(Shader shader, int32_t locIndex, Texture texture)
+    {
+        ::SetShaderValueTexture(_shader, locIndex, texture);
+    }
+
+    std::string& Shader2D::GetVertexShader()
+    {
+        return _vs;
+    }
+
+    std::string& Shader2D::GetFragmentShader()
+    {
+        return _fs;
+    }
+
+    Shader2D::Ptr Shader2D::LoadShared(std::string_view pth)
+    {
+        auto it = _shared_res._shaders.find(pth);
+        if (it != _shared_res._shaders.end() && !it->second.expired())
+            return it->second.lock();
+
+        auto ptr                               = std::make_shared<Shader2D>();
+        _shared_res._shaders[std::string(pth)] = ptr;
+        ptr->LoadFromFile(pth);
+        return ptr;
+    }
+
+    const std::string& Shader2D::GetPath() const
+    {
+        return _path;
     }
 
     bool Surface::load_from_file(const std::filesystem::path& filePath)
@@ -827,5 +1125,87 @@ namespace fin
     Sprite2D::operator bool() const
     {
         return !!_texture;
+    }
+
+    GlslType stringToGlslType(std::string_view str) noexcept
+    {
+        if (str == "float")
+            return GlslType::Float;
+        if (str == "int")
+            return GlslType::Int;
+        if (str == "bool")
+            return GlslType::Bool;
+        if (str == "vec2")
+            return GlslType::Vec2;
+        if (str == "vec3")
+            return GlslType::Vec3;
+        if (str == "vec4")
+            return GlslType::Vec4;
+        if (str == "ivec2")
+            return GlslType::IVec2;
+        if (str == "ivec3")
+            return GlslType::IVec3;
+        if (str == "ivec4")
+            return GlslType::IVec4;
+        if (str == "bvec2")
+            return GlslType::BVec2;
+        if (str == "bvec3")
+            return GlslType::BVec3;
+        if (str == "bvec4")
+            return GlslType::BVec4;
+        if (str == "mat2")
+            return GlslType::Mat2;
+        if (str == "mat3")
+            return GlslType::Mat3;
+        if (str == "mat4")
+            return GlslType::Mat4;
+        if (str == "sampler2D")
+            return GlslType::Sampler2D;
+        if (str == "samplerCube")
+            return GlslType::SamplerCube;
+        return GlslType::Unknown;
+    }
+
+    std::string_view glslTypeToString(GlslType type) noexcept
+    {
+        switch (type)
+        {
+            case GlslType::Float:
+                return "float";
+            case GlslType::Int:
+                return "int";
+            case GlslType::Bool:
+                return "bool";
+            case GlslType::Vec2:
+                return "vec2";
+            case GlslType::Vec3:
+                return "vec3";
+            case GlslType::Vec4:
+                return "vec4";
+            case GlslType::IVec2:
+                return "ivec2";
+            case GlslType::IVec3:
+                return "ivec3";
+            case GlslType::IVec4:
+                return "ivec4";
+            case GlslType::BVec2:
+                return "bvec2";
+            case GlslType::BVec3:
+                return "bvec3";
+            case GlslType::BVec4:
+                return "bvec4";
+            case GlslType::Mat2:
+                return "mat2";
+            case GlslType::Mat3:
+                return "mat3";
+            case GlslType::Mat4:
+                return "mat4";
+            case GlslType::Sampler2D:
+                return "sampler2D";
+            case GlslType::SamplerCube:
+                return "samplerCube";
+            default:
+                return "unknown";
+        }
     }
 } // namespace fin
