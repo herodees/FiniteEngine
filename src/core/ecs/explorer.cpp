@@ -114,7 +114,7 @@ namespace fin
             {
                 if (_sh.id)
                     UnloadShader(_sh);
-                _sh = LoadShaderFromMemory(_shader->GetVertexShader().c_str(), _shader->GetFragmentShader().c_str());
+                _sh = LoadShaderFromMemory(_vs.c_str(), _fs.c_str());
                 return _sh.id != 0;
             }
             bool OnUpdate() final
@@ -124,13 +124,17 @@ namespace fin
                 {
                     if (ImGui::BeginTabItem("Vertex"))
                     {
-                        ret |= ImGui::InputTextMultiline("##vs", &_fs, {-1, -ImGui::GetFrameHeightWithSpacing()});
+                        ImGui::SetCurrentFont(ImGui::GetIO().Fonts->Fonts[1]);
+                        ret |= ImGui::InputTextMultiline("##vs", &_vs, {-1, -ImGui::GetFrameHeightWithSpacing()-5});
+                        ImGui::SetCurrentFont(ImGui::GetIO().Fonts->Fonts[0]);
                         ImGui::EndTabItem();
                     }
 
                     if (ImGui::BeginTabItem("Fragment"))
                     {
-                        ret |= ImGui::InputTextMultiline("##fs", &_vs, {-1, -ImGui::GetFrameHeightWithSpacing()});
+                        ImGui::SetCurrentFont(ImGui::GetIO().Fonts->Fonts[1]);
+                        ret |= ImGui::InputTextMultiline("##fs", &_fs, {-1, -ImGui::GetFrameHeightWithSpacing()-5});
+                        ImGui::SetCurrentFont(ImGui::GetIO().Fonts->Fonts[0]);
                         ImGui::EndTabItem();
                     }
                     ImGui::EndTabBar();
@@ -160,6 +164,7 @@ namespace fin
                     {
                         _shader->GetFragmentShader() = _fs;
                         _shader->GetVertexShader() = _vs;
+                        _shader->LoadFromMemory(_vs, _fs, _shader->GetPath());
                         if (_shader->SaveToFile(_shader->GetPath()))
                         {
                             _shader.reset();

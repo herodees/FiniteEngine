@@ -216,6 +216,7 @@ namespace fin
             UnloadFileText(fileText);
             return false; // Missing one of the shader types
         }
+        char* vertexEnd = fragmentStart;
 
         // Move pointers to the start of the actual shader code
         vertexStart += strlen(vertexMarker);
@@ -227,7 +228,6 @@ namespace fin
             fragmentStart++;
 
         // Extract shader code (assume fragment comes after vertex)
-        char* vertexEnd   = fragmentStart - strlen(fragmentMarker) - 1;
         char* fragmentEnd = fileText + strlen(fileText);
 
         // Null-terminate the shader strings
