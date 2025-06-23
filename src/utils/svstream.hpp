@@ -33,7 +33,7 @@ namespace std
                 --pos;
         }
 
-        void skipWhitespace() noexcept
+        void skip_whitespace() noexcept
         {
             while (!eof() && std::isspace(peek()))
                 ++pos;
@@ -50,9 +50,9 @@ namespace std
         }
 
         // Extracts an identifier [a-zA-Z_][a-zA-Z0-9_]*
-        std::string_view parseIdentifier() noexcept
+        std::string_view parse_identifier() noexcept
         {
-            skipWhitespace();
+            skip_whitespace();
             size_t start = pos;
 
             if (eof() || !(std::isalpha(peek()) || peek() == '_'))
@@ -65,20 +65,96 @@ namespace std
             return view.substr(start, pos - start);
         }
 
-        // Extract number (only unsigned for simplicity)
-        int parseInteger() noexcept
+        // Extract number
+        int parse_integer() noexcept
         {
-            skipWhitespace();
+            skip_whitespace();
+
+            int sign = 1;
+            if (peek() == '-')
+            {
+                sign = -1;
+                ++pos;
+            }
+            else if (peek() == '+')
+            {
+                ++pos;
+            }
+
             int result = 0;
-            while (!eof() && std::isdigit(peek()))
+            while (!eof() && std::isdigit(static_cast<unsigned char>(peek())))
             {
                 result = result * 10 + (get() - '0');
             }
-            return result;
+            return result * sign;
+        }
+
+        double parse_real() noexcept
+        {
+            skip_whitespace();
+
+            int sign = 1;
+            if (peek() == '+')
+            {
+                ++pos;
+            }
+            else if (peek() == '-')
+            {
+                sign = -1;
+                ++pos;
+            }
+
+            double result = 0.0;
+
+            // Integer part
+            while (!eof() && std::isdigit(static_cast<unsigned char>(peek())))
+            {
+                result = result * 10.0 + (get() - '0');
+            }
+
+            // Fractional part
+            if (peek() == '.')
+            {
+                ++pos;
+                double divisor = 10.0;
+
+                while (!eof() && std::isdigit(static_cast<unsigned char>(peek())))
+                {
+                    result += (get() - '0') / divisor;
+                    divisor *= 10.0;
+                }
+            }
+
+            // Exponent part
+            if (peek() == 'e' || peek() == 'E')
+            {
+                ++pos;
+
+                int exp_sign = 1;
+                if (peek() == '+')
+                {
+                    ++pos;
+                }
+                else if (peek() == '-')
+                {
+                    exp_sign = -1;
+                    ++pos;
+                }
+
+                int exponent = 0;
+                while (!eof() && std::isdigit(static_cast<unsigned char>(peek())))
+                {
+                    exponent = exponent * 10 + (get() - '0');
+                }
+
+                result *= std::pow(10.0, exp_sign * exponent);
+            }
+
+            return result * sign;
         }
 
         // Consume until next token boundary
-        void skipUntil(char c) noexcept
+        void skip_until(char c) noexcept
         {
             while (!eof() && peek() != c)
                 ++pos;

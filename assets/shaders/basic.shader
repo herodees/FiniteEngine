@@ -1,7 +1,7 @@
 #type vertex
 // Vertex shader
 attribute vec3 aPos;
-
+uniform vec2 test;
 void main() {
     gl_Position = vec4(aPos, 1.0);
 }

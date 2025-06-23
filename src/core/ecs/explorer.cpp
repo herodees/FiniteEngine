@@ -110,6 +110,13 @@ namespace fin
                 if (_sh.id)
                     UnloadShader(_sh);
             }
+            bool Compile()
+            {
+                if (_sh.id)
+                    UnloadShader(_sh);
+                _sh = LoadShaderFromMemory(_shader->GetVertexShader().c_str(), _shader->GetFragmentShader().c_str());
+                return _sh.id != 0;
+            }
             bool OnUpdate() final
             {
                 bool ret{};
@@ -145,14 +152,19 @@ namespace fin
                 {
                     if (ImGui::Line().HoverId() == -1)
                     {
-                        if (_sh.id)
-                            UnloadShader(_sh);
-                        _sh = LoadShaderFromMemory(_shader->GetVertexShader().c_str(), _shader->GetFragmentShader().c_str());
+                        Compile();
                     }
                     if (ImGui::Line().HoverId() == 1)
                         _shader.reset();
-                    if (ImGui::Line().HoverId() == 2 && _shader->SaveToFile(_shader->GetPath()))
-                        _shader.reset();
+                    if (ImGui::Line().HoverId() == 2 && Compile())
+                    {
+                        _shader->GetFragmentShader() = _fs;
+                        _shader->GetVertexShader() = _vs;
+                        if (_shader->SaveToFile(_shader->GetPath()))
+                        {
+                            _shader.reset();
+                        }
+                    }
                 }
 
                 return !!_shader;

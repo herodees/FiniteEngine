@@ -10,6 +10,7 @@ namespace fin
 {
     struct SharedResource
     {
+        Shader2D*                                                                                      _active_shader{};
         std::string                                                                                    _path;
         std::unordered_map<std::string, std::weak_ptr<Atlas>, std::string_hash, std::equal_to<>>       _atlases;
         std::unordered_map<std::string, std::weak_ptr<Texture2D>, std::string_hash, std::equal_to<>>   _textures;
@@ -76,6 +77,115 @@ namespace fin
         return SaveFileText(std::string(filePath).c_str(), str.c_str());
     }
 
+    std::string StripComments(const std::string_view src) noexcept
+    {
+        std::string out;
+        const char* p              = src.data();
+        const char* end            = p + src.size();
+        bool        inLineComment  = false;
+        bool        inBlockComment = false;
+
+        while (p < end)
+        {
+            if (!inLineComment && !inBlockComment && *p == '/' && (p + 1 < end))
+            {
+                if (*(p + 1) == '/')
+                {
+                    inLineComment = true;
+                    p += 2;
+                    continue;
+                }
+                if (*(p + 1) == '*')
+                {
+                    inBlockComment = true;
+                    p += 2;
+                    continue;
+                }
+            }
+
+            if (inLineComment && *p == '\n')
+            {
+                inLineComment = false;
+            }
+            else if (inBlockComment && *p == '*' && (p + 1 < end) && *(p + 1) == '/')
+            {
+                inBlockComment = false;
+                p += 2;
+                continue;
+            }
+            else if (!inLineComment && !inBlockComment)
+            {
+                out += *p;
+            }
+            ++p;
+        }
+
+        return out;
+    }
+
+    void parseUniforms(std::vector<Uniform>& uniforms, std::string_view source) noexcept
+    {
+        std::string      cleaned = StripComments(source);
+        std::string_view cleanedView(cleaned);
+
+        std::string_view_stream s(cleanedView);
+        while (!s.eof())
+        {
+            s.skip_whitespace();
+
+            auto kw = s.parse_identifier();
+            if (kw != "uniform")
+            {
+                s.skip_until(';');
+                continue;
+            }
+
+            auto     typeStr = s.parse_identifier();
+            GlslType type    = StringToGlslType(typeStr);
+            if (type == GlslType::Unknown)
+            {
+                s.skip_until(';');
+                continue;
+            }
+
+            while (!s.eof())
+            {
+                s.skip_whitespace();
+                auto name = s.parse_identifier();
+                if (name.empty())
+                    break;
+
+                int arraySize = 1;
+                s.skip_whitespace();
+                if (s.expect('['))
+                {
+                    arraySize = s.parse_integer();
+                    s.expect(']');
+                }
+
+                auto& un     = uniforms.emplace_back();
+                un.type      = type;
+                un.name      = name;
+                un.arraySize = size_t(arraySize);
+
+                s.skip_whitespace();
+                if (s.expect(','))
+                {
+                    continue; // more names
+                }
+                else if (s.expect(';'))
+                {
+                    break; // end of declaration
+                }
+                else
+                {
+                    s.skip_until(';');
+                    break;
+                }
+            }
+        }
+    }
+
     bool Shader2D::LoadFromFile(std::string_view filePath)
     {
         _path = filePath;
@@ -131,124 +241,12 @@ namespace fin
         _fs.assign(fragmentShaderCode);
         // Load shader from memory
         _shader = LoadShaderFromMemory(vertexShaderCode, fragmentShaderCode);
+        AllocateUniformStorage();
 
         // Cleanup
         UnloadFileText(fileText);
 
         return _shader.id != 0;
-    }
-
-    std::string stripComments(const std::string_view src) noexcept
-    {
-        std::string out;
-        const char* p              = src.data();
-        const char* end            = p + src.size();
-        bool        inLineComment  = false;
-        bool        inBlockComment = false;
-
-        while (p < end)
-        {
-            if (!inLineComment && !inBlockComment && *p == '/' && (p + 1 < end))
-            {
-                if (*(p + 1) == '/')
-                {
-                    inLineComment = true;
-                    p += 2;
-                    continue;
-                }
-                if (*(p + 1) == '*')
-                {
-                    inBlockComment = true;
-                    p += 2;
-                    continue;
-                }
-            }
-
-            if (inLineComment && *p == '\n')
-            {
-                inLineComment = false;
-            }
-            else if (inBlockComment && *p == '*' && (p + 1 < end) && *(p + 1) == '/')
-            {
-                inBlockComment = false;
-                p += 2;
-                continue;
-            }
-            else if (!inLineComment && !inBlockComment)
-            {
-                out += *p;
-            }
-            ++p;
-        }
-
-        return out;
-    }
-
-    std::vector<Uniform> parseUniforms(std::string_view source) noexcept
-    {
-        std::vector<Uniform> uniforms;
-
-        std::string      cleaned = stripComments(source);
-        std::string_view cleanedView(cleaned);
-
-        std::string_view_stream s(cleanedView);
-
-        while (!s.eof())
-        {
-            s.skipWhitespace();
-
-            auto kw = s.parseIdentifier();
-            if (kw != "uniform")
-            {
-                s.skipUntil(';');
-                continue;
-            }
-
-            auto     typeStr = s.parseIdentifier();
-            GlslType type    = stringToGlslType(typeStr);
-            if (type == GlslType::Unknown)
-            {
-                s.skipUntil(';');
-                continue;
-            }
-
-            while (!s.eof())
-            {
-                s.skipWhitespace();
-                auto name = s.parseIdentifier();
-                if (name.empty())
-                    break;
-
-                int arraySize = 0;
-                s.skipWhitespace();
-                if (s.expect('['))
-                {
-                    arraySize = s.parseInteger();
-                    s.expect(']');
-                }
-
-                auto& un     = uniforms.emplace_back();
-                un.type      = type;
-                un.name      = name;
-                un.arraySize = arraySize;
-
-                s.skipWhitespace();
-                if (s.expect(','))
-                {
-                    continue; // more names
-                }
-                else if (s.expect(';'))
-                {
-                    break; // end of declaration
-                }
-                else
-                {
-                    s.skipUntil(';');
-                    break;
-                }
-            }
-        }
-        return uniforms;
     }
 
     bool Shader2D::LoadFromMemory(std::string_view vs, std::string_view fs, std::string_view filePath)
@@ -266,53 +264,208 @@ namespace fin
         _fs.assign(fs);
 
         _shader = LoadShaderFromMemory(_vs.c_str(), _fs.c_str());
+        AllocateUniformStorage();
 
         return _shader.id != 0;
     }
 
-    int32_t Shader2D::GetShaderLocationAttrib(const char* id) const
+    void Shader2D::AllocateUniformStorage()
     {
-        return ::GetShaderLocationAttrib(_shader, id);
+        _uniforms.clear();
+        if (!_shader.id)
+            return;
+
+        parseUniforms(_uniforms, _vs);
+        parseUniforms(_uniforms, _fs);
+
+        for (size_t n = 0; n < _uniforms.size(); ++n)
+        {
+            for (size_t i = n + 1; i < _uniforms.size(); ++i)
+            {
+                if (_uniforms[n].name == _uniforms[i].name)
+                {
+                    _uniforms[i].name.clear();
+                }
+            }
+        }
+
+        for (int32_t n = int32_t(_uniforms.size()) - 1; n >= 0; --n)
+        {
+            if (_uniforms[n].name.empty())
+            {
+                _uniforms[n] = _uniforms.back();
+                _uniforms.pop_back();
+            }
+        }
+
+        size_t offset = 0;
+        for (auto& u : _uniforms)
+        {
+            size_t type_size  = GlslTypeSize(u.type);
+            size_t total_size = type_size * u.arraySize; // support arrays
+
+            // Optional: align to 16 bytes (for UBO-style uniform handling)
+            size_t alignment      = 16;
+            size_t aligned_offset = (offset + alignment - 1) & ~(alignment - 1);
+
+            u.storage      = reinterpret_cast<void*>(static_cast<size_t>(aligned_offset));
+            u.storage_size = static_cast<size_t>(total_size);
+
+            if (_storage.size() < aligned_offset + total_size)
+                _storage.resize(aligned_offset + total_size);
+
+            offset = aligned_offset + total_size;
+        }
+
+        for (auto& u : _uniforms)
+            u.storage = _storage.data() + reinterpret_cast<size_t>(u.storage);
     }
 
-    int32_t Shader2D::GetShaderLocation(const char* id) const
+    Uniform* Shader2D::FindUniform(std::string_view name)
     {
-        return ::GetShaderLocation(_shader, id);
+        for (auto& un : _uniforms)
+            if (un.name == name)
+                return &un;
+        return nullptr;
     }
 
-    void Shader2D::SetShaderValue(Shader shader, int32_t locIndex, const Vec2f* value, size_t size)
+    void Shader2D::SetUniform(Uniform* uni)
     {
-        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_VEC2, size);
+        if (uni->updated)
+            return;
+
+        if (_shared_res._active_shader != this)
+            return;
+
+        if (uni->location == -2)
+        {
+            uni->location = rlGetLocationUniform(_shader.id, uni->name.c_str());
+            if (uni->location < 0)
+            {
+                TraceLog(LOG_ERROR, "Undefined uniform location: '%s'", uni->name.c_str());
+                return;
+            }
+        }
+        uni->updated = true;
+
+        switch (uni->type)
+        {
+            case GlslType::Float:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_FLOAT, uni->arraySize);
+                return;
+            case GlslType::Int:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_INT, uni->arraySize);
+                return;
+            case GlslType::Bool:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_INT, uni->arraySize);
+                return; // GLSL bools are 4 bytes on GPU
+            case GlslType::Vec2:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_VEC2, uni->arraySize);
+                return;
+            case GlslType::Vec3:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_VEC3, uni->arraySize);
+                return;
+            case GlslType::Vec4:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_VEC4, uni->arraySize);
+                return;
+            case GlslType::IVec2:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_IVEC2, uni->arraySize);
+                return;
+            case GlslType::IVec3:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_IVEC3, uni->arraySize);
+                return;
+            case GlslType::IVec4:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_IVEC4, uni->arraySize);
+                return;
+            case GlslType::BVec2:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_IVEC2, uni->arraySize);
+                return;
+            case GlslType::BVec3:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_IVEC3, uni->arraySize);
+                return;
+            case GlslType::BVec4:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_IVEC4, uni->arraySize);
+                return;
+            case GlslType::Mat4:
+                rlSetUniformMatrices(uni->location, (Matrix*)uni->storage, uni->arraySize);
+                return;
+            case GlslType::Sampler2D:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_UINT, uni->arraySize);
+                return; // treated as int
+            case GlslType::SamplerCube:
+                rlSetUniform(uni->location, uni->storage, RL_SHADER_UNIFORM_UINT, uni->arraySize);
+                return;
+            default:
+                return;
+        }
     }
 
-    void Shader2D::SetShaderValue(Shader shader, int32_t locIndex, const float* value, size_t size)
+    const Uniform* Shader2D::FindUniform(std::string_view name) const
     {
-        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_FLOAT, size);
+        for (auto& un : _uniforms)
+            if (un.name == name)
+                return &un;
+        return nullptr;
     }
 
-    void Shader2D::SetShaderValue(Shader shader, int32_t locIndex, const int32_t* value, size_t size)
+    void Shader2D::SetUniform(std::string_view name, const float* value, size_t size)
     {
-        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_INT, size);
+        if (auto* un =  FindUniform(name))
+        {
+            un->updated = false;
+            std::copy(value, value + size, (float*)un->storage);
+            SetUniform(un);
+        }
     }
 
-    void Shader2D::SetShaderValue(Shader shader, int32_t locIndex, const uint32_t* value, size_t size)
+    void Shader2D::SetUniform(std::string_view name, const int32_t* value, size_t size)
     {
-        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_UINT, size);
+        if (auto* un = FindUniform(name))
+        {
+            un->updated = false;
+            std::copy(value, value + size, (int32_t*)un->storage);
+            SetUniform(un);
+        }
     }
 
-    void Shader2D::SetShaderSampler2D(Shader shader, int32_t locIndex, const int32_t* value, size_t size)
+    void Shader2D::SetUniform(std::string_view name, const uint32_t* value, size_t size)
     {
-        ::SetShaderValueV(_shader, locIndex, value, SHADER_UNIFORM_SAMPLER2D, size);
+        if (auto* un = FindUniform(name))
+        {
+            un->updated = false;
+            std::copy(value, value + size, (uint32_t*)un->storage);
+            SetUniform(un);
+        }
     }
 
-    void Shader2D::SetShaderValueMatrix(Shader shader, int32_t locIndex, Matrix mat)
+    void Shader2D::SetUniform(std::string_view name, const Vec2f* value, size_t size)
     {
-        ::SetShaderValueMatrix(_shader, locIndex, mat);
+        if (auto* un = FindUniform(name))
+        {
+            un->updated = false;
+            std::copy(value, value + size, (Vec2f*)un->storage);
+            SetUniform(un);
+        }
     }
 
-    void Shader2D::SetShaderValueTexture(Shader shader, int32_t locIndex, Texture texture)
+    void Shader2D::SetSampler2D(std::string_view name, const int32_t* value, size_t size)
     {
-        ::SetShaderValueTexture(_shader, locIndex, texture);
+        if (auto* un = FindUniform(name))
+        {
+            un->updated = false;
+            std::copy(value, value + size, (int32_t*)un->storage);
+            SetUniform(un);
+        }
+    }
+
+    void Shader2D::SetMatrix4(std::string_view name, const Matrix* value, size_t size)
+    {
+        if (auto* un = FindUniform(name))
+        {
+            un->updated = false;
+            std::copy(value, value + size, (Matrix*)un->storage);
+            SetUniform(un);
+        }
     }
 
     std::string& Shader2D::GetVertexShader()
@@ -323,6 +476,23 @@ namespace fin
     std::string& Shader2D::GetFragmentShader()
     {
         return _fs;
+    }
+
+    void Shader2D::Bind()
+    {
+        _shared_res._active_shader = this;
+        BeginShaderMode(_shader);
+
+        for (auto& un : _uniforms)
+        {
+            SetUniform(&un);
+        }
+    }
+
+    void Shader2D::Unbind()
+    {
+        EndShaderMode();
+        _shared_res._active_shader = nullptr;
     }
 
     Shader2D::Ptr Shader2D::LoadShared(std::string_view pth)
@@ -1127,7 +1297,46 @@ namespace fin
         return !!_texture;
     }
 
-    GlslType stringToGlslType(std::string_view str) noexcept
+    size_t GlslTypeSize(GlslType type) noexcept
+    {
+        switch (type)
+        {
+            case GlslType::Float:
+                return 4;
+            case GlslType::Int:
+                return 4;
+            case GlslType::Bool:
+                return 4; // GLSL bools are 4 bytes on GPU
+            case GlslType::Vec2:
+                return 4 * 2;
+            case GlslType::Vec3:
+                return 4 * 3;
+            case GlslType::Vec4:
+                return 4 * 4;
+            case GlslType::IVec2:
+                return 4 * 2;
+            case GlslType::IVec3:
+                return 4 * 3;
+            case GlslType::IVec4:
+                return 4 * 4;
+            case GlslType::BVec2:
+                return 4 * 2;
+            case GlslType::BVec3:
+                return 4 * 3;
+            case GlslType::BVec4:
+                return 4 * 4;
+            case GlslType::Mat4:
+                return 4 * 4 * 4;
+            case GlslType::Sampler2D:
+                return 4; // treated as int
+            case GlslType::SamplerCube:
+                return 4;
+            default:
+                return 0;
+        }
+    }
+
+    GlslType StringToGlslType(std::string_view str) noexcept
     {
         if (str == "float")
             return GlslType::Float;
@@ -1154,10 +1363,6 @@ namespace fin
         if (str == "bvec4")
             return GlslType::BVec4;
         if (str == "mat2")
-            return GlslType::Mat2;
-        if (str == "mat3")
-            return GlslType::Mat3;
-        if (str == "mat4")
             return GlslType::Mat4;
         if (str == "sampler2D")
             return GlslType::Sampler2D;
@@ -1166,7 +1371,7 @@ namespace fin
         return GlslType::Unknown;
     }
 
-    std::string_view glslTypeToString(GlslType type) noexcept
+    std::string_view GlslTypeToString(GlslType type) noexcept
     {
         switch (type)
         {
@@ -1194,10 +1399,6 @@ namespace fin
                 return "bvec3";
             case GlslType::BVec4:
                 return "bvec4";
-            case GlslType::Mat2:
-                return "mat2";
-            case GlslType::Mat3:
-                return "mat3";
             case GlslType::Mat4:
                 return "mat4";
             case GlslType::Sampler2D:

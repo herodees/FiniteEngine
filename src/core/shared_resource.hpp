@@ -188,22 +188,25 @@ namespace fin
         BVec2,
         BVec3,
         BVec4,
-        Mat2,
-        Mat3,
         Mat4,
         Sampler2D,
         SamplerCube,
         Unknown
     };
 
-    GlslType stringToGlslType(std::string_view str) noexcept;
-    std::string_view glslTypeToString(GlslType type) noexcept;
+    GlslType         StringToGlslType(std::string_view str) noexcept;
+    std::string_view GlslTypeToString(GlslType type) noexcept;
+    size_t           GlslTypeSize(GlslType type) noexcept;
 
     struct Uniform
     {
-        GlslType    type;
-        std::string name;
-        int         arraySize = 0;
+        GlslType    type{};
+        std::string name{};
+        int32_t     location{-2};
+        size_t      arraySize{};
+        void*       storage{};
+        size_t      storage_size{};
+        bool        updated{};
     };
 
     class Shader2D : public std::enable_shared_from_this<Shader2D>
@@ -214,6 +217,11 @@ namespace fin
         std::string          _vs;
         std::string          _fs;
         std::vector<Uniform> _uniforms;
+        std::vector<uint8_t> _storage;
+
+        void     AllocateUniformStorage();
+        Uniform* FindUniform(std::string_view name);
+        void     SetUniform(Uniform* uni);
 
     public:
         using Ptr = std::shared_ptr<Shader2D>;
@@ -225,20 +233,23 @@ namespace fin
         Shader2D& operator=(Shader2D&& s) noexcept;
         Shader2D& operator=(const Shader2D&) = delete;
 
-        bool         LoadFromFile(std::string_view filePath);
-        bool         SaveToFile(std::string_view filePath) const;
-        bool         LoadFromMemory(std::string_view vs, std::string_view fs, std::string_view filePath);
-        int32_t      GetShaderLocationAttrib(const char* id) const;
-        int32_t      GetShaderLocation(const char* id) const;
-        void         SetShaderValue(Shader shader, int32_t locIndex, const Vec2f* value, size_t size = 1);
-        void         SetShaderValue(Shader shader, int32_t locIndex, const float* value, size_t size = 1);
-        void         SetShaderValue(Shader shader, int32_t locIndex, const int32_t* value, size_t size = 1);
-        void         SetShaderValue(Shader shader, int32_t locIndex, const uint32_t* value, size_t size = 1);
-        void         SetShaderSampler2D(Shader shader, int32_t locIndex, const int32_t* value, size_t size = 1);
-        void         SetShaderValueMatrix(Shader shader, int32_t locIndex, Matrix mat);
-        void         SetShaderValueTexture(Shader shader, int32_t locIndex, Texture texture);
+        bool LoadFromFile(std::string_view filePath);
+        bool SaveToFile(std::string_view filePath) const;
+        bool LoadFromMemory(std::string_view vs, std::string_view fs, std::string_view filePath);
+
+        const Uniform* FindUniform(std::string_view name) const;
+        void           SetUniform(std::string_view name, const float* value, size_t size = 1);
+        void           SetUniform(std::string_view name, const int32_t* value, size_t size = 1);
+        void           SetUniform(std::string_view name, const uint32_t* value, size_t size = 1);
+        void           SetUniform(std::string_view name, const Vec2f* value, size_t size = 1);
+        void           SetSampler2D(std::string_view name, const int32_t* value, size_t size = 1);
+        void           SetMatrix4(std::string_view name, const Matrix* value, size_t size = 1);
+
         std::string& GetVertexShader();
         std::string& GetFragmentShader();
+
+        void Bind();
+        void Unbind();
 
         const std::string& GetPath() const;
 
