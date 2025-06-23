@@ -461,16 +461,19 @@ namespace fin
                 {
                     if (auto* reg = selected_region())
                     {
-                        ImVec2 pt = {reg->GetPoint(_active_point).x, reg->GetPoint(_active_point).y};
-                        if (canvas.EndDrag(pt, (void*)(size_t)_active_point))
+                        if (_active_point < reg->Size())
                         {
-                            auto obj = *reg;
-                            _spatial.remove(*selected_region());
-                            _selected = -1;
-                            obj.SetPoint(_active_point, pt);
-                            obj.Update();
-                            _selected = _spatial.insert(obj);
-                            modified  = true;
+                            ImVec2 pt = {reg->GetPoint(_active_point).x, reg->GetPoint(_active_point).y};
+                            if (canvas.EndDrag(pt, (void*)(size_t)_active_point))
+                            {
+                                auto obj = *reg;
+                                _spatial.remove(*selected_region());
+                                _selected = -1;
+                                obj.SetPoint(_active_point, pt);
+                                obj.Update();
+                                _selected = _spatial.insert(obj);
+                                modified  = true;
+                            }
                         }
                     }
                 }

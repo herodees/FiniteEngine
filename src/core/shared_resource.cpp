@@ -1088,7 +1088,6 @@ namespace fin
         auto ptr                               = std::make_shared<Sprite2D>();
         _shared_res._sprites[std::string(pth)] = ptr;
         ptr->LoadFromFile(pth);
-
         return ptr;
     }
 
@@ -1272,10 +1271,13 @@ namespace fin
                 data.append("y=").append(std::to_string((int)packedImg.rect.y)).append("\n");
                 data.append("width=").append(std::to_string((int)packedImg.rect.width)).append("\n");
                 data.append("height=").append(std::to_string((int)packedImg.rect.height)).append("\n");
-                if (auto el = Sprite2D::LoadShared(spriteFilePath))
+                if (FileExists(spriteFilePath.c_str()))
                 {
-                    data.append("ox=").append(std::to_string(el->GetOrigin().x)).append("\n");
-                    data.append("oy=").append(std::to_string(el->GetOrigin().y)).append("\n");
+                    if (auto el = Sprite2D::LoadShared(spriteFilePath))
+                    {
+                        data.append("ox=").append(std::to_string(el->GetOrigin().x)).append("\n");
+                        data.append("oy=").append(std::to_string(el->GetOrigin().y)).append("\n");
+                    }
                 }
                 data.append("src=.qoi\n");
                 SaveFileText(spriteFilePath.c_str(), data.c_str());

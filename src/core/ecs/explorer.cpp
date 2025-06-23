@@ -307,6 +307,8 @@ namespace fin
             dir.push_back('/');
         }
         dir.append(MetadataFile);
+        if (!FileExists(dir.c_str()))
+            return std::string();
 
         if (auto* txt = LoadFileText(dir.c_str()))
         {
