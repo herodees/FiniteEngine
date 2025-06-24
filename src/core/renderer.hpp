@@ -4,6 +4,9 @@
 
 namespace fin
 {
+    class Texture2D;
+    class Shader2D;
+
     class Renderer
     {
     public:
@@ -25,6 +28,9 @@ namespace fin
         void render_line_circle(Vec2f pos, float radius);
         void render_circle(Vec2f pos, float radius);
         void render_debug_text(Vec2f to, const char* fmt, ...);
+
+        void SetShader(Shader2D* txt);
+        void RenderTexture(const Texture2D* txt, const Regionf& pos, const Regionf& uv);
 
         bool     _debug{};
         Color    _color{WHITE};

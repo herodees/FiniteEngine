@@ -726,7 +726,6 @@ namespace fin
 
     void Scene::ImguiShowProperties(bool show)
     {
-      //  _show_properties = true;
         ImGui::Dialog::ShowOnce<SceneProperties>("Scene Properties", {800, 600}, 0, *this);
     }
 

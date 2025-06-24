@@ -478,18 +478,24 @@ namespace fin
         return _fs;
     }
 
-    void Shader2D::Bind()
+    void Shader2D::Bind(Shader2D* sh)
     {
-        _shared_res._active_shader = this;
-        BeginShaderMode(_shader);
-
-        for (auto& un : _uniforms)
+        if (sh)
         {
-            SetUniform(&un);
+            _shared_res._active_shader = sh;
+            BeginShaderMode(sh->_shader);
+            for (auto& un : sh->_uniforms)
+            {
+                sh->SetUniform(&un);
+            }
+        }
+        else
+        {
+            Unbind(_shared_res._active_shader);
         }
     }
 
-    void Shader2D::Unbind()
+    void Shader2D::Unbind(Shader2D* sh)
     {
         EndShaderMode();
         _shared_res._active_shader = nullptr;
@@ -1410,5 +1416,29 @@ namespace fin
             default:
                 return "unknown";
         }
+    }
+
+    bool Ribbon2D::LoadFromFile(std::string_view filePath)
+    {
+        return false;
+    }
+
+    bool Ribbon2D::ParseContent(std::string_view content, std::string_view dir)
+    {
+        msg::Pack pack;
+        if (pack.from_string(content.data()) != msg::VarError::ok)
+            return false;
+
+        return true;
+    }
+
+    Ribbon2D::Ptr Ribbon2D::LoadShared(std::string_view pth)
+    {
+        return Ptr();
+    }
+
+    Ribbon2D::operator bool() const
+    {
+        return !!_texture;
     }
 } // namespace fin

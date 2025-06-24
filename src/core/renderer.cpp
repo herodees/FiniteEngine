@@ -1,4 +1,5 @@
 #include "renderer.hpp"
+#include "shared_resource.hpp"
 
 #include <rlgl.h>
 
@@ -123,6 +124,42 @@ namespace fin
         buf[w] = 0;
 
         DrawText(buf, to.x, to.y, 10, _color);
+    }
+
+    void Renderer::SetShader(Shader2D* txt)
+    {
+        Shader2D::Bind(txt);
+    }
+
+    void Renderer::RenderTexture(const Texture2D* txt, const Regionf& pos, const Regionf& uv)
+    {
+        if (!txt)
+            return;
+
+        rlBegin(RL_QUADS);
+
+        rlSetTexture(txt->get_texture()->id);
+        rlColor4ub(_color.r, _color.g, _color.b, _color.a);
+        rlNormal3f(0.0f, 0.0f, 1.0f); // Normal vector pointing towards viewer
+
+        // Top-left corner for texture and quad
+        rlTexCoord2f(uv.x1, uv.y1);
+        rlVertex2f(pos.x1, pos.y1);
+
+        // Bottom-left corner for texture and quad
+        rlTexCoord2f(uv.x1, uv.y2);
+        rlVertex2f(pos.x1, pos.y2);
+
+        // Bottom-right corner for texture and quad
+        rlTexCoord2f(uv.x2, uv.y2);
+        rlVertex2f(pos.x2, pos.y2);
+
+        // Top-right corner for texture and quad
+        rlTexCoord2f(uv.x2, uv.y1);
+        rlVertex2f(pos.x2, pos.y1);
+
+        rlEnd();
+        rlSetTexture(0);
     }
 
     bool Renderer::is_debug() const
