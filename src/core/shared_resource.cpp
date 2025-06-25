@@ -930,6 +930,7 @@ namespace fin
     bool Sprite2D::SaveToFile(std::string_view filePath) const
     {
         std::string data;
+        data.append("[sprite]\n");
         data.append("x=").append(std::to_string((int)_rect.x)).append("\n");
         data.append("y=").append(std::to_string((int)_rect.y)).append("\n");
         data.append("width=").append(std::to_string((int)_rect.width)).append("\n");
