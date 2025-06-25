@@ -303,27 +303,4 @@ namespace fin
     };
 
 
-    class Ribbon2D : public std::enable_shared_from_this<Ribbon2D>
-    {
-        struct Segment
-        {
-            float from;
-            float to;
-            float uvfrom;
-            float uvto;
-        };
-        Texture2D::Ptr       _texture;
-        std::string          _path;
-        std::vector<Segment> _segments;
-
-    public:
-        using Ptr = std::shared_ptr<Ribbon2D>;
-
-        bool LoadFromFile(std::string_view filePath);
-        bool ParseContent(std::string_view content, std::string_view dir);
-
-        static Ptr LoadShared(std::string_view pth);
-
-        explicit operator bool() const;
-    };
 } // namespace fin

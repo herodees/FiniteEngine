@@ -63,7 +63,7 @@ namespace std
             // Section header
             if (first == '[')
             {
-                line_stream.get(); // skip [
+                (void)line_stream.get(); // skip [
                 size_t name_start = line_stream.remaining().data() - source.data();
                 line_stream.skip_until(']');
                 size_t name_end = line_stream.remaining().data() - source.data() - 1;
@@ -85,7 +85,7 @@ namespace std
 
             line_stream.skip_whitespace();
             size_t value_start = line_stream.remaining().data() - source.data();
-            size_t value_end   = line.find_first_of("#;\n\r", value_start);
+            size_t value_end   = source.find_first_of("#;\n\r", value_start);
             if (value_end == std::string_view::npos)
                 value_end = source.size();
 
@@ -130,10 +130,10 @@ namespace std
             {
                 for (size_t m = n; m < _sections.size(); ++m)
                 {
-                    if (_sections[n].section != section)
+                    if (_sections[m].section != section)
                         break;
-                    if (_sections[n].key == key)
-                        return _sections[n].value;
+                    if (_sections[m].key == key)
+                        return _sections[m].value;
                 }
                 return defvalue;
             }
@@ -143,12 +143,25 @@ namespace std
 
     inline int ini_config::get_section(std::string_view section, std::string_view key, int defvalue)
     {
-
-        return std::string_view();
+        auto val = get_section(section, key, std::string_view());
+        if (val.empty())
+            return defvalue;
+        int value      = 0;
+        auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), value);
+        if (ec != std::errc()) // check if parsing failed
+            return defvalue;
+        return value;
     }
 
     inline float ini_config::get_section(std::string_view section, std::string_view key, float defvalue)
     {
-        return 0.0f;
+        auto val = get_section(section, key, std::string_view());
+        if (val.empty())
+            return defvalue;
+        float value    = 0;
+        auto [ptr, ec] = std::from_chars(val.data(), val.data() + val.size(), value);
+        if (ec != std::errc()) // check if parsing failed
+            return defvalue;
+        return value;
     }
 }

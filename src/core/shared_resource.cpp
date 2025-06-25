@@ -3,6 +3,7 @@
 #include <imstb_rectpack.h>
 #include <rlgl.h>
 #include <utils/svstream.hpp>
+#include <utils/ini.hpp>
 
 namespace fs = std::filesystem;
 
@@ -954,78 +955,20 @@ namespace fin
 
     void Sprite2D::ParseSprite(std::string_view content, std::string_view dir)
     {
-        auto get_val = [](std::string_view str, auto def) -> auto
+        std::ini_config cfg;
+        if (cfg.parse_inplace(content))
         {
-            decltype(def) result = 0;
-            auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), result);
-            if (ec != std::errc())
-                return def; // Error in conversion
-            return result;
-        };
+            _rect.x = cfg.get_section("sprite", "x", 0);
+            _rect.y = cfg.get_section("sprite", "y", 0);
+            _rect.width = cfg.get_section("sprite", "width", 0);
+            _rect.height = cfg.get_section("sprite", "height", 0);
+            _origin.x    = cfg.get_section("sprite", "ox", 0.f);
+            _origin.y    = cfg.get_section("sprite", "oy", 0.f);
 
-        // Parse line by line
-        while (!content.empty())
-        {
-            // Get the current line
-            size_t           end_of_line = content.find('\n');
-            std::string_view line        = content.substr(0, end_of_line);
-
-            // Trim whitespace from the line
-            line = trim_whitespace(line);
-
-            // Skip empty lines
-            if (line.empty())
-            {
-                content = (end_of_line == std::string_view::npos) ? std::string_view() : content.substr(end_of_line + 1);
-                continue;
-            }
-
-            // Find the '=' delimiter
-            size_t delimiter_pos = line.find('=');
-            if (delimiter_pos == std::string_view::npos)
-            {
-                content = (end_of_line == std::string_view::npos) ? std::string_view() : content.substr(end_of_line + 1);
-                continue; // skip malformed lines
-            }
-
-            // Split into key and value
-            std::string_view key   = trim_whitespace(line.substr(0, delimiter_pos));
-            std::string_view value = trim_whitespace(line.substr(delimiter_pos + 1));
-
-            // Assign to the appropriate field
-            if (key == "x")
-            {
-                _rect.x = get_val(value, 0);
-            }
-            else if (key == "y")
-            {
-                _rect.y = get_val(value, 0);
-            }
-            else if (key == "width")
-            {
-                _rect.width = get_val(value, 0);
-            }
-            else if (key == "height")
-            {
-                _rect.height = get_val(value, 0);
-            }
-            else if (key == "ox")
-            {
-                _origin.x = get_val(value, 0.f);
-            }
-            else if (key == "oy")
-            {
-                _origin.y = get_val(value, 0.f);
-            }
-            else if (key == "src")
-            {
-                std::string base(dir);
-                base.push_back('/');
-                base.append(value);
-                _texture = Texture2D::load_shared(base);
-            }
-            // Move to next line
-            content = (end_of_line == std::string_view::npos) ? std::string_view() : content.substr(end_of_line + 1);
+            std::string base(dir);
+            base.push_back('/');
+            base.append(cfg.get_section("sprite", "src", std::string_view("")));
+            _texture = Texture2D::load_shared(base);
         }
 
         if (!_texture)
@@ -1285,6 +1228,7 @@ namespace fin
                 spriteFilePath.resize(spriteFilePath.find_last_of('.'));
                 spriteFilePath.append(".sprite");
                 std::string data;
+                data.append("[sprite]\n");
                 data.append("x=").append(std::to_string((int)packedImg.rect.x)).append("\n");
                 data.append("y=").append(std::to_string((int)packedImg.rect.y)).append("\n");
                 data.append("width=").append(std::to_string((int)packedImg.rect.width)).append("\n");
@@ -1436,27 +1380,5 @@ namespace fin
         }
     }
 
-    bool Ribbon2D::LoadFromFile(std::string_view filePath)
-    {
-        return false;
-    }
 
-    bool Ribbon2D::ParseContent(std::string_view content, std::string_view dir)
-    {
-        msg::Pack pack;
-        if (pack.from_string(content.data()) != msg::VarError::ok)
-            return false;
-
-        return true;
-    }
-
-    Ribbon2D::Ptr Ribbon2D::LoadShared(std::string_view pth)
-    {
-        return Ptr();
-    }
-
-    Ribbon2D::operator bool() const
-    {
-        return !!_texture;
-    }
 } // namespace fin
