@@ -412,8 +412,8 @@ namespace fin
     {
         if (_prefab_edit != entt::null)
         {
-            if (_prefab_changed && 1 ==
-                messagebox_yes_no("Edit Prefab", "Do you want to save the current prefab before editing?"))
+            if (_prefab_changed && MessageButton::Yes ==
+                ShowMessage("Edit Prefab", "Do you want to save the current prefab before editing?", MessageType::YesNo, MessageIcon::Question))
             {
                 SaveEditPrefab(scene);
             }
@@ -435,8 +435,17 @@ namespace fin
 
         auto prefab = _prefabs.get_item(_prefab_edit_index);
         auto cls = prefab.get_item(Sc::Class);
-        SavePrefabComponent(_prefab_edit, cls);
-
+        if (scene)
+        {
+            msg::Var temp;
+            scene->Serialize(temp); // Save prefabs
+            SavePrefabComponent(_prefab_edit, cls);
+            scene->Deserialize(temp); // Restore prefabs
+        }
+        else
+        {
+            SavePrefabComponent(_prefab_edit, cls);
+        }
     }
 
     void ComponentFactory::CloseEditPrefab(Scene* scene)
@@ -1022,7 +1031,7 @@ namespace fin
 
     void ComponentFactory::ImguiShowPrefabImport()
     {
-        auto dir = open_folder_dialog("Import Atlas Folder", _base_folder);
+        auto dir = OpenFolderDialog("Import Atlas Folder", _base_folder);
         if (!dir.empty() && IsAssetFolder(dir))
         {
             ImGui::Dialog::Show<ImportDialog>("Import Sprites", {800, 600}, 0, *this, dir);

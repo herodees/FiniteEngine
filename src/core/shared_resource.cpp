@@ -1046,6 +1046,12 @@ namespace fin
         return _texture.get();
     }
 
+    bool Sprite2D::SetTexture(std::string_view filePath)
+    {
+        _texture = Texture2D::load_shared(filePath);
+        return !!_texture;
+    }
+
     Regionf Sprite2D::GetUVRegion() const
     {
         return GetTexture()->get_uv(_rect.region());
@@ -1059,6 +1065,11 @@ namespace fin
     const Rectf& Sprite2D::GetRect() const
     {
         return _rect;
+    }
+
+    void Sprite2D::SetRect(Rectf rc)
+    {
+        _rect = rc;
     }
 
     Vec2f Sprite2D::GetSize() const
@@ -1269,6 +1280,7 @@ namespace fin
         {
             if (packedImg.rect.width > 0 && packedImg.rect.height > 0)
             {
+                Sprite2D::Ptr old_data;
                 std::string spriteFilePath = packedImg.srcPath;
                 spriteFilePath.resize(spriteFilePath.find_last_of('.'));
                 spriteFilePath.append(".sprite");
@@ -1279,14 +1291,20 @@ namespace fin
                 data.append("height=").append(std::to_string((int)packedImg.rect.height)).append("\n");
                 if (FileExists(spriteFilePath.c_str()))
                 {
-                    if (auto el = Sprite2D::LoadShared(spriteFilePath))
+                    if (old_data = Sprite2D::LoadShared(spriteFilePath))
                     {
-                        data.append("ox=").append(std::to_string(el->GetOrigin().x)).append("\n");
-                        data.append("oy=").append(std::to_string(el->GetOrigin().y)).append("\n");
+                        data.append("ox=").append(std::to_string(old_data->GetOrigin().x)).append("\n");
+                        data.append("oy=").append(std::to_string(old_data->GetOrigin().y)).append("\n");
                     }
                 }
                 data.append("src=.qoi\n");
                 SaveFileText(spriteFilePath.c_str(), data.c_str());
+                if (old_data)
+                {
+                    auto txt = Texture2D::load_shared(folderPath + ".qoi");
+                    txt->load_from_file(folderPath + ".qoi");
+                    old_data->SetRect({packedImg.rect.x, packedImg.rect.y, packedImg.rect.width, packedImg.rect.height});
+                }
             }
         }
 

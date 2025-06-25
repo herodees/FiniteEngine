@@ -468,7 +468,7 @@ namespace ImGui
         bool ret{};
         if (BeginCombo(label, path.c_str()))
         {
-            auto r = fin::open_file_dialog("Open", path, fin::create_file_filter(filter));
+            auto r = fin::OpenFileDialog("Open", path, fin::CreateFileFilter(filter));
             if (!r.empty())
             {
                 ret  = true;
@@ -485,7 +485,7 @@ namespace ImGui
         bool ret{};
         if (BeginCombo(label, path.c_str()))
         {
-            auto r = fin::save_file_dialog("Open", path, fin::create_file_filter(filter));
+            auto r = fin::SaveFileDialog("Open", path, fin::CreateFileFilter(filter));
             if (!r.empty())
             {
                 ret  = true;

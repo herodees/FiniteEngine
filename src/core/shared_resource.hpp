@@ -281,9 +281,11 @@ namespace fin
         void               ParseSprite(std::string_view content, std::string_view dir);
         const std::string& GetPath() const;
         Texture2D*         GetTexture() const;
+        bool               SetTexture(std::string_view filePath);
         Regionf            GetUVRegion() const;
         Rectf              GetRect(Vec2f pos) const;
         const Rectf&       GetRect() const;
+        void               SetRect(Rectf rc);
         Vec2f              GetSize() const;
         Vec2f              GetOrigin() const;
         void               SetOrigin(Vec2f o);

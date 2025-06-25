@@ -5,12 +5,15 @@
 #if defined(_WIN32)
 #include <tchar.h>
 #include <windows.h>
+#include <shellapi.h>
 #else
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <cstdlib>
 #endif
+#include <filesystem>
 
 namespace fin
 {
@@ -36,7 +39,7 @@ namespace fin
 #endif
     }
 
-    void run_current_process(const std::vector<std::string>& args)
+    void RunCurrentProcess(const std::vector<std::string>& args)
     {
         std::string exePath = get_executable_path();
 
@@ -88,28 +91,28 @@ namespace fin
 #endif
     }
 
-    int messagebox_yes_no(const std::string& title, const std::string& message)
+    MessageButton ShowMessage(const std::string& title, const std::string& message, MessageType buttons, MessageIcon icon)
     {
-        pfd::message dialog(title, message, pfd::choice::yes_no, pfd::icon::question);
-        auto res = dialog.result();
-        return (int)res;
-    }
-
-    int messagebox_yes_no_cancel(const std::string& title, const std::string& message)
-    {
-        pfd::message dialog(title, message, pfd::choice::yes_no_cancel, pfd::icon::question);
+        pfd::message dialog(title, message, pfd::choice(buttons), pfd::icon(icon));
         auto         res = dialog.result();
-        return (int)res;
+        return MessageButton(res);
     }
 
-    int messagebox_ok(const std::string& title, const std::string& message)
+    void ShowInExplorer(const std::string& path)
     {
-        pfd::message dialog(title, message, pfd::choice::ok, pfd::icon::info);
-        auto         res = dialog.result();
-        return (int)res;
+        auto pth = std::filesystem::absolute(path);
+#ifdef _WIN32
+        std::string command = "explorer \"" + pth.string() + "\"";
+        system(command.c_str());
+#elif __linux__
+        std::string command = "xdg-open \"" + pth.string() + "\"";
+        system(command.c_str());
+#else
+        // Unknown platform
+#endif
     }
 
-    std::vector<std::string> create_file_filter(const std::string& str)
+    std::vector<std::string> CreateFileFilter(const std::string& str)
     {
         std::vector<std::string> result;
         size_t                   start = 0, end;
@@ -124,7 +127,7 @@ namespace fin
         return result;
     }
 
-    std::vector<std::string> open_file_dialog(const std::string&       title,
+    std::vector<std::string> OpenFileDialog(const std::string&       title,
                                               const std::string&       initial_path,
                                               std::vector<std::string> filters,
                                               bool                     multiselect)
@@ -133,14 +136,14 @@ namespace fin
         return res.result();
     }
 
-    std::string save_file_dialog(const std::string& title, const std::string& initial_path, std::vector<std::string> filters)
+    std::string SaveFileDialog(const std::string& title, const std::string& initial_path, std::vector<std::string> filters)
     {
         auto res = pfd::save_file::save_file(title, initial_path, filters, pfd::opt::none);
         return res.result();
     }
 
 
-    std::string open_folder_dialog(const std::string& title, const std::string& initial_path)
+    std::string OpenFolderDialog(const std::string& title, const std::string& initial_path)
     {
         auto res = pfd::select_folder(title, initial_path, pfd::opt::force_path);
         return res.result();

@@ -402,7 +402,7 @@ namespace fin
 
                 if (ImGui::MenuItem("Open"))
                 {
-                    auto files = open_file_dialog("", "");
+                    auto files = OpenFileDialog("", "");
                     if (!files.empty())
                     {
                         _map.Deinit();
@@ -414,7 +414,7 @@ namespace fin
                 {
                     if (_map.GetPath().empty())
                     {
-                        auto out = save_file_dialog("", "");
+                        auto out = SaveFileDialog("", "");
                         if (!out.empty())
                         {
                             _map.Save(out);
@@ -427,7 +427,7 @@ namespace fin
                 }
                 if (ImGui::MenuItem("Save as") || open_save_as)
                 {
-                    auto out = save_file_dialog("", "");
+                    auto out = SaveFileDialog("", "");
                     if (!out.empty())
                     {
                         _map.Save(out);

@@ -3,6 +3,7 @@
 #include <core/editor/imgui_control.hpp>
 #include <utils/imguiline.hpp>
 #include <core/scene.hpp>
+#include <utils/dialog_utils.hpp>
 
 namespace fin
 {
@@ -504,6 +505,13 @@ namespace fin
                     if (_context != "..")
                         dir.append(_context).push_back('/');
                     Sprite2D::CreateTextureAtlas(dir, "", 4096, 4096);
+                }
+                if (ImGui::MenuItem("Reveal in File Explorer"))
+                {
+                    std::string dir(_path);
+                    if (_context != "..")
+                        dir.append(_context).push_back('/');
+                    ShowInExplorer(dir);
                 }
                 ImGui::EndPopup();
             }

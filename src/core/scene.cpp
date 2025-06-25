@@ -718,7 +718,7 @@ namespace fin
                 {
                     std::string runtime_file("assets/___run___.map");
                     Save(runtime_file, false);
-                    run_current_process({"/scene=\"" + runtime_file + "\""});
+                    RunCurrentProcess({"/scene=\"" + runtime_file + "\""});
                 }
             }
         }
