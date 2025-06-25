@@ -1,8 +1,8 @@
 [sprite]
-x=0
-y=432
-width=598
-height=431
-ox=292.000000
-oy=422.000000
+x=430
+y=0
+width=271
+height=416
+ox=103.000000
+oy=410.000000
 src=.qoi
