@@ -27,7 +27,7 @@ namespace fin
         virtual void OnSerialize(msg::Var& ar) {};
         virtual bool OnDeserialize(msg::Var& ar)
         {
-            return false;
+            return true;
         };
         virtual const GamePluginInfo& GetInfo() const = 0;
     };

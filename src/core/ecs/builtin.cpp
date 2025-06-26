@@ -150,6 +150,7 @@ namespace fin
         _a.y  = ar.data["ay"].get(0.f);
         _b.x  = ar.data["bx"].get(0.f);
         _b.y  = ar.data["by"].get(0.f);
+        _y  = ar.data["y"].get(0);
         return true;
     }
 
@@ -159,12 +160,15 @@ namespace fin
         ar.data.set_item("ay", _a.y);
         ar.data.set_item("bx", _b.x);
         ar.data.set_item("by", _b.y);
+        if (_y)
+            ar.data.set_item("y", _y);
     }
 
     bool CIsometric::OnEdit(Entity ent)
     {
         auto  r    = ImGui::InputFloat2("A", &_a.x);
         r |= ImGui::InputFloat2("B", &_b.x);
+        r |= ImGui::DragInt("Y", &_y, 1.f, 0, 600);
         return r;
     }
 
@@ -182,6 +186,13 @@ namespace fin
         ret |= canvas.DragPoint(a, &_a, 5);
 
         ImGui::GetWindowDrawList()->AddLine(canvas.WorldToScreen(a), canvas.WorldToScreen(b), IM_COL32(255, 255, 255, 255), 2);
+        if (_y > 0)
+        {
+            ImGui::GetWindowDrawList()->AddLine(canvas.WorldToScreen({a.x, a.y + _y}),
+                                                canvas.WorldToScreen({b.x, b.y + _y}),
+                                                IM_COL32(255, 0, 255, 255),
+                                                2);
+        }
         ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(a), 5, IM_COL32(0, 255, 0, 255));
         ImGui::GetWindowDrawList()->AddCircle(canvas.WorldToScreen(b), 5, IM_COL32(255, 0, 0, 255));
 

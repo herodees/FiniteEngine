@@ -13,6 +13,7 @@ namespace fin
     static Entity      s_attachment_target{entt::null};
     static ImVec2      s_attachment_offset{0, 0};
     static int32_t     s_attachment_id{-1};
+    static int32_t     s_max_visibility{1000};
 
     int32_t ObjectSceneLayer::IsoObject::depth_get()
     {
@@ -51,6 +52,8 @@ namespace fin
         {
             _origin.point1 += iso->_a;
             _origin.point2 += iso->_b;
+            _origin.point1.y += iso->_y;
+            _origin.point2.y += iso->_y;
         }
 
         _back.clear();
@@ -302,7 +305,6 @@ namespace fin
 
         _selected.clear();
         _iso_pool_size = 0;
-        auto& reg = GetScene()->GetFactory().GetRegister();
 
         auto cb = [&](lq::SpatialDatabase::Proxy* item)
         {
@@ -393,6 +395,15 @@ namespace fin
 
         for (auto ent : _iso)
         {
+            if (s_max_visibility < 1000)
+            {
+                if (auto* iso = Find<CIsometric>(ent->_ptr))
+                {
+                    if (s_max_visibility < iso->_y)
+                        continue;
+                }
+            }
+
             if (sprites.Contains(ent->_ptr))
             {
                 auto& base   = Get<CBase>(ent->_ptr);
@@ -609,9 +620,12 @@ namespace fin
                 auto& iso = Get<CIsometric>(ent);
                 auto  a   = iso._a + base._position;
                 auto  b   = iso._b + base._position;
-                auto  aa  = canvas.WorldToScreen({a.x, a.y});
-                auto  bb  = canvas.WorldToScreen({b.x, b.y});
-                dc->AddLine(aa, bb, IM_COL32(255, 255, 255, 255), 2);
+                auto  aa  = canvas.WorldToScreen({a.x, a.y + iso._y});
+                auto  bb  = canvas.WorldToScreen({b.x, b.y + iso._y});
+                if (iso._y <= s_max_visibility)
+                    dc->AddLine(aa, bb, IM_COL32(255, 255, 255, 255), 2);
+                else
+                    dc->AddLine(aa, bb, IM_COL32(255, 0, 0, 255), 2);
 
                 if (ent == _edit)
                 {
@@ -688,6 +702,7 @@ namespace fin
             if (ImGui::Line().HoverId() == 20)
                 s_attachment_mode = true;
         }
+
         return false;
     }
 
@@ -706,6 +721,9 @@ namespace fin
         bool modified = false;
         if (items)
         {
+            ImGui::SetNextItemWidth(-1);
+            ImGui::SliderInt("##maxvis", &s_max_visibility, 0, 1000);
+
             ImGui::LineItem(ImGui::GetID(this), {-1, ImGui::GetFrameHeightWithSpacing()})
                 .Space()
                 .PushStyle(ImStyle_Button, 10, gSettings.list_visible_items)
@@ -716,7 +734,6 @@ namespace fin
                 .Text(" " ICON_FA_BAN " ")
                 .PopStyle()
                 .End();
-
 
             if (ImGui::Line().Return())
             {
@@ -779,6 +796,17 @@ namespace fin
         else if (_edit != entt::null)
         {
             modified |= GetScene()->GetFactory().ImguiPrefab(GetScene(), _edit);
+        }
+
+        if (IsKeyPressed(KEY_DELETE))
+        {
+            auto& reg = GetScene()->GetFactory().GetRegister();
+            if (reg.Valid(_edit))
+            {
+                Remove(_edit);
+                _edit = entt::null;
+                modified = true;
+            }
         }
 
         return modified;

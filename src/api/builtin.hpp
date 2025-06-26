@@ -37,6 +37,7 @@ namespace fin
     {
         Vec2f _a;
         Vec2f _b;
+        int32_t _y{};
 
         inline static std::string_view CID = "iso";
     };
