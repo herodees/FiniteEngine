@@ -311,13 +311,25 @@ namespace fin
                 }
             }
 
-            if (IsKeyPressed(KEY_DELETE))
+            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false))
             {
                 if (_select != -1)
                 {
                     Destroy(_select);
                     _select = -1;
                 }
+            }
+
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C, false))
+            {
+            }
+
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_X, false))
+            {
+            }
+
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V, false))
+            {
             }
 
             if (ImGui::BeginChildFrame(ImGui::GetID("sprpt"), {-1, -1}, 0))

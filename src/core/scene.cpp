@@ -566,6 +566,11 @@ namespace fin
         return _mode;
     }
 
+    void Scene::ActivateEditor()
+    {
+        _edit_prefabs = false;
+    }
+
     void Scene::ImguiWorkspace()
     {
         if (ImGui::Begin("Workspace"))

@@ -441,6 +441,7 @@ namespace fin
             scene->Serialize(temp); // Save prefabs
             SavePrefabComponent(_prefab_edit, cls);
             scene->Deserialize(temp); // Restore prefabs
+            SelectPrefab(scene, _selected);
         }
         else
         {

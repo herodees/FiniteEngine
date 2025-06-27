@@ -14,6 +14,7 @@ namespace fin
     static ImVec2      s_attachment_offset{0, 0};
     static int32_t     s_attachment_id{-1};
     static int32_t     s_max_visibility{1000};
+    static msg::Var    s_copy;
 
     int32_t ObjectSceneLayer::IsoObject::depth_get()
     {
@@ -550,6 +551,8 @@ namespace fin
                 {
                     obj->_position = {mouse_pos.x, mouse_pos.y};
                     Insert(_drop);
+                    SelectEdit(_drop);
+                    ImGui::SetWindowFocus(); 
                     modified = true;
                 }
 
@@ -798,17 +801,43 @@ namespace fin
             modified |= GetScene()->GetFactory().ImguiPrefab(GetScene(), _edit);
         }
 
-        if (IsKeyPressed(KEY_DELETE))
+        if (items)
         {
             auto& reg = GetScene()->GetFactory().GetRegister();
-            if (reg.Valid(_edit))
+            if (IsKeyPressed(ImGuiKey_Delete))
             {
-                Remove(_edit);
-                _edit = entt::null;
-                modified = true;
+                if (reg.Valid(_edit))
+                {
+                    Remove(_edit);
+                    _edit    = entt::null;
+                    modified = true;
+                }
+            }
+
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C, false))
+            {
+                if (reg.Valid(_edit))
+                    GetScene()->GetFactory().SaveEntity(_edit, s_copy);
+            }
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_X, false))
+            {
+                if (reg.Valid(_edit))
+                {
+                    GetScene()->GetFactory().SaveEntity(_edit, s_copy);
+                    Remove(_edit);
+                    _edit = entt::null;
+                }
+            }
+            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V, false) && s_copy.is_object())
+            {
+                GetScene()->GetFactory().ClearOldEntities();
+                Entity ent{};
+                GetScene()->GetFactory().LoadEntity(ent, s_copy);
+                Insert(ent);
+                MoveTo(ent, _region.center());
+                SelectEdit(ent);
             }
         }
-
         return modified;
     }
 

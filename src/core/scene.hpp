@@ -39,6 +39,7 @@ namespace fin
         void               SetSize(Vec2f size);
         void               SetMode(SceneMode sm);
         SceneMode          GetMode() const;
+        void               ActivateEditor();
         void               ActicateGrid(const Recti& screen);
         Vec2i              GetActiveSize() const;
         Vec2i              GetSceneSize() const;
