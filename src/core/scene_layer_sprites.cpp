@@ -9,6 +9,10 @@
 
 namespace fin
 {
+    static std::string s_sprite_copy;
+
+
+
     class SpriteSceneLayer : public SceneLayer
     {
     public:
@@ -311,25 +315,49 @@ namespace fin
                 }
             }
 
-            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false))
+            if (items)
             {
-                if (_select != -1)
+                if (ImGui::IsKeyPressed(ImGuiKey_Delete, false))
                 {
-                    Destroy(_select);
-                    _select = -1;
+                    if (_select != -1)
+                    {
+                        Destroy(_select);
+                        _select = -1;
+                    }
                 }
-            }
 
-            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C, false))
-            {
-            }
+                if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C, false))
+                {
+                    if (_select != -1)
+                    {
+                        s_sprite_copy = _spatial[_select]._sprite->GetPath();
+                    }
+                }
 
-            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_X, false))
-            {
-            }
+                if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_X, false))
+                {
+                    if (_select != -1)
+                    {
+                        Destroy(_select);
+                        s_sprite_copy = _spatial[_select]._sprite->GetPath();
+                        _select       = -1;
+                    }
+                }
 
-            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V, false))
-            {
+                if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V, false))
+                {
+                    _edit._sprite      = Sprite2D::LoadShared(s_sprite_copy);
+                    if (_edit._sprite)
+                    {
+                        _edit._bbox.width  = _edit._sprite->GetSize().x;
+                        _edit._bbox.height = _edit._sprite->GetSize().y;
+                        _edit._bbox.x      = _region.center().x;
+                        _edit._bbox.y      = _region.center().y;
+                        _edit._index       = _max_index;
+                        ++_max_index;
+                        _spatial.insert(_edit);
+                    }
+                }
             }
 
             if (ImGui::BeginChildFrame(ImGui::GetID("sprpt"), {-1, -1}, 0))
