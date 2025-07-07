@@ -15,14 +15,15 @@ namespace fin
     public:
         struct Node
         {
-            msg::Var       _points;
-            Rectf          _bbox;
-            Texture2D::Ptr _texture;
-            Vec2i          _offset;
-            int32_t        _index{0};
-            bool           _need_update{};
+            msg::Var           _points;
+            std::vector<Vec2f> _tringles;
+            Rectf              _bbox;
+            Texture2D::Ptr     _texture;
+            Vec2i              _offset;
+            int32_t            _index{0};
+            bool               _need_update{};
 
-            bool     operator==(const Node& ot) const
+            bool operator==(const Node& ot) const
             {
                 return this == &ot;
             }
@@ -116,6 +117,94 @@ namespace fin
                 return -1;
             }
 
+            void Triangulate()
+            {
+                _tringles.clear();
+                if (_points.size() < 6)
+                    return;
+
+                std::vector<Vec2f> vertices;
+                for (uint32_t n = 0; n < _points.size(); n += 2)
+                {
+                    vertices.emplace_back(_points.get_item(n).get(0.f), _points.get_item(n + 1).get(0.f));
+                }
+
+                auto fix_winding = [](std::vector<Vec2f>& verts)
+                {
+                    float area = 0;
+                    for (size_t i = 0; i < verts.size(); ++i)
+                    {
+                        size_t j = (i + 1) % verts.size();
+                        area += verts[i].x * verts[j].y - verts[j].x * verts[i].y;
+                    }
+                    if (area < 0)
+                        std::reverse(verts.begin(), verts.end());
+                };
+
+                auto is_convex = [](const Vec2f& a, const Vec2f& b, const Vec2f& c)
+                { return ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) >= 0.0f; };
+
+                auto point_in_triangle = [](const Vec2f& pt, const Vec2f& a, const Vec2f& b, const Vec2f& c)
+                {
+                    float d1      = (pt.x - b.x) * (a.y - b.y) - (a.x - b.x) * (pt.y - b.y);
+                    float d2      = (pt.x - c.x) * (b.y - c.y) - (b.x - c.x) * (pt.y - c.y);
+                    float d3      = (pt.x - a.x) * (c.y - a.y) - (c.x - a.x) * (pt.y - a.y);
+                    bool  has_neg = (d1 < 0) || (d2 < 0) || (d3 < 0);
+                    bool  has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
+                    return !(has_neg && has_pos);
+                };
+
+                fix_winding(vertices);
+
+                std::vector<Vec2f> temp = vertices;
+                while (temp.size() >= 3)
+                {
+                    bool   ear_found = false;
+                    size_t n         = temp.size();
+
+                    for (size_t i = 0; i < n; ++i)
+                    {
+                        size_t prev = (i + n - 1) % n;
+                        size_t next = (i + 1) % n;
+
+                        Vec2f a = temp[prev];
+                        Vec2f b = temp[i];
+                        Vec2f c = temp[next];
+
+                        if (!is_convex(a, b, c))
+                            continue;
+
+                        bool ear = true;
+                        for (size_t j = 0; j < n; ++j)
+                        {
+                            if (j == prev || j == i || j == next)
+                                continue;
+                            if (point_in_triangle(temp[j], a, b, c))
+                            {
+                                ear = false;
+                                break;
+                            }
+                        }
+
+                        if (ear)
+                        {
+                            _tringles.push_back(a);
+                            _tringles.push_back(b);
+                            _tringles.push_back(c);
+                            temp.erase(temp.begin() + i);
+                            ear_found = true;
+                            break;
+                        }
+                    }
+
+                    if (!ear_found)
+                    {
+                        // Polygon is likely non-simple or malformed
+                        break;
+                    }
+                }
+            }
+
             void Update()
             {
                 _need_update = false;
@@ -143,6 +232,8 @@ namespace fin
 
                     _bbox = reg.rect();
                 }
+
+                Triangulate();
             }
         };
 
@@ -336,6 +427,24 @@ namespace fin
                     rlColor4ub(255, 255, 255, 255);
                     rlNormal3f(0.0f, 0.0f, 1.0f);
 
+
+                    for (uint32_t n = 0; n < nde._tringles.size(); n+=3)
+                    {
+                        auto pt1 = nde._tringles[n];
+                        auto pt2 = nde._tringles[n + 1];
+                        auto pt3 = nde._tringles[n + 2];
+                        rlTexCoord2f((pt1.x - nde._offset.x) / width, (pt1.y - nde._offset.y) / height);
+                        rlVertex2f(pt1.x, pt1.y);
+                        rlTexCoord2f((pt2.x - nde._offset.x) / width, (pt2.y - nde._offset.y) / height);
+                        rlVertex2f(pt2.x, pt2.y);
+                        rlTexCoord2f((pt3.x - nde._offset.x) / width, (pt3.y - nde._offset.y) / height);
+                        rlVertex2f(pt3.x, pt3.y);
+                        rlTexCoord2f((pt3.x - nde._offset.x) / width, (pt3.y - nde._offset.y) / height);
+                        rlVertex2f(pt3.x, pt3.y);
+                    }
+
+
+                    /*
                     for (uint32_t n = 0; n < nde.Size(); ++n)
                     {
                         auto pt1 = nde.GetPoint(n);
@@ -353,6 +462,7 @@ namespace fin
                         rlTexCoord2f((center.x - nde._offset.x) / width, (center.y - nde._offset.y) / height);
                         rlVertex2f(center.x, center.y);
                     }
+                    */
 
                     rlEnd();
 
