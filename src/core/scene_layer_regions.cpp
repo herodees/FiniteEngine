@@ -15,6 +15,7 @@ namespace fin
     public:
         struct Node
         {
+            std::string_view   _name;
             msg::Var           _points;
             std::vector<Vec2f> _tringles;
             Rectf              _bbox;
@@ -282,6 +283,10 @@ namespace fin
                 {
                     item.set_item("ty", node._offset.y);
                 }
+                if (!node._name.empty())
+                {
+                    item.set_item("id", node._name);
+                }
 
                 items.push_back(item);
             };
@@ -324,7 +329,15 @@ namespace fin
                 }
 
                 nde.Update();
-                _spatial.insert(nde);
+                auto ndx = _spatial.insert(nde);
+
+                auto id = el["id"];
+                if (id.is_string())
+                {
+                    auto it = _named.emplace(id.str(), ndx);
+                    _spatial[ndx]._name = it.first->first;
+                }
+
             }
         }
 
@@ -427,7 +440,6 @@ namespace fin
                     rlColor4ub(255, 255, 255, 255);
                     rlNormal3f(0.0f, 0.0f, 1.0f);
 
-
                     for (uint32_t n = 0; n < nde._tringles.size(); n+=3)
                     {
                         auto pt1 = nde._tringles[n];
@@ -443,29 +455,7 @@ namespace fin
                         rlVertex2f(pt3.x, pt3.y);
                     }
 
-
-                    /*
-                    for (uint32_t n = 0; n < nde.Size(); ++n)
-                    {
-                        auto pt1 = nde.GetPoint(n);
-                        auto pt2 = nde.GetPoint((n + 1) % nde.Size());
-
-                        rlTexCoord2f((pt1.x - nde._offset.x) / width, (pt1.y - nde._offset.y) / height);
-                        rlVertex2f(pt1.x, pt1.y);
-
-                        rlTexCoord2f((pt2.x - nde._offset.x) / width, (pt2.y - nde._offset.y) / height);
-                        rlVertex2f(pt2.x, pt2.y);
-
-                        rlTexCoord2f((center.x - nde._offset.x) / width, (center.y - nde._offset.y) / height);
-                        rlVertex2f(center.x, center.y);
-
-                        rlTexCoord2f((center.x - nde._offset.x) / width, (center.y - nde._offset.y) / height);
-                        rlVertex2f(center.x, center.y);
-                    }
-                    */
-
                     rlEnd();
-
                 }
             }
             rlSetTexture(0);
@@ -508,7 +498,7 @@ namespace fin
             // Edit region points
             if (_edit_region)
             {
-                if (auto* reg = selected_region())
+                if (auto* reg = SelectedRegion())
                 {
                     if (ImGui::IsItemClicked(0))
                     {
@@ -569,7 +559,7 @@ namespace fin
 
                 if (_active_point != -1)
                 {
-                    if (auto* reg = selected_region())
+                    if (auto* reg = SelectedRegion())
                     {
                         if (_active_point < reg->Size())
                         {
@@ -577,7 +567,7 @@ namespace fin
                             if (canvas.EndDrag(pt, (void*)(size_t)_active_point))
                             {
                                 auto obj = *reg;
-                                _spatial.remove(*selected_region());
+                                _spatial.remove(*SelectedRegion());
                                 _selected = -1;
                                 obj.SetPoint(_active_point, pt);
                                 obj.Update();
@@ -593,7 +583,7 @@ namespace fin
             {
                 if (ImGui::IsItemClicked(0))
                 {
-                    if (auto* reg = selected_region())
+                    if (auto* reg = SelectedRegion())
                     {
                         auto obj = *reg;
                         _spatial.remove(*reg);
@@ -621,7 +611,7 @@ namespace fin
                 }
             }
 
-            auto* selected = selected_region();
+            auto* selected = SelectedRegion();
             auto* dc = ImGui::GetWindowDrawList();
             for (auto n : _spatial.get_active())
             {
@@ -666,15 +656,30 @@ namespace fin
         bool EditActive()
         {
             bool modified = false;
-            if (auto* reg = selected_region())
+            if (auto* reg = SelectedRegion())
             {
-        
                 modified |= ImGui::PointVector("Points", &reg->_points, {-1, ImGui::GetFrameHeightWithSpacing() * 4}, &_active_point);
                 modified |= ImGui::TextureInput("Texture", &reg->_texture);
                 if (reg->_texture)
                     modified |= ImGui::DragInt2("Offset", &reg->_offset.x);
 
                 modified |= ImGui::DragInt("Index", &reg->_index, 1, 0, _max_index + 1, "%d");
+                
+                _buff = reg->_name;
+                if (ImGui::InputText("Name", &_buff))
+                {
+                    auto it = _named.find(reg->_name);
+                    if (it != _named.end())
+                    {
+                        _named.erase(it);
+                    }
+                    if (!_buff.empty())
+                    {
+                        auto itt   = _named.emplace(_buff, reg->_index);
+                        reg->_name = itt.first->first;
+                    }
+                    modified = true;
+                }
 
                 if (modified)
                 {
@@ -704,8 +709,12 @@ namespace fin
             {
                 if (ImGui::Line().HoverId() == 1)
                 {
-                    if (auto* reg = selected_region())
+                    if (auto* reg = SelectedRegion())
                     {
+                        if (reg->_name.empty())
+                        {
+                            _named.erase(std::string(reg->_name));
+                        }
                         _spatial.remove(*reg);
                         modified = true;
                     }
@@ -726,9 +735,23 @@ namespace fin
                         auto& el = _spatial[n];
                         if (el._points.size())
                         {
-                            if (ImGui::Selectable(ImGui::FormatStr("Region [%d]", el._points.size() / 2), n == _selected))
+                            if (el._name.empty())
                             {
-                                _selected = n;
+                                if (ImGui::Selectable(ImGui::FormatStr("Region [%d]", el._points.size() / 2), n == _selected))
+                                {
+                                    _selected = n;
+                                }
+                            }
+                            else
+                            {
+                                if (ImGui::Selectable(ImGui::FormatStr("\"%.*s\" [%d]",
+                                                                       static_cast<int>(el._name.size()),
+                                                                       el._name.data(),
+                                                                       el._points.size() / 2),
+                                                      n == _selected))
+                                {
+                                    _selected = n;
+                                }
                             }
                         }
                         ImGui::PopID();
@@ -746,9 +769,24 @@ namespace fin
                             auto& el = _spatial[n];
                             if (el._points.size())
                             {
-                                if (ImGui::Selectable(ImGui::FormatStr("Region [%d]", el._points.size() / 2), n == _selected))
+                                if (el._name.empty())
                                 {
-                                    _selected = n;
+                                    if (ImGui::Selectable(ImGui::FormatStr("Region [%d]", el._points.size() / 2),
+                                                          n == _selected))
+                                    {
+                                        _selected = n;
+                                    }
+                                }
+                                else
+                                {
+                                    if (ImGui::Selectable(ImGui::FormatStr("\"%.*s\" [%d]",
+                                                                           static_cast<int>(el._name.size()),
+                                                                           el._name.data(),
+                                                                           el._points.size() / 2),
+                                                          n == _selected))
+                                    {
+                                        _selected = n;
+                                    }
                                 }
                             }
                             ImGui::PopID();
@@ -763,7 +801,7 @@ namespace fin
         }
 
     private:
-        Node* selected_region()
+        Node* SelectedRegion()
         {
             if (size_t(_selected) < size_t(_spatial.size()))
             {
@@ -773,6 +811,8 @@ namespace fin
         }
 
         LooseQuadTree<Node, decltype([](const Node& n) -> const Rectf& { return n._bbox; })> _spatial;
+        std::unordered_map<std::string, int32_t, std::string_hash, std::equal_to<>>          _named;
+        std::string                                                                          _buff;
         int32_t                                                                              _max_index = 0;
         int32_t                                                                              _edit         = -1;
         int32_t                                                                              _selected     = -1;
