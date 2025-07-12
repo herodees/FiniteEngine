@@ -640,6 +640,18 @@ namespace fin
             if (gSettings.visible_collision && Contains<CCollider>(ent))
             {
                 auto& col = Get<CCollider>(ent);
+                if (col._points.size() > 1)
+                {
+                    for (size_t i = 0; i < col._points.size(); ++i)
+                    {
+                        auto p1 = col._points[i] + base._position;
+                        auto p2 = col._points[(i + 1) % col._points.size()] + base._position;
+                        dc->AddLine(canvas.WorldToScreen(ImVec2(p1.x, p1.y)),
+                                    canvas.WorldToScreen(ImVec2(p2.x, p2.y)),
+                                    IM_COL32(255, 0, 0, 255),
+                                    1.0f);
+                    }
+                }
             }
 
             if (ent == _edit)
@@ -804,7 +816,8 @@ namespace fin
         if (items)
         {
             auto& reg = GetScene()->GetFactory().GetRegister();
-            if (IsKeyPressed(ImGuiKey_Delete))
+
+            if (ImGui::IsKeyPressed(ImGuiKey_Delete, false))
             {
                 if (reg.Valid(_edit))
                 {

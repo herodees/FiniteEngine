@@ -50,6 +50,9 @@ namespace fin
         Color              GetBackgroundColor() const;
         void               SetBackgroundColor(Color clr);
         IGamePlugin*       GetPlugin(std::string_view guid) const;
+        std::string&       GetTag(int32_t index);
+        int32_t            GetTag(std::string_view tag) const;
+        std::string        GetTagName(uint32_t tag) const;
 
         void Init();
         void Deinit();
@@ -73,6 +76,7 @@ namespace fin
         void ImguiItems();
         void ImguiMenu();
         void ImguiShowProperties(bool show);
+        bool ImguiTagInput(const char* label, uint32_t& tag) const;
 
         bool UnloadPlugin(IGamePlugin* plug);
         bool LoadPlugin(const std::string& dir, const std::string& plugin);
@@ -92,6 +96,7 @@ namespace fin
         std::string              _path;
         Vec2f                    _size{1024, 1024};
         Color                    _background{BLACK};
+        std::array<std::string, 32> _tags;
     };
 
 
