@@ -1,6 +1,7 @@
 #include "builtin.hpp"
 #include "core/editor/imgui_control.hpp"
 #include "core/scene_layer_object.hpp"
+#include "core/scene.hpp"
 
 namespace fin
 {
@@ -25,28 +26,6 @@ namespace fin
         RegBuiltin<CPrefab>(CPrefab::CID,
                             "Prefab",
                             ComponentsFlags_Private | ComponentsFlags_NoWorkspaceEditor | ComponentsFlags_NoEditor);
-    }
-
-    bool Serialize(const Atlas::Pack& pack, msg::Var& data)
-    {
-        if (pack.atlas)
-        {
-            data.set_item("src", pack.atlas->get_path());
-            if (pack.sprite)
-            {
-                data.set_item("spr", pack.sprite->_name);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    bool Deserialize(Atlas::Pack& pack, msg::Var& data)
-    {
-        auto src = data["src"];
-        auto sp  = data["spr"];
-        pack     = Atlas::load_shared(src.str(), sp.str());
-        return pack.sprite;
     }
 
     Vec2f CBase::GetPosition() const
@@ -121,6 +100,10 @@ namespace fin
     {
         ar.data.set_item("x", _position.x);
         ar.data.set_item("y", _position.y);
+        if (_tags)
+        {
+            ar.data.set_item("tag", _tags);
+        }
     }
 
     bool CBase::OnDeserialize(ArchiveParams& ar)
@@ -128,12 +111,18 @@ namespace fin
         _self       = ar.entity;
         _position.x = ar.data["x"].get(0.f);
         _position.y = ar.data["y"].get(0.f);
+        _tags       = ar.data["tag"].get(0u);
         return true;
     }
 
     bool CBase::OnEdit(Entity ent)
     {
         auto r = ImGui::InputFloat2("Position", &_position.x);
+        if (_layer)
+        {
+            r |= static_cast<ObjectSceneLayer*>(_layer)->GetScene()->ImguiTagInput("Tags", _tags);
+        }
+
         if (r)
         {
             UpdateSparseGrid();
@@ -480,13 +469,13 @@ namespace fin
         return false;
     }
 
-    int CAttachment::Append(const Atlas::Pack& ref, Vec2f off)
+    int CAttachment::Append(Sprite2D::Ptr ref, Vec2f off)
     {
         int n{};
         for (auto& el : _items)
         {
             ++n;
-            if (el._sprite.sprite)
+            if (el._sprite)
                 continue;
             el._sprite = ref;
             el._offset = off;
@@ -529,13 +518,12 @@ namespace fin
             _bbox.y2 = FLT_MIN;
             for (auto& el : _items)
             {
-                const auto* spr = el._sprite.sprite;
-                if (spr)
+                if (el._sprite)
                 {
-                    _bbox.x1 = std::min(_bbox.x1, el._offset.x - spr->_origina.x);
-                    _bbox.y1 = std::min(_bbox.y1, el._offset.y - spr->_origina.y); 
-                    _bbox.x2 = std::max(_bbox.x2, el._offset.x - spr->_origina.x + spr->_source.width);
-                    _bbox.y2 = std::max(_bbox.y2, el._offset.y - spr->_origina.y + spr->_source.height); 
+                    _bbox.x1 = std::min(_bbox.x1, el._offset.x - el._sprite->GetOrigin().x);
+                    _bbox.y1 = std::min(_bbox.y1, el._offset.y - el._sprite->GetOrigin().y); 
+                    _bbox.x2 = std::max(_bbox.x2, el._offset.x - el._sprite->GetOrigin().x + el._sprite->GetSize().x);
+                    _bbox.y2 = std::max(_bbox.y2, el._offset.y - el._sprite->GetOrigin().y + el._sprite->GetSize().y); 
                 }
             }
             if (_bbox.x1 == FLT_MIN)
@@ -550,7 +538,7 @@ namespace fin
         for (auto& el : _items)
         {
             msg::Var item;
-            Serialize(el._sprite, item);
+            item.set_item("src", el._sprite ? el._sprite->GetPath() : std::string{});
             item.set_item("x", el._offset.x);
             item.set_item("y", el._offset.y);
             items.push_back(item);
@@ -570,13 +558,16 @@ namespace fin
         {
             for (size_t n = 0; n < _items.size(); ++n)
             {
-                _items[n]._sprite.atlas.reset();
-                _items[n]._sprite.sprite = nullptr;
+                _items[n]._sprite.reset();
                 _items[n]._offset        = Vec2f(0, 0);
                 if (sze > n)
                 {
                     auto el = items.get_item(n);
-                    Deserialize(_items[n]._sprite, el);
+                    auto src            = el["src"];
+                    if (!src.empty())
+                    {
+                        _items[n]._sprite = Sprite2D::LoadShared(src.str());
+                    }
                     _items[n]._offset.x = el["x"].get(0.f);
                     _items[n]._offset.y = el["y"].get(0.f);
                 }

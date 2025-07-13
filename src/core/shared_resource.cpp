@@ -1,5 +1,4 @@
 #include "shared_resource.hpp"
-#include "atlas.hpp"
 #include <imstb_rectpack.h>
 #include <rlgl.h>
 #include <utils/svstream.hpp>
@@ -13,7 +12,6 @@ namespace fin
     {
         Shader2D*                                                                                      _active_shader{};
         std::string                                                                                    _path;
-        std::unordered_map<std::string, std::weak_ptr<Atlas>, std::string_hash, std::equal_to<>>       _atlases;
         std::unordered_map<std::string, std::weak_ptr<Texture2D>, std::string_hash, std::equal_to<>>   _textures;
         std::unordered_map<std::string, std::weak_ptr<Surface>, std::string_hash, std::equal_to<>>     _surfaces;
         std::unordered_map<std::string, std::weak_ptr<SoundSource>, std::string_hash, std::equal_to<>> _sounds;
@@ -792,33 +790,6 @@ namespace fin
     RenderTexture2D::operator bool() const
     {
         return texture.id;
-    }
-
-
-    Atlas::Ptr Atlas::load_shared(std::string_view pth)
-    {
-        auto it = _shared_res._atlases.find(pth);
-        if (it != _shared_res._atlases.end() && !it->second.expired())
-            return it->second.lock();
-
-        auto ptr                               = std::make_shared<Atlas>();
-        _shared_res._atlases[std::string(pth)] = ptr;
-        ptr->load_from_file(pth);
-
-        return ptr;
-    }
-
-    Atlas::Pack Atlas::load_shared(std::string_view pth, std::string_view spr)
-    {
-        Pack out;
-        if (out.atlas = load_shared(pth))
-        {
-            if (auto n = out.atlas->find_sprite(spr))
-            {
-                out.sprite = &out.atlas->get(n);
-            }
-        }
-        return out;
     }
 
     SoundSource::SoundSource(SoundSource&& other) noexcept

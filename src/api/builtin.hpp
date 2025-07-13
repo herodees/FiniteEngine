@@ -8,6 +8,7 @@ namespace fin
     {
         Entity       _self;
         ObjectLayer* _layer{};
+        uint32_t     _tags{};
 
         virtual Region<float> GetBoundingBox() const   = 0;
         virtual bool          HitTest(Vec2f pos) const = 0;

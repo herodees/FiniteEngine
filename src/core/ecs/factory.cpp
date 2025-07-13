@@ -5,6 +5,7 @@
 #include <utils/imguiline.hpp>
 #include <utils/dialog_utils.hpp>
 #include <core/application.hpp>
+#include <core/editor/imgui_control.hpp>
 
 namespace fin
 {

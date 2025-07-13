@@ -1,8 +1,9 @@
 #pragma once
 
 #include "api/components.hpp"
-#include "core/atlas.hpp"
 #include "utils/lquery.hpp"
+#include "api/builtin.hpp"
+#include "core/shared_resource.hpp"
 
 namespace fin
 {
@@ -23,13 +24,9 @@ namespace fin
 
 
     class ObjectSceneLayer;
+    class Register;
 
     void RegisterBaseComponents(Register& fact);
-
-    bool Serialize(const Atlas::Pack& pack, msg::Var& data);
-    bool Deserialize(Atlas::Pack& pack, msg::Var& data);
-
-
 
     /// @brief Base spatial component.
     /// Provides position, bounding box, and sparse grid integration.
@@ -184,14 +181,14 @@ namespace fin
     {
         struct Data
         {
-            Vec2f       _offset;
-            Atlas::Pack _sprite;
+            Vec2f         _offset;
+            Sprite2D::Ptr _sprite;
         };
 
         std::array<Data, MaxAttachmentCount> _items;
         mutable Region<float>                _bbox;
 
-        int           Append(const Atlas::Pack& ref, Vec2f off);
+        int           Append(Sprite2D::Ptr ref, Vec2f off);
         void          Remove(int idx);
         void          MoveTo(int idx, Vec2f off);
         void          Clear();

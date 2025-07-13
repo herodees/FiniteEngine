@@ -47,7 +47,7 @@ namespace fin
         };
 
         FileExplorer gFileExplorer;
-        std::unordered_map<std::string, std::shared_ptr<Atlas>, std::string_hash, std::equal_to<>> gAtlasCache;
+
         std::unordered_map<std::string, Sprite2D::Ptr, std::string_hash, std::equal_to<>> gSpriteCache;
 
         std::string_view GetFileExt(std::string_view file)
@@ -245,7 +245,6 @@ namespace fin
 
     void ResetAtlasCache()
     {
-        gAtlasCache.clear();
         gSpriteCache.clear();
     }
 
@@ -263,24 +262,6 @@ namespace fin
             return it->second;
         }
         return ret;
-    }
-
-    Atlas::Pack LoadSpriteCache(std::string_view atl, std::string_view spr)
-    {
-        Atlas::Pack out;
-        auto        it = gAtlasCache.find(atl);
-        if (it == gAtlasCache.end())
-        {
-            out                   = Atlas::load_shared(atl, spr);
-            gAtlasCache[std::string(atl)] = out.atlas;
-        }
-        else
-        {
-            out.atlas = it->second;
-            if (auto n = out.atlas->find_sprite(spr))
-                out.sprite = &out.atlas->get(n);
-        }
-        return out;
     }
 
     void ComponentFactory::ImguiExplorer(Scene* scene)

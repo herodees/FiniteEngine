@@ -9,10 +9,10 @@
 namespace fin
 {
     static bool        s_attachment_mode{false};
-    static Atlas::Pack s_attachment_pack{};
     static Entity      s_attachment_target{entt::null};
     static ImVec2      s_attachment_offset{0, 0};
     static int32_t     s_attachment_id{-1};
+    static Sprite2D::Ptr     s_attachment_sprite{};
     static int32_t     s_max_visibility{1000};
     static msg::Var    s_copy;
 
@@ -210,12 +210,12 @@ namespace fin
                     for (auto it = spr->_items.rbegin(); it != spr->_items.rend(); ++it)
                     {
                         auto& item = *it;
-                        if (item._sprite.sprite)
+                        if (item._sprite)
                         {
                             Vec2f box;
-                            box.x  = item._offset.x + Get<CBase>(obj)._position.x - item._sprite.sprite->_origina.x;
-                            box.y = item._offset.y + Get<CBase>(obj)._position.y - item._sprite.sprite->_origina.y;
-                            if (item._sprite.is_alpha_visible(position.x - box.x, position.y - box.y))
+                            box.x = item._offset.x + Get<CBase>(obj)._position.x - item._sprite->GetOrigin().x;
+                            box.y = item._offset.y + Get<CBase>(obj)._position.y - item._sprite->GetOrigin().y;
+                            if (item._sprite->IsAlphaVisible(position.x - box.x, position.y - box.y))
                             {
                                 attachment = int32_t(std::distance(spr->_items.data(), &item));
                                 return obj;
@@ -422,26 +422,26 @@ namespace fin
                     auto& att = Get<CAttachment>(ent->_ptr);
                     for (auto& el : att._items)
                     {
-                        if (el._sprite.sprite)
+                        if (el._sprite)
                         {
                             Rectf dest;
-                            dest.x      = base._position.x + el._offset.x - el._sprite.sprite->_origina.x;
-                            dest.y      = base._position.y + el._offset.y - el._sprite.sprite->_origina.y;
-                            dest.width  = el._sprite.sprite->_source.width;
-                            dest.height = el._sprite.sprite->_source.height;
-                            dc.render_texture(el._sprite.sprite->_texture, el._sprite.sprite->_source, dest);
+                            dest.x      = base._position.x + el._offset.x - el._sprite->GetOrigin().x;
+                            dest.y      = base._position.y + el._offset.y - el._sprite->GetOrigin().y;
+                            dest.width  = el._sprite->GetSize().x;
+                            dest.height = el._sprite->GetSize().y;
+                            dc.render_texture(el._sprite->GetTexture()->get_texture(), el._sprite->GetRect(), dest);
                         }
                     }
                 }
 
-                if (s_attachment_target == ent->_ptr && s_attachment_pack.sprite)
+                if (s_attachment_target == ent->_ptr && s_attachment_sprite)
                 {
                     Rectf dest;
-                    dest.x      = base._position.x + s_attachment_offset.x - s_attachment_pack.sprite->_origina.x;
-                    dest.y      = base._position.y + s_attachment_offset.y - s_attachment_pack.sprite->_origina.y;
-                    dest.width  = s_attachment_pack.sprite->_source.width;
-                    dest.height = s_attachment_pack.sprite->_source.height;
-                    dc.render_texture(s_attachment_pack.sprite->_texture, s_attachment_pack.sprite->_source, dest);
+                    dest.x      = base._position.x + s_attachment_offset.x - s_attachment_sprite->GetOrigin().x;
+                    dest.y      = base._position.y + s_attachment_offset.y - s_attachment_sprite->GetOrigin().y;
+                    dest.width  = s_attachment_sprite->GetSize().x;
+                    dest.height = s_attachment_sprite->GetSize().y;
+                    dc.render_texture(s_attachment_sprite->GetTexture()->get_texture(), s_attachment_sprite->GetRect(), dest);
                 }
             }
         }
@@ -453,7 +453,7 @@ namespace fin
         if (!IsMouseButtonDown(0))
         {
             s_attachment_id     = -1;
-            s_attachment_pack = {};
+            s_attachment_sprite = {};
             s_attachment_target = entt::null;
             canvas.dragging     = false;
         }
@@ -560,14 +560,14 @@ namespace fin
             }
 
 
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE",
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE2D",
                                                                            ImGuiDragDropFlags_AcceptPeekOnly |
                                                                                ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
                 s_attachment_mode = true;
-                if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
+                if (auto* payload_n = *(fin::Sprite2D**)payload->Data)
                 {
-                    s_attachment_pack = *object;
+                    s_attachment_sprite = payload_n->shared_from_this();
                     s_attachment_target = FindActiveAt(mouse_pos);
                     if (s_attachment_target != entt::null && Contains<CBase>(s_attachment_target))
                     {
@@ -576,9 +576,9 @@ namespace fin
                     }
                 }
             }
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SPRITE2D", ImGuiDragDropFlags_AcceptNoPreviewTooltip))
             {
-                if (auto object = static_cast<Atlas::Pack*>(ImGui::GetDragData("SPRITE")))
+                if (auto* payload_n = *(fin::Sprite2D**)payload->Data)
                 {
                     if (s_attachment_target != entt::null && Contains<CBase>(s_attachment_target))
                     {
@@ -586,8 +586,8 @@ namespace fin
                         s_attachment_offset = {mouse_pos.x - base._position.x, mouse_pos.y - base._position.y};
                         if (!Contains<CAttachment>(s_attachment_target))
                             Emplace<CAttachment>(s_attachment_target);
-                        Get<CAttachment>(s_attachment_target).Append(s_attachment_pack, s_attachment_offset);
-                        s_attachment_pack = {};
+                        Get<CAttachment>(s_attachment_target).Append(payload_n->shared_from_this(), s_attachment_offset);
+                        s_attachment_sprite = {};
                         s_attachment_target = entt::null;
                     }
                     modified = true;

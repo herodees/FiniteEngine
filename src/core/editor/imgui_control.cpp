@@ -17,93 +17,6 @@ namespace ImGui
     } s_shared;
 
 
-
-
-    bool SpriteInput(const char* label, fin::Atlas::Pack* pack)
-    {
-        ImGui::PushID(ImGui::GetID(label));
-        bool modified = false;
-
-        ImGui::BeginGroup();
-        {
-            if (pack->sprite)
-            {
-                auto& sp = *pack->sprite;
-                ImGui::Image((ImTextureID)sp._texture,
-                             {32, 32},
-                             {sp._source.x / sp._texture->width, sp._source.y / sp._texture->height},
-                             {sp._source.x2() / sp._texture->width, sp._source.y2() / sp._texture->height});
-                ImGui::SameLine();
-            }
-            else
-            {
-                ImGui::InvisibleButton("##img", {32, 32});
-            }
-
-            if (pack->atlas)
-            {
-                s_shared.buff = pack->atlas->get_path();
-            }
-            else
-            {
-                s_shared.buff.clear();
-            }
-
-            ImGui::SameLine();
-            ImGui::BeginGroup();
-            {
-                if (ImGui::OpenFileName(label, s_shared.buff, ".atlas"))
-                {
-                    pack->atlas  = fin::Atlas::load_shared(s_shared.buff);
-                    pack->sprite = nullptr;
-                    modified     = true;
-                }
-
-                if (pack->atlas)
-                {
-                    if (ImGui::BeginCombo("##sprid", pack->sprite ? pack->sprite->_name.c_str() : ""))
-                    {
-                        for (auto n = 0; n < pack->atlas->size(); ++n)
-                        {
-                            auto& sp = pack->atlas->get(n + 1);
-                            ImGui::Image((ImTextureID)sp._texture,
-                                         {24, 24},
-                                         {sp._source.x / sp._texture->width, sp._source.y / sp._texture->height},
-                                         {sp._source.x2() / sp._texture->width, sp._source.y2() / sp._texture->height});
-                            ImGui::SameLine();
-                            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, {0, 16});
-                            if (ImGui::Selectable(sp._name.c_str(), &sp == pack->sprite))
-                            {
-                                pack->sprite = &sp;
-                                modified = true;
-                            }
-                            ImGui::PopStyleVar();
-                        }
-                        ImGui::EndCombo();
-                    }
-                    ImGui::SameLine();
-                    if (ImGui::Button(ICON_FA_TRASH))
-                    {
-                        pack->sprite = nullptr;
-                        pack->atlas.reset();
-                    }
-                }
-                else
-                {
-                    if (ImGui::BeginCombo("##sprid", ""))
-                    {
-                        ImGui::EndCombo();
-                    }
-                }
-            }
-            ImGui::EndGroup();
-        }
-        ImGui::EndGroup();
-        ImGui::PopID();
-
-        return modified;
-    }
-
     bool TextureInput(const char* label, fin::Texture2D::Ptr* pack)
     {
         ImGui::PushID(ImGui::GetID(label));
@@ -308,15 +221,6 @@ namespace ImGui
         }
         ImGui::Dummy(size);
     }
-
-    void SpriteImage(fin::Atlas::Sprite* spr, ImVec2 size)
-    {
-        ImGui::Image((ImTextureID)spr->_texture,
-                     size,
-                     {spr->_source.x / spr->_texture->width, spr->_source.y / spr->_texture->height},
-                     {spr->_source.x2() / spr->_texture->width, spr->_source.y2() / spr->_texture->height});
-    }
-
 
     const char* FormatStr(const char* fmt, ...)
     {
@@ -570,46 +474,6 @@ namespace ImGui
     }
 
 
-
-    class AtlasEditor : public Editor
-    {
-    public:
-        bool Load(std::string_view path) override
-        {
-            _data.atlas = fin::Atlas::load_shared(path);
-            return _data.atlas.get();
-        }
-
-        bool imgui_show() override
-        {
-            for (auto n = 0; n < _data.atlas->size(); ++n)
-            {
-                auto& spr = _data.atlas->get(n + 1);
-                ImGui::PushID(n);
-                if (ImGui::Selectable("##id", _data.sprite == &spr, 0, {0, 25}))
-                    _data.sprite = &spr;
-
-                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-                {
-                    _data.sprite = &spr;
-                    ImGui::SetDragData(&_data, "SPRITE");
-                    ImGui::SetDragDropPayload("SPRITE", &n, sizeof(int32_t));
-                    ImGui::EndDragDropSource();
-                }
-
-                ImGui::SameLine();
-                ImGui::SpriteImage(&spr, {24, 24});
-                ImGui::SameLine();
-                ImGui::Text(spr._name.c_str());
-                ImGui::PopID();
-            }
-            return true;
-        }
-
-        fin::Atlas::Pack _data;
-    };
-
-
     std::shared_ptr<Editor> Editor::load_from_file(std::string_view path)
     {
         auto n = path.rfind('.');
@@ -617,9 +481,6 @@ namespace ImGui
             return nullptr;
         std::shared_ptr<Editor> out;
         auto ext = path.substr(n + 1);
-
-        if (ext == "atlas")
-            out = std::make_shared<AtlasEditor>();
 
         if (out && !out->Load(path))
             return nullptr;
